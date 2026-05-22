@@ -107,31 +107,37 @@ func _process(_delta: float) -> void:
     var new_beat_number: int = int(total_beats)
     var new_beat_position: float = fmod(total_beats, 1.0)
 
-    # Beat crossing — loop to catch multiple boundaries in one frame (e.g. lag spike).
-    if beat_number < new_beat_number:
-        # Before the position wraps, check for sub-beat thresholds that were in the
-        # tail of the previous beat and would be silently skipped once beat_position
-        # resets to near 0.0. The 0.25 threshold cannot be missed on a wrap frame:
-        # if _prev_beat_position < 0.25 we never crossed 0.25 in the old beat, and
-        # the new beat's 0.25 will be detected normally next frame.
+    # Beat/sub-beat detection.
+    # The two branches are mutually exclusive to prevent double-emission:
+    # on boundary frames the guard block fires for the old beat's tail, then
+    # beat_number advances — the regular crossing checks are skipped entirely.
+    # On non-boundary frames only the regular crossing checks run.
+    var boundary_crossed: bool = new_beat_number > beat_number
+
+    if boundary_crossed:
+        # Before beat_position wraps to near 0.0, emit any sub-beat thresholds
+        # that were in the tail of the previous beat and would otherwise be skipped.
+        # The 0.25 threshold cannot be missed on a wrap frame: if
+        # _prev_beat_position < 0.25 we never crossed 0.25 in the old beat, and
+        # the new beat's 0.25 will be detected normally in a future frame.
         if _prev_beat_position < 0.5:
-            half_beat.emit(beat_number)
+            half_beat.emit(beat_number)      # beat_number is still the OLD value here
         if _prev_beat_position < 0.75:
             quarter_beat.emit(beat_number)
-
+        # Advance beat_number for each missed boundary (handles lag-spike multi-beat skips).
         while beat_number < new_beat_number:
             beat_number += 1
             beat.emit(beat_number)
-
-    # Half-beat crossing (position crosses 0.5 within the same beat).
-    if _prev_beat_position < 0.5 and new_beat_position >= 0.5:
-        half_beat.emit(beat_number)
-
-    # Quarter-beat crossings (0.25 and 0.75).
-    if _prev_beat_position < 0.25 and new_beat_position >= 0.25:
-        quarter_beat.emit(beat_number)
-    if _prev_beat_position < 0.75 and new_beat_position >= 0.75:
-        quarter_beat.emit(beat_number)
+    else:
+        # No beat boundary this frame — check sub-beat thresholds normally.
+        # Half-beat crossing (position crosses 0.5 within the same beat).
+        if _prev_beat_position < 0.5 and new_beat_position >= 0.5:
+            half_beat.emit(beat_number)
+        # Quarter-beat crossings (0.25 and 0.75).
+        if _prev_beat_position < 0.25 and new_beat_position >= 0.25:
+            quarter_beat.emit(beat_number)
+        if _prev_beat_position < 0.75 and new_beat_position >= 0.75:
+            quarter_beat.emit(beat_number)
 
     _prev_beat_position = new_beat_position
     beat_position = new_beat_position
