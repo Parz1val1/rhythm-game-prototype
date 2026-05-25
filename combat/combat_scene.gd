@@ -56,6 +56,7 @@ func setup(
     _phase_beat_count = 0
     _defend_index     = 0
     _damage_accumulator = 0.0
+    _combat_ended = false
 
     # Connect to autoload signals.
     # In Godot 4, autoloads are accessed by their registered name as globals.
@@ -183,8 +184,9 @@ func _on_note_missed(_note) -> void:
         return
     _apply_damage_to_character(character, enemy.attack_power)
 
-## Disconnect all autoload signal connections and flush notes.
-## Call this after receiving combat_won or combat_lost, or on scene cleanup.
+## Disconnects all autoload signal connections and flushes active notes.
+## Called internally before combat_won/combat_lost emit.
+## May also be called from _exit_tree() for explicit cleanup on scene removal.
 func teardown() -> void:
     if BeatClock.beat.is_connected(_on_beat):
         BeatClock.beat.disconnect(_on_beat)
