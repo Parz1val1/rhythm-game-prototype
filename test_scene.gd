@@ -20,6 +20,11 @@ const EncounterManager = preload("res://combat/encounter_manager.gd")
 ## then press Play — BeatClock picks it up before the first beat fires.
 @export var bpm: float = 120.0
 
+## Milliseconds before the first beat of your song.
+## If the track has a silent or non-rhythmic intro, set this to how long
+## (in ms) that intro lasts so the beat clock waits before counting.
+@export var intro_offset_ms: float = 0.0
+
 # Node references — @onready populates these after _ready() begins.
 # The $ shorthand is equivalent to get_node("NodePath").
 @onready var _audio:        AudioStreamPlayer = $AudioStreamPlayer
@@ -41,8 +46,9 @@ func _ready() -> void:
 	_hero.hp             = 100
 	_hero.attack_power   = 12
 
-	# Apply the exported BPM before starting so the first beat is already in sync.
+	# Apply the exported BPM and intro offset before starting.
 	BeatClock.bpm = bpm
+	BeatClock.intro_offset_ms = intro_offset_ms
 
 	# Start audio then anchor BeatClock to it.
 	# If res://audio/placeholder_beat.ogg does not exist, audio_player.play()
@@ -69,8 +75,9 @@ func _exit_tree() -> void:
 		RhythmInput.input_scored.disconnect(_on_input_scored)
 
 func _process(_delta: float) -> void:
-	# Keep BeatClock in sync if bpm is tweaked live in the remote Inspector.
+	# Keep BeatClock in sync if bpm or intro_offset_ms are tweaked live in the remote Inspector.
 	BeatClock.bpm = bpm
+	BeatClock.intro_offset_ms = intro_offset_ms
 	_bpm_label.text  = "BPM: %.0f" % BeatClock.bpm
 	_beat_label.text = "Beat: %d  (pos: %.2f)" % [BeatClock.beat_number, BeatClock.beat_position]
 	_phase_label.text  = "Phase: %s" % _combat.get_phase_name()

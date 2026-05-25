@@ -20,6 +20,11 @@ signal quarter_beat(beat_number: int)
 ## Beats per minute. Change at runtime to affect tempo immediately.
 @export var bpm: float = 120.0
 
+## Milliseconds of intro to skip before beats start counting.
+## Set this to the time (in ms) before the first beat of your song.
+## During the intro the clock stays at beat 0 and emits nothing.
+@export var intro_offset_ms: float = 0.0
+
 ## Current beat index since start() was called. Increments on each beat signal.
 var beat_number: int = 0
 
@@ -97,10 +102,12 @@ func _process(_delta: float) -> void:
         # Fallback: wall-clock time since start() (no audio sync, but functional).
         audio_time = float(Time.get_ticks_msec() - _start_ticks_ms) / 1000.0
 
-    # Guard: on the first frames get_output_latency() can exceed get_playback_position()
-    # + get_time_since_last_mix(), producing a negative value. Clamp so that
-    # total_beats and beat_position stay in their expected non-negative ranges.
-    audio_time = max(0.0, audio_time)
+    # Subtract intro offset so beats don't start until the music actually begins.
+    # max(0.0, ...) also guards against the first-frame latency overshoot where
+    # get_output_latency() can briefly exceed get_playback_position() + get_time_since_last_mix().
+    # During the intro (audio_time < intro_offset_s) the result is negative → clamped to 0,
+    # so beat_position stays at 0.0 and no beat signals fire.
+    audio_time = max(0.0, audio_time - intro_offset_ms / 1000.0)
 
     _seconds_per_beat = 60.0 / bpm  # support live BPM changes
     var total_beats: float = audio_time / _seconds_per_beat
