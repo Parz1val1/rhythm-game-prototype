@@ -16,6 +16,10 @@ const EncounterManager = preload("res://combat/encounter_manager.gd")
 ## Change to &"orc_heavy" or &"goblin_pair" to test other encounters.
 @export var encounter_id: StringName = &"goblin_single"
 
+## BPM to use for this session. Set in the Inspector to match your song,
+## then press Play — BeatClock picks it up before the first beat fires.
+@export var bpm: float = 120.0
+
 # Node references — @onready populates these after _ready() begins.
 # The $ shorthand is equivalent to get_node("NodePath").
 @onready var _audio:        AudioStreamPlayer = $AudioStreamPlayer
@@ -36,6 +40,9 @@ func _ready() -> void:
 	_hero.max_hp         = 100
 	_hero.hp             = 100
 	_hero.attack_power   = 12
+
+	# Apply the exported BPM before starting so the first beat is already in sync.
+	BeatClock.bpm = bpm
 
 	# Start audio then anchor BeatClock to it.
 	# If res://audio/placeholder_beat.ogg does not exist, audio_player.play()
@@ -62,6 +69,8 @@ func _exit_tree() -> void:
 		RhythmInput.input_scored.disconnect(_on_input_scored)
 
 func _process(_delta: float) -> void:
+	# Keep BeatClock in sync if bpm is tweaked live in the remote Inspector.
+	BeatClock.bpm = bpm
 	_bpm_label.text  = "BPM: %.0f" % BeatClock.bpm
 	_beat_label.text = "Beat: %d  (pos: %.2f)" % [BeatClock.beat_number, BeatClock.beat_position]
 	_phase_label.text  = "Phase: %s" % _combat.get_phase_name()
@@ -86,11 +95,19 @@ func _on_input_scored(direction: StringName, score: StringName, offset_ms: float
 	_score_label.text = "Last: %-5s  %-7s  (%+.1f ms)" % [direction, score, offset_ms]
 
 func _on_combat_won() -> void:
-	_score_label.text = "*** VICTORY! ***"
+	# Flush final HP values before set_process(false) freezes the labels.
+	_player_label.text = "Player HP: %d / %d" % [_hero.hp, _hero.max_hp]
+	_enemy_label.text  = "Enemy: none"
+	_score_label.text  = "*** VICTORY! ***"
 	BeatClock.stop()
 	set_process(false)
 
 func _on_combat_lost() -> void:
+	# Flush final HP values before set_process(false) freezes the labels.
+	_player_label.text = "Player HP: %d / %d" % [_hero.hp, _hero.max_hp]
+	var target: EnemyData = _combat.get_attack_target()
+	if target != null:
+		_enemy_label.text = "Enemy: %s  HP: %d / %d" % [target.enemy_name, target.hp, target.max_hp]
 	_score_label.text = "*** DEFEAT! ***"
 	BeatClock.stop()
 	set_process(false)
