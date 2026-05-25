@@ -38,6 +38,10 @@ const EncounterManager = preload("res://combat/encounter_manager.gd")
 var _hero:   CharacterData
 var _combat: Node   # CombatScene instance
 
+# Previous-frame HP values used to detect damage events for the red flash.
+var _prev_player_hp: int = -1
+var _prev_enemy_hp:  int = -1
+
 func _ready() -> void:
 	# Build a default player character for the prototype.
 	_hero                = CharacterData.new()
@@ -80,14 +84,28 @@ func _process(_delta: float) -> void:
 	BeatClock.intro_offset_ms = intro_offset_ms
 	_bpm_label.text  = "BPM: %.0f" % BeatClock.bpm
 	_beat_label.text = "Beat: %d  (pos: %.2f)" % [BeatClock.beat_number, BeatClock.beat_position]
-	_phase_label.text  = "Phase: %s" % _combat.get_phase_name()
-	_player_label.text = "Player HP: %d / %d" % [_hero.hp, _hero.max_hp]
 
+	# Phase label: yellow while attacking, blue while defending.
+	var phase := _combat.get_phase_name()
+	_phase_label.text = "Phase: %s" % phase
+	_phase_label.modulate = Color.YELLOW if phase == &"ATTACK" else Color(0.4, 0.8, 1.0)
+
+	# Player HP — flash red on damage.
+	_player_label.text = "Player HP: %d / %d" % [_hero.hp, _hero.max_hp]
+	if _prev_player_hp != -1 and _hero.hp < _prev_player_hp:
+		_flash_red(_player_label)
+	_prev_player_hp = _hero.hp
+
+	# Enemy HP — flash red on damage.
 	var target: EnemyData = _combat.get_attack_target()
+	var current_enemy_hp: int = target.hp if target != null else -1
 	if target != null:
 		_enemy_label.text = "Enemy: %s  HP: %d / %d" % [target.enemy_name, target.hp, target.max_hp]
+		if _prev_enemy_hp != -1 and current_enemy_hp < _prev_enemy_hp:
+			_flash_red(_enemy_label)
 	else:
 		_enemy_label.text = "Enemy: none"
+	_prev_enemy_hp = current_enemy_hp
 
 func _on_beat(_beat_number: int) -> void:
 	# Visual pulse: flash the beat label yellow for 0.1 seconds.
@@ -97,6 +115,13 @@ func _on_beat(_beat_number: int) -> void:
 	if not is_instance_valid(self):
 		return
 	_beat_label.modulate = Color.WHITE
+
+func _flash_red(label: Label) -> void:
+	label.modulate = Color.RED
+	await get_tree().create_timer(0.2).timeout
+	if not is_instance_valid(self):
+		return
+	label.modulate = Color.WHITE
 
 func _on_input_scored(direction: StringName, score: StringName, offset_ms: float) -> void:
 	_score_label.text = "Last: %-5s  %-7s  (%+.1f ms)" % [direction, score, offset_ms]
