@@ -55,6 +55,12 @@ func _ready() -> void:
 	BeatClock.beat.connect(_on_beat)
 	RhythmInput.input_scored.connect(_on_input_scored)
 
+func _exit_tree() -> void:
+	if BeatClock.beat.is_connected(_on_beat):
+		BeatClock.beat.disconnect(_on_beat)
+	if RhythmInput.input_scored.is_connected(_on_input_scored):
+		RhythmInput.input_scored.disconnect(_on_input_scored)
+
 func _process(_delta: float) -> void:
 	_bpm_label.text  = "BPM: %.0f" % BeatClock.bpm
 	_beat_label.text = "Beat: %d  (pos: %.2f)" % [BeatClock.beat_number, BeatClock.beat_position]
@@ -72,6 +78,8 @@ func _on_beat(_beat_number: int) -> void:
 	_beat_label.modulate = Color.YELLOW
 	# create_timer() is a one-shot timer that auto-frees — no Timer node needed.
 	await get_tree().create_timer(0.1).timeout
+	if not is_instance_valid(self):
+		return
 	_beat_label.modulate = Color.WHITE
 
 func _on_input_scored(direction: StringName, score: StringName, offset_ms: float) -> void:
@@ -80,7 +88,9 @@ func _on_input_scored(direction: StringName, score: StringName, offset_ms: float
 func _on_combat_won() -> void:
 	_score_label.text = "*** VICTORY! ***"
 	BeatClock.stop()
+	set_process(false)
 
 func _on_combat_lost() -> void:
 	_score_label.text = "*** DEFEAT! ***"
 	BeatClock.stop()
+	set_process(false)
