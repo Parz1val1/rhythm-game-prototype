@@ -107,6 +107,7 @@ func _on_combat_won() -> void:
 	_enemy_label.text  = "Enemy: none"
 	_score_label.text  = "*** VICTORY! ***"
 	BeatClock.stop()
+	_audio.stop()
 	set_process(false)
 
 func _on_combat_lost() -> void:
@@ -117,4 +118,5 @@ func _on_combat_lost() -> void:
 		_enemy_label.text = "Enemy: %s  HP: %d / %d" % [target.enemy_name, target.hp, target.max_hp]
 	_score_label.text = "*** DEFEAT! ***"
 	BeatClock.stop()
+	_audio.stop()
 	set_process(false)
