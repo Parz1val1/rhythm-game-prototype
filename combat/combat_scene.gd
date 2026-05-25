@@ -37,6 +37,8 @@ var _phase_beat_count: int = 0
 var _defend_index: int = 0
 ## Accumulated damage from the current ATTACK phase (applied at phase end).
 var _damage_accumulator: float = 0.0
+## Set to true the moment combat ends so duplicate-emit guards and _on_beat can bail out.
+var _combat_ended: bool = false
 
 # --- Public API ---
 
@@ -84,6 +86,8 @@ func get_phase_name() -> StringName:
 # --- Beat handler ---
 
 func _on_beat(_beat_number: int) -> void:
+    if _combat_ended:
+        return
     _phase_beat_count += 1
 
     match _current_phase:
@@ -123,7 +127,9 @@ func _end_attack_phase() -> void:
     _current_phase = Phase.DEFEND
 
     # Check win condition after applying damage.
-    if _all_enemies_dead():
+    if _all_enemies_dead() and not _combat_ended:
+        _combat_ended = true
+        teardown()
         combat_won.emit()
 
 func _end_defend_phase() -> void:
@@ -177,12 +183,27 @@ func _on_note_missed(_note) -> void:
         return
     _apply_damage_to_character(character, enemy.attack_power)
 
+## Disconnect all autoload signal connections and flush notes.
+## Call this after receiving combat_won or combat_lost, or on scene cleanup.
+func teardown() -> void:
+    if BeatClock.beat.is_connected(_on_beat):
+        BeatClock.beat.disconnect(_on_beat)
+    if RhythmInput.input_scored.is_connected(_on_input_scored):
+        RhythmInput.input_scored.disconnect(_on_input_scored)
+    if RhythmInput.note_missed.is_connected(_on_note_missed):
+        RhythmInput.note_missed.disconnect(_on_note_missed)
+    RhythmInput.clear_notes()
+
 # --- Helpers ---
 
 ## Applies damage and checks loss condition.
 func _apply_damage_to_character(character, damage: int) -> void:
+    if _combat_ended:
+        return
     character.hp = max(0, character.hp - damage)
     if _all_characters_dead():
+        _combat_ended = true
+        teardown()
         combat_lost.emit()
 
 ## First living CharacterData in party (prototype: always the same character takes hits).
