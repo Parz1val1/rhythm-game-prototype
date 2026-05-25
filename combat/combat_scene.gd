@@ -196,6 +196,9 @@ func teardown() -> void:
         RhythmInput.note_missed.disconnect(_on_note_missed)
     RhythmInput.clear_notes()
 
+func _exit_tree() -> void:
+    teardown()
+
 # --- Helpers ---
 
 ## Applies damage and checks loss condition.
