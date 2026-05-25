@@ -86,7 +86,7 @@ func _process(_delta: float) -> void:
 	_beat_label.text = "Beat: %d  (pos: %.2f)" % [BeatClock.beat_number, BeatClock.beat_position]
 
 	# Phase label: yellow while attacking, blue while defending.
-	var phase := _combat.get_phase_name()
+	var phase: StringName = _combat.get_phase_name()
 	_phase_label.text = "Phase: %s" % phase
 	_phase_label.modulate = Color.YELLOW if phase == &"ATTACK" else Color(0.4, 0.8, 1.0)
 
