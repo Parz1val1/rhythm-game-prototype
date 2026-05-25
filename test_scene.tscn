@@ -1,0 +1,38 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://test_scene.gd" id="1"]
+
+; NOTE: AudioStreamPlayer has no stream set.
+; BeatClock falls back to wall-clock timing automatically — labels still update
+; and inputs still score, but timing won't be audio-synced until a .ogg file is
+; placed at res://audio/placeholder_beat.ogg and assigned to this node's stream.
+
+[node name="TestScene" type="Node2D"]
+script = ExtResource("1")
+player_first = true
+
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="."]
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="VBox" type="VBoxContainer" parent="CanvasLayer"]
+offset_right = 500.0
+offset_bottom = 250.0
+
+[node name="BPMLabel" type="Label" parent="CanvasLayer/VBox"]
+text = "BPM: --"
+
+[node name="BeatLabel" type="Label" parent="CanvasLayer/VBox"]
+text = "Beat: --"
+
+[node name="ScoreLabel" type="Label" parent="CanvasLayer/VBox"]
+text = "Last: --"
+
+[node name="PhaseLabel" type="Label" parent="CanvasLayer/VBox"]
+text = "Phase: --"
+
+[node name="EnemyHPLabel" type="Label" parent="CanvasLayer/VBox"]
+text = "Enemy: --"
+
+[node name="PlayerHPLabel" type="Label" parent="CanvasLayer/VBox"]
+text = "Player HP: --"

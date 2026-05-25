@@ -1,0 +1,86 @@
+# test_scene.gd
+# The prototype's main scene. Exercises the full rhythm combat stack:
+# BeatClock → CombatScene ← RhythmInput
+# Run in Godot (F5) and press arrow keys on the beat to see scoring.
+extends Node2D
+
+# Preload workarounds: class_name global scope may not be fully initialized
+# when this script parses, so use preload constants for typed declarations.
+const CharacterData    = preload("res://characters/character_data.gd")
+const EnemyData        = preload("res://characters/enemy_data.gd")
+const EncounterManager = preload("res://combat/encounter_manager.gd")
+
+## Set to false to test ambush (enemies attack first).
+@export var player_first: bool = true
+
+## Change to &"orc_heavy" or &"goblin_pair" to test other encounters.
+@export var encounter_id: StringName = &"goblin_single"
+
+# Node references — @onready populates these after _ready() begins.
+# The $ shorthand is equivalent to get_node("NodePath").
+@onready var _audio:        AudioStreamPlayer = $AudioStreamPlayer
+@onready var _bpm_label:    Label = $CanvasLayer/VBox/BPMLabel
+@onready var _beat_label:   Label = $CanvasLayer/VBox/BeatLabel
+@onready var _score_label:  Label = $CanvasLayer/VBox/ScoreLabel
+@onready var _phase_label:  Label = $CanvasLayer/VBox/PhaseLabel
+@onready var _enemy_label:  Label = $CanvasLayer/VBox/EnemyHPLabel
+@onready var _player_label: Label = $CanvasLayer/VBox/PlayerHPLabel
+
+var _hero:   CharacterData
+var _combat: Node   # CombatScene instance
+
+func _ready() -> void:
+	# Build a default player character for the prototype.
+	_hero                = CharacterData.new()
+	_hero.character_name = "Hero"
+	_hero.max_hp         = 100
+	_hero.hp             = 100
+	_hero.attack_power   = 12
+
+	# Start audio then anchor BeatClock to it.
+	# If res://audio/placeholder_beat.ogg does not exist, audio_player.play()
+	# silently fails and BeatClock falls back to wall-clock time automatically.
+	_audio.play()
+	BeatClock.start(_audio)
+
+	# Build a typed array for start_combat (required by its Array[CharacterData] param).
+	var party: Array[CharacterData] = [_hero]
+
+	# Load the encounter. EncounterManager adds CombatScene as a child of this scene.
+	_combat = EncounterManager.start_combat(get_tree(), party, encounter_id, player_first)
+	_combat.combat_won.connect(_on_combat_won)
+	_combat.combat_lost.connect(_on_combat_lost)
+
+	# Connect beat flash and input display.
+	BeatClock.beat.connect(_on_beat)
+	RhythmInput.input_scored.connect(_on_input_scored)
+
+func _process(_delta: float) -> void:
+	_bpm_label.text  = "BPM: %.0f" % BeatClock.bpm
+	_beat_label.text = "Beat: %d  (pos: %.2f)" % [BeatClock.beat_number, BeatClock.beat_position]
+	_phase_label.text  = "Phase: %s" % _combat.get_phase_name()
+	_player_label.text = "Player HP: %d / %d" % [_hero.hp, _hero.max_hp]
+
+	var target: EnemyData = _combat.get_attack_target()
+	if target != null:
+		_enemy_label.text = "Enemy: %s  HP: %d / %d" % [target.enemy_name, target.hp, target.max_hp]
+	else:
+		_enemy_label.text = "Enemy: none"
+
+func _on_beat(_beat_number: int) -> void:
+	# Visual pulse: flash the beat label yellow for 0.1 seconds.
+	_beat_label.modulate = Color.YELLOW
+	# create_timer() is a one-shot timer that auto-frees — no Timer node needed.
+	await get_tree().create_timer(0.1).timeout
+	_beat_label.modulate = Color.WHITE
+
+func _on_input_scored(direction: StringName, score: StringName, offset_ms: float) -> void:
+	_score_label.text = "Last: %-5s  %-7s  (%+.1f ms)" % [direction, score, offset_ms]
+
+func _on_combat_won() -> void:
+	_score_label.text = "*** VICTORY! ***"
+	BeatClock.stop()
+
+func _on_combat_lost() -> void:
+	_score_label.text = "*** DEFEAT! ***"
+	BeatClock.stop()
