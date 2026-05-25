@@ -63,7 +63,7 @@ func setup(
 
 ## Returns the enemy currently taking their DEFEND turn (nil if none).
 ## Used by test_scene.gd for HP display.
-func get_current_defending_enemy():
+func get_current_defending_enemy() -> EnemyData:
     if _current_phase != Phase.DEFEND:
         return null
     if _defend_index < _enemy_party.size():
@@ -71,7 +71,7 @@ func get_current_defending_enemy():
     return null
 
 ## Returns the first living enemy (the player's attack target).
-func get_attack_target():
+func get_attack_target() -> EnemyData:
     for e in _enemy_party:
         if e.hp > 0:
             return e
