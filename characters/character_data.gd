@@ -2,6 +2,10 @@
 class_name CharacterData
 extends Resource
 
+# Preload workaround: SoloStyle class_name may not be resolved at parse time
+# when this file is loaded as a dependency. Use preload for type annotation.
+const SoloStyle = preload("res://characters/solo_style.gd")
+
 @export var character_name: String = ""
 @export var max_hp: int = 100
 @export var hp: int = 100
@@ -24,3 +28,7 @@ extends Resource
 
 ## Damage multiplier applied to all hits during the limit break phase.
 @export var limit_break_multiplier: float = 2.5
+
+## The character's musical and visual identity during combat.
+## Null = generic (prototype fallback). Set this for all named characters.
+@export var solo_style: SoloStyle = null

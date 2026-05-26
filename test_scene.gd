@@ -43,12 +43,15 @@ var _prev_player_hp: int = -1
 var _prev_enemy_hp:  int = -1
 
 func _ready() -> void:
-	# Build a default player character for the prototype.
-	_hero                = CharacterData.new()
-	_hero.character_name = "Hero"
-	_hero.max_hp         = 100
-	_hero.hp             = 100
-	_hero.attack_power   = 12
+	# Load Luthier Frett's stats from .tres resource.
+	_hero = load("res://characters/luthier_frett.tres") as CharacterData
+	if _hero == null:
+		push_error("test_scene: Failed to load luthier_frett.tres — falling back to anonymous hero")
+		_hero                = CharacterData.new()
+		_hero.character_name = "Hero"
+		_hero.max_hp         = 100
+		_hero.hp             = 100
+		_hero.attack_power   = 12
 
 	# Apply the exported BPM and intro offset before starting.
 	BeatClock.bpm = bpm
