@@ -4,9 +4,10 @@ extends Node
 # Preload workarounds: autoloads load before global class_name scope is fully
 # initialized in Godot 4.6, so typed arrays with class_name types in their
 # annotation can cause parse errors. Using preload constants avoids that.
-const CharacterData = preload("res://characters/character_data.gd")
-const EnemyData     = preload("res://characters/enemy_data.gd")
-const NoteData      = preload("res://rhythm_engine/note_data.gd")
+const CharacterData      = preload("res://characters/character_data.gd")
+const EnemyData          = preload("res://characters/enemy_data.gd")
+const NoteData           = preload("res://rhythm_engine/note_data.gd")
+const SequenceEvaluator  = preload("res://combat/sequence_evaluator.gd")
 
 # --- Signals ---
 # Emitted when all enemies reach 0 HP.
@@ -23,6 +24,9 @@ signal note_approaching(note: NoteData, target_beat: int)
 ## Fired whenever the combat phase changes.
 ## new_phase matches the Phase enum: 0 = ATTACK, 1 = DEFEND
 signal phase_changed(new_phase: int)
+
+## Fires after each ATTACK phase input with current combo count and multiplier.
+signal combo_updated(combo_count: int, multiplier: float)
 
 # --- Configuration ---
 ## How many beats the player's ATTACK phase lasts before switching to DEFEND.
@@ -53,6 +57,8 @@ var _defend_index: int = 0
 var _damage_accumulator: float = 0.0
 ## Set to true the moment combat ends so duplicate-emit guards and _on_beat can bail out.
 var _combat_ended: bool = false
+## Tracks combo count and computes damage multiplier during ATTACK phase.
+var _sequence := SequenceEvaluator.new()
 
 # --- Public API ---
 
@@ -70,6 +76,7 @@ func setup(
     _phase_beat_count = 0
     _defend_index     = 0
     _damage_accumulator = 0.0
+    _sequence.reset()
     _combat_ended = false
 
     # Connect to autoload signals.
@@ -164,6 +171,7 @@ func _end_defend_phase() -> void:
 
     # All living enemies have had their turn — back to ATTACK.
     if _defend_index >= _enemy_party.size():
+        _sequence.reset()
         _current_phase = Phase.ATTACK
         phase_changed.emit(Phase.ATTACK)
 
@@ -177,12 +185,14 @@ func _on_input_scored(_direction: StringName, score: StringName, _offset_ms: flo
             var character = _get_active_character()
             if character == null:
                 return
+            var multiplier: float = _sequence.record_hit(score)
             match score:
                 &"perfect":
-                    _damage_accumulator += float(character.attack_power)
+                    _damage_accumulator += float(character.attack_power) * multiplier
                 &"good":
-                    _damage_accumulator += float(character.attack_power) * 0.5
-                # miss: accumulate nothing
+                    _damage_accumulator += float(character.attack_power) * 0.5 * multiplier
+                # miss: multiplier is 0.0, combo resets — nothing accumulated
+            combo_updated.emit(_sequence.combo_count, _sequence.get_multiplier())
 
         Phase.DEFEND:
             # Only respond to presses that consumed an active note.
