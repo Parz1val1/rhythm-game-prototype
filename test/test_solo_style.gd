@@ -42,6 +42,9 @@ func _run() -> void:
     if lss != null:
         _check("lss.instrument_name is Lute",     lss.instrument_name == "Lute",                    true)
         _check("lss.scale_steps[0] == 0",         lss.scale_steps[0] == 0,                          true)
+        _check("lss.scale_steps[1] == 2",         lss.scale_steps[1] == 2,                          true)
+        _check("lss.scale_steps[2] == 7",         lss.scale_steps[2] == 7,                          true)
+        _check("lss.scale_steps[3] == 9",         lss.scale_steps[3] == 9,                          true)
         _check("lss.root_note == 57",             lss.root_note == 57,                              true)
         _check("lss.phase_intro_text non-empty",  lss.phase_intro_text.length() > 0,               true)
 
@@ -53,6 +56,14 @@ func _run() -> void:
         _check("lf.max_hp == 120",                lf.max_hp == 120,                                 true)
         _check("lf.attack_power == 14",           lf.attack_power == 14,                            true)
         _check("lf.solo_style is SoloStyle",      lf.solo_style != null,                            true)
+        # Limit break fields: ResourceSaver may omit default-valued fields from the .tres text,
+        # but they still resolve correctly at runtime via class defaults. Checking here confirms
+        # the values are correct regardless of whether they appear literally in the file.
+        _check("lf.limit_break_gauge == 0.0",     lf.limit_break_gauge == 0.0,                      true)
+        _check("lf.charge_rate_perfect == 0.08",  lf.charge_rate_perfect == 0.08,                   true)
+        _check("lf.charge_rate_good == 0.03",     lf.charge_rate_good == 0.03,                      true)
+        _check("lf.limit_break_phase_length == 8", lf.limit_break_phase_length == 8,                true)
+        _check("lf.limit_break_multiplier == 2.5", lf.limit_break_multiplier == 2.5,                true)
         if lf.solo_style != null:
             _check("lf.solo_style.instrument_name",  lf.solo_style.instrument_name == "Lute",      true)
 
