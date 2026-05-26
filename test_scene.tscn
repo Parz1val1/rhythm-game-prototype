@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://doiug066vs7ax" path="res://test_scene.gd" id="1"]
 [ext_resource type="AudioStream" uid="uid://cayshwva0vr5i" path="res://audio/fassounds-escape-your-love-upbeat-fashion-pop-dance-412230.mp3" id="2_ia1lp"]
+[ext_resource type="PackedScene" path="res://combat/note_lane.tscn" id="3_noteln"]
 
 [node name="TestScene" type="Node2D" unique_id=2070855162]
 script = ExtResource("1")
@@ -40,3 +41,9 @@ text = "Enemy: --"
 [node name="PlayerHPLabel" type="Label" parent="CanvasLayer/VBox" unique_id=1683365527]
 layout_mode = 2
 text = "Player HP: --"
+
+[node name="NoteLane" parent="CanvasLayer" instance=ExtResource("3_noteln")]
+offset_left = 0.0
+offset_top = 255.0
+offset_right = 500.0
+offset_bottom = 460.0

@@ -34,6 +34,7 @@ const EncounterManager = preload("res://combat/encounter_manager.gd")
 @onready var _phase_label:  Label = $CanvasLayer/VBox/PhaseLabel
 @onready var _enemy_label:  Label = $CanvasLayer/VBox/EnemyHPLabel
 @onready var _player_label: Label = $CanvasLayer/VBox/PlayerHPLabel
+@onready var _note_lane: Control = $CanvasLayer/NoteLane
 
 var _hero:   CharacterData
 var _combat: Node   # CombatScene instance
@@ -76,6 +77,7 @@ func _ready() -> void:
 	# Connect beat flash and input display.
 	BeatClock.beat.connect(_on_beat)
 	RhythmInput.input_scored.connect(_on_input_scored)
+	_note_lane.setup(_combat)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed(&"limit_break"):

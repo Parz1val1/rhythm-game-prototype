@@ -1,0 +1,18 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://combat/note_visual.gd" id="1"]
+
+[node name="NoteVisual" type="Control"]
+custom_minimum_size = Vector2(34, 34)
+script = ExtResource("1")
+
+[node name="Body" type="ColorRect" parent="."]
+color = Color(0.9, 0.8, 0.2, 1)
+size = Vector2(28, 28)
+
+[node name="DirectionLabel" type="Label" parent="."]
+offset_right = 28.0
+offset_bottom = 28.0
+text = "↑"
+horizontal_alignment = 1
+vertical_alignment = 1
