@@ -37,7 +37,7 @@ func _on_input_scored(direction: StringName, score: StringName, _offset: float, 
 			_good_player.pitch_scale = pitch
 			_good_player.play()
 		&"miss":
-			_miss_player.pitch_scale = 1.0
+			_miss_player.pitch_scale = pitch
 			_miss_player.play()
 
 ## Returns the pitch multiplier for a direction based on SoloStyle scale.
@@ -46,8 +46,10 @@ func _on_input_scored(direction: StringName, score: StringName, _offset: float, 
 func _get_pitch(direction: StringName) -> float:
 	if _active_character == null or _active_character.solo_style == null:
 		return 1.0
+	if not DIRECTION_INDEX.has(direction):
+		return 1.0
 	var style := _active_character.solo_style
-	var idx: int = DIRECTION_INDEX.get(direction, 0)
+	var idx: int = DIRECTION_INDEX[direction]
 	if idx >= style.scale_steps.size():
 		return 1.0
 	var semitones: int = style.scale_steps[idx]
