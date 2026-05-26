@@ -72,6 +72,10 @@ func _ready() -> void:
 	BeatClock.beat.connect(_on_beat)
 	RhythmInput.input_scored.connect(_on_input_scored)
 
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed(&"limit_break"):
+		_combat.try_activate_limit_break()
+
 func _exit_tree() -> void:
 	if BeatClock.beat.is_connected(_on_beat):
 		BeatClock.beat.disconnect(_on_beat)

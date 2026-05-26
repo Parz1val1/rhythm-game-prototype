@@ -28,6 +28,13 @@ signal phase_changed(new_phase: int)
 ## Fires after each ATTACK phase input with current combo count and multiplier.
 signal combo_updated(combo_count: int, multiplier: float)
 
+## Fires when a character's limit_break_gauge first reaches 1.0.
+signal limit_break_ready(character: CharacterData)
+## Fires when the limit break phase begins.
+signal limit_break_started(character: CharacterData)
+## Fires when the limit break phase ends and gauge resets.
+signal limit_break_ended()
+
 # --- Configuration ---
 ## How many beats the player's ATTACK phase lasts before switching to DEFEND.
 ## Exported so it can be overridden per scene in the Inspector.
@@ -60,6 +67,10 @@ var _combat_ended: bool = false
 ## Tracks combo count and computes damage multiplier during ATTACK phase.
 var _sequence := SequenceEvaluator.new()
 
+var _limit_break_active: bool = false
+var _limit_break_character = null   # CharacterData or null
+var _default_phase_length: int = 4  # saved on setup(), restored after limit break
+
 # --- Public API ---
 
 ## Initialize combat state and connect to global autoload signals.
@@ -78,6 +89,9 @@ func setup(
     _damage_accumulator = 0.0
     _sequence.reset()
     _combat_ended = false
+    _limit_break_active = false
+    _limit_break_character = null
+    _default_phase_length = player_phase_length
 
     # Connect to autoload signals.
     # In Godot 4, autoloads are accessed by their registered name as globals.
@@ -104,6 +118,21 @@ func get_attack_target() -> EnemyData:
 ## Returns &"ATTACK" or &"DEFEND" for UI display.
 func get_phase_name() -> StringName:
     return &"ATTACK" if _current_phase == Phase.ATTACK else &"DEFEND"
+
+## Activate limit break for the active character.
+## Only works during ATTACK phase when the character's gauge is full.
+## Returns true if activated, false otherwise.
+func try_activate_limit_break() -> bool:
+    if _current_phase != Phase.ATTACK or _limit_break_active or _combat_ended:
+        return false
+    var character = _get_active_character()
+    if character == null or character.limit_break_gauge < 1.0:
+        return false
+    _limit_break_active = true
+    _limit_break_character = character
+    player_phase_length = character.limit_break_phase_length
+    limit_break_started.emit(character)
+    return true
 
 # --- Beat handler ---
 
@@ -149,6 +178,16 @@ func _end_attack_phase() -> void:
 
     _damage_accumulator = 0.0
     _phase_beat_count   = 0
+
+    # End limit break if it was active this phase.
+    if _limit_break_active:
+        _limit_break_active = false
+        if _limit_break_character != null:
+            _limit_break_character.limit_break_gauge = 0.0
+        _limit_break_character = null
+        player_phase_length = _default_phase_length
+        limit_break_ended.emit()
+
     _defend_index       = _first_living_enemy_index()
     RhythmInput.clear_notes()
     _current_phase = Phase.DEFEND
@@ -186,12 +225,22 @@ func _on_input_scored(_direction: StringName, score: StringName, _offset_ms: flo
             if character == null:
                 return
             var multiplier: float = _sequence.record_hit(score)
+            # Limit break multiplier stacks on top of combo multiplier.
+            var lb_mult: float = character.limit_break_multiplier if _limit_break_active else 1.0
             match score:
                 &"perfect":
-                    _damage_accumulator += float(character.attack_power) * multiplier
+                    _damage_accumulator += float(character.attack_power) * multiplier * lb_mult
+                    # Charge gauge only when limit break is NOT active.
+                    if not _limit_break_active:
+                        var was_ready: bool = character.limit_break_gauge >= 1.0
+                        character.limit_break_gauge = min(1.0, character.limit_break_gauge + character.charge_rate_perfect)
+                        if not was_ready and character.limit_break_gauge >= 1.0:
+                            limit_break_ready.emit(character)
                 &"good":
-                    _damage_accumulator += float(character.attack_power) * 0.5 * multiplier
-                # miss: multiplier is 0.0, combo resets — nothing accumulated
+                    _damage_accumulator += float(character.attack_power) * 0.5 * multiplier * lb_mult
+                    if not _limit_break_active:
+                        character.limit_break_gauge = min(1.0, character.limit_break_gauge + character.charge_rate_good)
+                # miss: no damage, no gauge charge
             combo_updated.emit(_sequence.combo_count, _sequence.get_multiplier())
 
         Phase.DEFEND:
