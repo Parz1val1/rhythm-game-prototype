@@ -41,6 +41,12 @@ func setup(combat: Node) -> void:
 	RhythmInput.note_missed.connect(_on_note_missed)
 	visible = false   # hidden until DEFEND starts
 
+func _exit_tree() -> void:
+	if RhythmInput.input_scored.is_connected(_on_input_scored):
+		RhythmInput.input_scored.disconnect(_on_input_scored)
+	if RhythmInput.note_missed.is_connected(_on_note_missed):
+		RhythmInput.note_missed.disconnect(_on_note_missed)
+
 func _on_phase_changed(new_phase: int) -> void:
 	# Phase.ATTACK = 0, Phase.DEFEND = 1
 	visible = (new_phase == 1)
@@ -63,7 +69,9 @@ func _on_note_approaching(note: NoteData, _target_beat: int) -> void:
 	visual.init(note.direction)
 
 	# Start at right edge, travel to hit zone at x=10.
-	var start_x: float = lane.size.x - 40.0
+	# Use actual lane width if laid out, otherwise fall back to NoteLane minimum width.
+	var lane_width: float = lane.size.x if lane.size.x > 40.0 else 460.0
+	var start_x: float = lane_width - 40.0
 	var end_x:   float = 10.0
 	visual.position = Vector2(start_x, 5.0)
 
@@ -75,13 +83,13 @@ func _on_note_approaching(note: NoteData, _target_beat: int) -> void:
 
 	_visuals[note] = visual
 
-func _on_input_scored(_direction: StringName, score: StringName, _offset: float, note_consumed: bool) -> void:
+func _on_input_scored(direction: StringName, score: StringName, _offset: float, note_consumed: bool) -> void:
 	if not note_consumed:
 		return
-	# Flash the first valid visual in the queue.
+	# Flash the first valid visual in this lane's direction.
 	for note in _visuals.keys():
 		var visual = _visuals.get(note)
-		if is_instance_valid(visual):
+		if is_instance_valid(visual) and note.direction == direction:
 			_visuals.erase(note)
 			visual.flash_result(score)
 			return
