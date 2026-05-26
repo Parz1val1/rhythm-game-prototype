@@ -52,6 +52,8 @@ func _ready() -> void:
 		_hero.max_hp         = 100
 		_hero.hp             = 100
 		_hero.attack_power   = 12
+	else:
+		_hero = _hero.duplicate() as CharacterData
 
 	# Apply the exported BPM and intro offset before starting.
 	BeatClock.bpm = bpm
