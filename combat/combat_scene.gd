@@ -148,7 +148,9 @@ func _end_defend_phase() -> void:
 
 # --- Input handlers ---
 
-func _on_input_scored(_direction: StringName, score: StringName, _offset_ms: float) -> void:
+func _on_input_scored(_direction: StringName, score: StringName, _offset_ms: float, note_consumed: bool) -> void:
+    if _combat_ended:
+        return
     match _current_phase:
         Phase.ATTACK:
             var character = _get_active_character()
@@ -162,6 +164,10 @@ func _on_input_scored(_direction: StringName, score: StringName, _offset_ms: flo
                 # miss: accumulate nothing
 
         Phase.DEFEND:
+            # Only respond to presses that consumed an active note.
+            # Ignoring free-form presses prevents phantom blocking.
+            if not note_consumed:
+                return
             var enemy     = _get_defending_enemy_internal()
             var character = _get_active_character()
             if enemy == null or character == null:

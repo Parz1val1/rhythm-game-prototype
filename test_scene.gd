@@ -123,7 +123,7 @@ func _flash_red(label: Label) -> void:
 		return
 	label.modulate = Color.WHITE
 
-func _on_input_scored(direction: StringName, score: StringName, offset_ms: float) -> void:
+func _on_input_scored(direction: StringName, score: StringName, offset_ms: float, _note_consumed: bool) -> void:
 	_score_label.text = "Last: %-5s  %-7s  (%+.1f ms)" % [direction, score, offset_ms]
 
 func _on_combat_won() -> void:
