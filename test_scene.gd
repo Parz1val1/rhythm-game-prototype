@@ -12,9 +12,10 @@ const EncounterManager = preload("res://combat/encounter_manager.gd")
 ## Change to &"orc_heavy" or &"goblin_pair" to test other encounters.
 @export var encounter_id: StringName = &"goblin_single"
 
-@onready var _audio:     AudioStreamPlayer = $AudioStreamPlayer
-@onready var _combat_ui: Node              = $CombatUI
-@onready var _note_lane: Node              = $NoteLane
+@onready var _audio:          AudioStreamPlayer = $AudioStreamPlayer
+@onready var _combat_ui:      Node              = $CombatUI
+@onready var _note_lane:      Node              = $NoteLane
+@onready var _audio_feedback: Node              = $AudioFeedback
 
 var _hero:   CharacterData
 var _combat: Node
@@ -32,6 +33,8 @@ func _ready() -> void:
 		_hero.attack_power   = 12
 	else:
 		_hero = _hero.duplicate() as CharacterData
+
+	_audio_feedback.setup(_hero)   # connect pitch-shifted SFX to RhythmInput
 
 	BeatClock.bpm             = 130.0
 	BeatClock.intro_offset_ms = 1200.0
