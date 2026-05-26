@@ -47,7 +47,10 @@ func _on_phase_changed(new_phase: int) -> void:
 	if new_phase == 1:
 		_phase_info.text = "DEFEND"
 	else:
-		_visuals.clear()   # clear orphaned references on phase switch
+		for visual in _visuals.values():
+			if is_instance_valid(visual):
+				visual.queue_free()
+		_visuals.clear()
 
 func _on_note_approaching(note: NoteData, _target_beat: int) -> void:
 	var lane = _lanes.get(note.direction)
