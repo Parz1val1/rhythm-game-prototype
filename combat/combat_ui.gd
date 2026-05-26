@@ -42,9 +42,18 @@ func setup(combat: Node, hero: CharacterData) -> void:
 func _exit_tree() -> void:
 	if BeatClock.beat.is_connected(_on_beat):
 		BeatClock.beat.disconnect(_on_beat)
+	if is_instance_valid(_combat):
+		if _combat.phase_changed.is_connected(_on_phase_changed):
+			_combat.phase_changed.disconnect(_on_phase_changed)
+		if _combat.combo_updated.is_connected(_on_combo_updated):
+			_combat.combo_updated.disconnect(_on_combo_updated)
+		if _combat.limit_break_ready.is_connected(_on_limit_break_ready):
+			_combat.limit_break_ready.disconnect(_on_limit_break_ready)
+		if _combat.limit_break_ended.is_connected(_on_limit_break_ended):
+			_combat.limit_break_ended.disconnect(_on_limit_break_ended)
 
 func _process(_delta: float) -> void:
-	if _hero == null or _combat == null:
+	if not is_instance_valid(_hero) or not is_instance_valid(_combat):
 		return
 
 	# --- Player HP bar ---
