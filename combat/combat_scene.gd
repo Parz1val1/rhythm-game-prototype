@@ -14,10 +14,24 @@ signal combat_won()
 # Emitted when all player characters reach 0 HP.
 signal combat_lost()
 
+## Fired `lookahead_beats` beats before a note is due during DEFEND.
+## Note lane visualizers connect to this to spawn approaching note visuals.
+## note:        the NoteData that will be due at target_beat_number
+## target_beat: the BeatClock.beat_number value when the note must be pressed
+signal note_approaching(note: NoteData, target_beat: int)
+
+## Fired whenever the combat phase changes.
+## new_phase matches the Phase enum: 0 = ATTACK, 1 = DEFEND
+signal phase_changed(new_phase: int)
+
 # --- Configuration ---
 ## How many beats the player's ATTACK phase lasts before switching to DEFEND.
 ## Exported so it can be overridden per scene in the Inspector.
 @export var player_phase_length: int = 4
+
+## How many beats ahead to announce incoming notes via note_approaching.
+## At 120 BPM, 2 beats = 1 second of visual approach time.
+@export var lookahead_beats: int = 2
 
 # --- Phase enum ---
 # Godot enums are scoped to the class. Reference as CombatScene.Phase.ATTACK
@@ -86,7 +100,7 @@ func get_phase_name() -> StringName:
 
 # --- Beat handler ---
 
-func _on_beat(_beat_number: int) -> void:
+func _on_beat(beat_number: int) -> void:
     if _combat_ended:
         return
     _phase_beat_count += 1
@@ -108,9 +122,14 @@ func _on_beat(_beat_number: int) -> void:
             # Inject notes for beat index (_phase_beat_count - 1).
             # beat_count=1 → beat_index=0 (first note in pattern), etc.
             var beat_index: int = _phase_beat_count - 1
-            for note in enemy.pattern:
+            for note: NoteData in enemy.pattern:
                 if note.beat_offset == beat_index:
                     RhythmInput.add_note(note)
+            # Pre-announce notes due LOOKAHEAD_BEATS from now for visual spawning.
+            var lookahead_index: int = beat_index + lookahead_beats
+            for note: NoteData in enemy.pattern:
+                if note.beat_offset == lookahead_index:
+                    note_approaching.emit(note, beat_number + lookahead_beats)
 
 # --- Phase transitions ---
 
@@ -126,6 +145,7 @@ func _end_attack_phase() -> void:
     _defend_index       = _first_living_enemy_index()
     RhythmInput.clear_notes()
     _current_phase = Phase.DEFEND
+    phase_changed.emit(Phase.DEFEND)
 
     # Check win condition after applying damage.
     if _all_enemies_dead() and not _combat_ended:
@@ -145,6 +165,7 @@ func _end_defend_phase() -> void:
     # All living enemies have had their turn — back to ATTACK.
     if _defend_index >= _enemy_party.size():
         _current_phase = Phase.ATTACK
+        phase_changed.emit(Phase.ATTACK)
 
 # --- Input handlers ---
 
