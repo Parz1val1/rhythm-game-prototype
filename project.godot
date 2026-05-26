@@ -11,28 +11,19 @@ config_version=5
 [application]
 
 config/name="RhythmGamePrototype"
+run/main_scene="res://test_scene.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 config/icon="res://icon.svg"
 config/run/main_scene="res://test_scene.tscn"
-
-[dotnet]
-
-project/assembly_name="RhythmGamePrototype"
-
-[physics]
-
-3d/physics_engine="Jolt Physics"
-
-[rendering]
-
-rendering_device/driver.windows="d3d12"
-renderer/rendering_method="gl_compatibility"
-renderer/rendering_method.mobile="gl_compatibility"
 
 [autoload]
 
 BeatClock="*res://autoloads/beat_clock.gd"
 RhythmInput="*res://autoloads/rhythm_input.gd"
+
+[dotnet]
+
+project/assembly_name="RhythmGamePrototype"
 
 [input]
 
@@ -56,3 +47,13 @@ rhythm_right={
 "events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":4194321,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
 ]
 }
+
+[physics]
+
+3d/physics_engine="Jolt Physics"
+
+[rendering]
+
+rendering_device/driver.windows="d3d12"
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
