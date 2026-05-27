@@ -7,10 +7,11 @@ extends Resource
 
 @export var beat_offset: int = 0
 
-## Direction the player must press. One of: &"up", &"down", &"left", &"right"
-@export var direction: StringName = &"up"
+## Direction the player must press.
+## In free_form mode this still drives the pitch of the audio feedback sound.
+@export_enum("up", "down", "left", "right") var direction: String = "up"
 
 ## Scoring mode for this note.
-## &"free_form" — any press near the beat counts regardless of direction.
-## &"targeted"  — player must press the matching direction within the timing window.
-@export var mode: StringName = &"free_form"
+## targeted  — player must press the matching direction within the timing window.
+## free_form — any press near the beat counts regardless of direction.
+@export_enum("targeted", "free_form") var mode: String = "free_form"

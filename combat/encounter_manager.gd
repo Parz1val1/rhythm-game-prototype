@@ -5,7 +5,37 @@
 # as EncounterManager.method_name() after preloading or via class_name lookup.
 class_name EncounterManager
 
-## Load and initialize a CombatScene from an encounter definition.
+# Preload workaround (parse-order safety — same rationale as CharacterData above).
+const EncounterDefinition = preload("res://encounters/encounter_definition.gd")
+
+## Start combat from an EncounterDefinition resource file.
+##
+## Preferred over start_combat() for new work — encounters live in .tres files
+## under encounters/ and are fully editable in the Godot Inspector.
+## Each enemy is deep-duplicated so runtime HP mutations don't corrupt the asset.
+##
+## tree:         The active SceneTree (pass get_tree() from your calling scene).
+## player_party: Array of CharacterData representing the player's current party.
+## definition:   An EncounterDefinition resource loaded from encounters/*.tres.
+## player_first: true = players attack first (surprise); false = enemies first (ambush).
+static func start_combat_from_definition(
+    tree: SceneTree,
+    player_party: Array[CharacterData],
+    definition: EncounterDefinition,
+    player_first: bool = true
+) -> Node:
+    var enemies: Array[EnemyData] = []
+    for e in definition.enemies:
+        enemies.append(e.duplicate(true) as EnemyData)
+    var scene: Node = preload("res://combat/combat_scene.tscn").instantiate()
+    tree.current_scene.add_child(scene)
+    scene.setup(player_party, enemies, player_first)
+    return scene
+
+## Load and initialize a CombatScene from a hardcoded encounter ID.
+##
+## Legacy path — kept for backward compatibility and headless tests.
+## Prefer start_combat_from_definition() for new work.
 ##
 ## tree:         The active SceneTree (pass get_tree() from your calling scene).
 ## player_party: Array of CharacterData representing the player's current party.

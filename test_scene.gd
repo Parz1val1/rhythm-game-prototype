@@ -3,14 +3,17 @@
 # Run in Godot (F5) and press arrow keys on the beat.
 extends Node2D
 
-const CharacterData    = preload("res://characters/character_data.gd")
-const EncounterManager = preload("res://combat/encounter_manager.gd")
+const CharacterData        = preload("res://characters/character_data.gd")
+const EncounterManager     = preload("res://combat/encounter_manager.gd")
+const EncounterDefinition  = preload("res://encounters/encounter_definition.gd")
 
 ## Set false to test ambush (enemies attack first).
 @export var player_first: bool = true
 
-## Dropdown of all registered encounter IDs. Add new entries here when EncounterManager grows.
-@export_enum("goblin_single", "orc_heavy", "goblin_pair", "string_golem") var encounter_id: String = "goblin_single"
+## Drag an encounters/*.tres file here to select which encounter to fight.
+## To create a new encounter: right-click encounters/ in the FileSystem dock →
+## "Create New Resource" → EncounterDefinition → fill in the Inspector.
+@export var encounter: EncounterDefinition
 
 @onready var _audio:          AudioStreamPlayer = $AudioStreamPlayer
 @onready var _combat_ui:      Node              = $CombatUI
@@ -41,8 +44,11 @@ func _ready() -> void:
 	_audio.play()
 	BeatClock.start(_audio)
 
+	if encounter == null:
+		push_error("test_scene: no encounter assigned — drag an encounters/*.tres file into the Encounter field in the Inspector")
+		return
 	var party: Array[CharacterData] = [_hero]
-	_combat = EncounterManager.start_combat(get_tree(), party, encounter_id, player_first)
+	_combat = EncounterManager.start_combat_from_definition(get_tree(), party, encounter, player_first)
 	_combat.combat_won.connect(_on_combat_won)
 	_combat.combat_lost.connect(_on_combat_lost)
 

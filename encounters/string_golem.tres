@@ -1,0 +1,64 @@
+[gd_resource type="Resource" script_class="EncounterDefinition" format=3]
+
+[ext_resource type="Script" path="res://characters/enemy_data.gd" id="1_b57sq"]
+[ext_resource type="Script" path="res://rhythm_engine/note_data.gd" id="2_wb05o"]
+[ext_resource type="Script" path="res://encounters/encounter_definition.gd" id="3_v6fl4"]
+
+[sub_resource type="Resource" id="Resource_j4f1e"]
+script = ExtResource("2_wb05o")
+mode = "targeted"
+
+[sub_resource type="Resource" id="Resource_8dy2d"]
+script = ExtResource("2_wb05o")
+beat_offset = 1
+direction = "down"
+mode = "targeted"
+
+[sub_resource type="Resource" id="Resource_p1fr7"]
+script = ExtResource("2_wb05o")
+beat_offset = 2
+mode = "targeted"
+
+[sub_resource type="Resource" id="Resource_ndgip"]
+script = ExtResource("2_wb05o")
+beat_offset = 3
+direction = "down"
+mode = "targeted"
+
+[sub_resource type="Resource" id="Resource_b8uy5"]
+script = ExtResource("2_wb05o")
+beat_offset = 4
+direction = "left"
+mode = "targeted"
+
+[sub_resource type="Resource" id="Resource_oru2o"]
+script = ExtResource("2_wb05o")
+beat_offset = 5
+direction = "right"
+mode = "targeted"
+
+[sub_resource type="Resource" id="Resource_oly23"]
+script = ExtResource("2_wb05o")
+beat_offset = 6
+direction = "left"
+mode = "targeted"
+
+[sub_resource type="Resource" id="Resource_4r2jp"]
+script = ExtResource("2_wb05o")
+beat_offset = 7
+direction = "right"
+mode = "targeted"
+
+[sub_resource type="Resource" id="Resource_g8ue0"]
+script = ExtResource("1_b57sq")
+enemy_name = "String Golem"
+max_hp = 120
+hp = 120
+attack_power = 18
+pattern = Array[ExtResource("2_wb05o")]([SubResource("Resource_j4f1e"), SubResource("Resource_8dy2d"), SubResource("Resource_p1fr7"), SubResource("Resource_ndgip"), SubResource("Resource_b8uy5"), SubResource("Resource_oru2o"), SubResource("Resource_oly23"), SubResource("Resource_4r2jp")])
+phase_length = 8
+
+[resource]
+script = ExtResource("3_v6fl4")
+encounter_id = "string_golem"
+enemies = Array[ExtResource("1_b57sq")]([SubResource("Resource_g8ue0")])

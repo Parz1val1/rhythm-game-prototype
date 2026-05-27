@@ -5,18 +5,21 @@
 [ext_resource type="PackedScene" path="res://combat/combat_ui.tscn" id="3_combatui"]
 [ext_resource type="PackedScene" path="res://combat/note_lane.tscn" id="4_noteln"]
 [ext_resource type="PackedScene" path="res://combat/audio_feedback.tscn" id="5_audiofb"]
+[ext_resource type="Resource" path="res://encounters/orc_heavy.tres" id="6_orc"]
 
 [node name="TestScene" type="Node2D" unique_id=2070855162]
 script = ExtResource("1")
-player_first = true
-encounter_id = "goblin_single"
+encounter = ExtResource("6_orc")
 
 [node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="." unique_id=1811469649]
 stream = ExtResource("2_ia1lp")
 
-[node name="CombatUI" parent="." instance=ExtResource("3_combatui")]
+[node name="CombatUI" parent="." unique_id=1799381395 instance=ExtResource("3_combatui")]
 
-[node name="NoteLane" parent="." instance=ExtResource("4_noteln")]
-position = Vector2(0.0, 270.0)
+[node name="NoteLane" parent="." unique_id=1812133656 instance=ExtResource("4_noteln")]
+layout_mode = 3
+anchors_preset = 0
+offset_top = 270.0
+offset_bottom = 270.0
 
-[node name="AudioFeedback" parent="." instance=ExtResource("5_audiofb")]
+[node name="AudioFeedback" parent="." unique_id=1952430492 instance=ExtResource("5_audiofb")]
