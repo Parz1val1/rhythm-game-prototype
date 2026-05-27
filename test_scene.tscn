@@ -6,6 +6,7 @@
 [ext_resource type="PackedScene" path="res://combat/note_lane.tscn" id="4_noteln"]
 [ext_resource type="PackedScene" path="res://combat/audio_feedback.tscn" id="5_audiofb"]
 [ext_resource type="Resource" path="res://encounters/orc_heavy.tres" id="6_orc"]
+[ext_resource type="PackedScene" path="res://combat/replay_ui.tscn" id="7_replay"]
 
 [node name="TestScene" type="Node2D" unique_id=2070855162]
 script = ExtResource("1")
@@ -23,3 +24,5 @@ offset_top = 270.0
 offset_bottom = 270.0
 
 [node name="AudioFeedback" parent="." unique_id=1952430492 instance=ExtResource("5_audiofb")]
+
+[node name="ReplayUI" parent="." instance=ExtResource("7_replay")]
