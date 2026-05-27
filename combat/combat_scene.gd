@@ -60,8 +60,6 @@ var _current_phase: Phase = Phase.ATTACK
 var _phase_beat_count: int = 0
 ## Index into _enemy_party for the enemy currently in their DEFEND turn.
 var _defend_index: int = 0
-## Accumulated damage from the current ATTACK phase (applied at phase end).
-var _damage_accumulator: float = 0.0
 ## Set to true the moment combat ends so duplicate-emit guards and _on_beat can bail out.
 var _combat_ended: bool = false
 ## Tracks combo count and computes damage multiplier during ATTACK phase.
@@ -86,7 +84,6 @@ func setup(
     _current_phase = Phase.ATTACK if player_first else Phase.DEFEND
     _phase_beat_count = 0
     _defend_index     = 0
-    _damage_accumulator = 0.0
     _sequence.reset()
     _combat_ended = false
     _limit_break_active = false
@@ -170,14 +167,8 @@ func _on_beat(beat_number: int) -> void:
 # --- Phase transitions ---
 
 func _end_attack_phase() -> void:
-    # Apply accumulated damage to the first living enemy.
-    var target = get_attack_target()
-    if target != null:
-        var damage: int = int(_damage_accumulator)
-        target.hp = max(0, target.hp - damage)
-
-    _damage_accumulator = 0.0
-    _phase_beat_count   = 0
+    # Damage is applied per-hit in _on_input_scored; nothing to apply here.
+    _phase_beat_count = 0
 
     # End limit break if it was active this phase.
     if _limit_break_active:
@@ -188,12 +179,13 @@ func _end_attack_phase() -> void:
         player_phase_length = _default_phase_length
         limit_break_ended.emit()
 
-    _defend_index       = _first_living_enemy_index()
+    _defend_index = _first_living_enemy_index()
     RhythmInput.clear_notes()
     _current_phase = Phase.DEFEND
     phase_changed.emit(Phase.DEFEND)
 
-    # Check win condition after applying damage.
+    # Safety-net win check: normally triggered per-hit, but covers the edge
+    # case where the phase boundary fires before the last scored signal arrives.
     if _all_enemies_dead() and not _combat_ended:
         _combat_ended = true
         teardown()
@@ -227,9 +219,11 @@ func _on_input_scored(_direction: StringName, score: StringName, _offset_ms: flo
             var multiplier: float = _sequence.record_hit(score)
             # Limit break multiplier stacks on top of combo multiplier.
             var lb_mult: float = character.limit_break_multiplier if _limit_break_active else 1.0
+            var target = get_attack_target()
             match score:
                 &"perfect":
-                    _damage_accumulator += float(character.attack_power) * multiplier * lb_mult
+                    if target != null:
+                        target.hp = max(0, target.hp - int(float(character.attack_power) * multiplier * lb_mult))
                     # Charge gauge only when limit break is NOT active.
                     if not _limit_break_active:
                         var was_ready: bool = character.limit_break_gauge >= 1.0
@@ -237,11 +231,17 @@ func _on_input_scored(_direction: StringName, score: StringName, _offset_ms: flo
                         if not was_ready and character.limit_break_gauge >= 1.0:
                             limit_break_ready.emit(character)
                 &"good":
-                    _damage_accumulator += float(character.attack_power) * 0.5 * multiplier * lb_mult
+                    if target != null:
+                        target.hp = max(0, target.hp - int(float(character.attack_power) * 0.5 * multiplier * lb_mult))
                     if not _limit_break_active:
                         character.limit_break_gauge = min(1.0, character.limit_break_gauge + character.charge_rate_good)
                 # miss: no damage, no gauge charge
             combo_updated.emit(_sequence.combo_count, _sequence.get_multiplier())
+            # Apply win condition immediately so the enemy bar empties on the killing hit.
+            if _all_enemies_dead() and not _combat_ended:
+                _combat_ended = true
+                teardown()
+                combat_won.emit()
 
         Phase.DEFEND:
             # Only respond to presses that consumed an active note.
