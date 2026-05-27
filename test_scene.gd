@@ -9,8 +9,8 @@ const EncounterManager = preload("res://combat/encounter_manager.gd")
 ## Set false to test ambush (enemies attack first).
 @export var player_first: bool = true
 
-## Change to &"orc_heavy" or &"goblin_pair" to test other encounters.
-@export var encounter_id: StringName = &"goblin_single"
+## Dropdown of all registered encounter IDs. Add new entries here when EncounterManager grows.
+@export_enum("goblin_single", "orc_heavy", "goblin_pair", "string_golem") var encounter_id: String = "goblin_single"
 
 @onready var _audio:          AudioStreamPlayer = $AudioStreamPlayer
 @onready var _combat_ui:      Node              = $CombatUI

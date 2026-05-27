@@ -9,7 +9,7 @@
 [node name="TestScene" type="Node2D" unique_id=2070855162]
 script = ExtResource("1")
 player_first = true
-encounter_id = &"goblin_single"
+encounter_id = "goblin_single"
 
 [node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="." unique_id=1811469649]
 stream = ExtResource("2_ia1lp")
