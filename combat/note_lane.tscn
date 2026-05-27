@@ -3,86 +3,21 @@
 [ext_resource type="Script" path="res://combat/note_lane.gd" id="1"]
 
 [node name="NoteLane" type="Control"]
-custom_minimum_size = Vector2(500, 200)
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 script = ExtResource("1")
-
-[node name="BGPanel" type="Panel" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-
-[node name="Lanes" type="VBoxContainer" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 5.0
-offset_top = 5.0
-offset_right = -5.0
-offset_bottom = -30.0
-
-[node name="UpLane" type="Control" parent="Lanes"]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 40)
-
-[node name="LaneLabel" type="Label" parent="Lanes/UpLane"]
-text = "↑"
-
-[node name="HitZone" type="ColorRect" parent="Lanes/UpLane"]
-offset_left = 10.0
-offset_top = 5.0
-offset_right = 40.0
-offset_bottom = 35.0
-color = Color(0.4, 0.35, 0.1, 1)
-
-[node name="DownLane" type="Control" parent="Lanes"]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 40)
-
-[node name="LaneLabel" type="Label" parent="Lanes/DownLane"]
-text = "↓"
-
-[node name="HitZone" type="ColorRect" parent="Lanes/DownLane"]
-offset_left = 10.0
-offset_top = 5.0
-offset_right = 40.0
-offset_bottom = 35.0
-color = Color(0.4, 0.35, 0.1, 1)
-
-[node name="LeftLane" type="Control" parent="Lanes"]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 40)
-
-[node name="LaneLabel" type="Label" parent="Lanes/LeftLane"]
-text = "←"
-
-[node name="HitZone" type="ColorRect" parent="Lanes/LeftLane"]
-offset_left = 10.0
-offset_top = 5.0
-offset_right = 40.0
-offset_bottom = 35.0
-color = Color(0.4, 0.35, 0.1, 1)
-
-[node name="RightLane" type="Control" parent="Lanes"]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 40)
-
-[node name="LaneLabel" type="Label" parent="Lanes/RightLane"]
-text = "→"
-
-[node name="HitZone" type="ColorRect" parent="Lanes/RightLane"]
-offset_left = 10.0
-offset_top = 5.0
-offset_right = 40.0
-offset_bottom = 35.0
-color = Color(0.4, 0.35, 0.1, 1)
 
 [node name="PhaseInfo" type="Label" parent="."]
 layout_mode = 1
+anchor_left = 0.5
+anchor_right = 0.5
 anchor_top = 1.0
 anchor_bottom = 1.0
-anchor_right = 0.5
-offset_top = -25.0
-offset_bottom = 0.0
+offset_left = -80.0
+offset_top = -30.0
+offset_right = 80.0
+offset_bottom = -4.0
 text = "DEFEND"
+horizontal_alignment = 1

@@ -18,10 +18,6 @@ stream = ExtResource("2_ia1lp")
 [node name="CombatUI" parent="." unique_id=1799381395 instance=ExtResource("3_combatui")]
 
 [node name="NoteLane" parent="." unique_id=1812133656 instance=ExtResource("4_noteln")]
-layout_mode = 3
-anchors_preset = 0
-offset_top = 270.0
-offset_bottom = 270.0
 
 [node name="AudioFeedback" parent="." unique_id=1952430492 instance=ExtResource("5_audiofb")]
 
