@@ -44,6 +44,12 @@ signal limit_break_ended()
 ## At 120 BPM, 2 beats = 1 second of visual approach time.
 @export var lookahead_beats: int = 2
 
+## Enable to print per-input and per-note timing diagnostics to Godot's Output panel.
+## Shows inject timing, input offset, and whether each press consumed a note.
+## Key to look for: "NO-NOTE" entries with negative offsets mean the player pressed
+## before the note was active — the effective window is 0 → +good_ms, not ±good_ms.
+@export var debug_timing: bool = false
+
 # --- Phase enum ---
 # Godot enums are scoped to the class. Reference as CombatScene.Phase.ATTACK
 # or just Phase.ATTACK within this script.
@@ -93,6 +99,10 @@ func setup(
     # Connect to autoload signals.
     # In Godot 4, autoloads are accessed by their registered name as globals.
     BeatClock.beat.connect(_on_beat)
+    # half_beat fires at beat_position=0.5, roughly one half-beat (~250ms at 120BPM)
+    # before the next full beat. We use it to pre-inject DEFEND notes so the note
+    # exists in RhythmInput before players press — fixing the asymmetric timing window.
+    BeatClock.half_beat.connect(_on_half_beat)
     RhythmInput.input_scored.connect(_on_input_scored)
     RhythmInput.note_missed.connect(_on_note_missed)
 
@@ -152,17 +162,41 @@ func _on_beat(beat_number: int) -> void:
             if _phase_beat_count > enemy.phase_length:
                 _end_defend_phase()
                 return
-            # Inject notes for beat index (_phase_beat_count - 1).
-            # beat_count=1 → beat_index=0 (first note in pattern), etc.
+            # Notes are pre-injected at half_beat (~250ms early) via _on_half_beat().
+            # No injection here — doing it again after a note is consumed causes
+            # a phantom re-add that expires and deals double damage.
             var beat_index: int = _phase_beat_count - 1
-            for note: NoteData in enemy.pattern:
-                if note.beat_offset == beat_index:
-                    RhythmInput.add_note(note)
             # Pre-announce notes due LOOKAHEAD_BEATS from now for visual spawning.
             var lookahead_index: int = beat_index + lookahead_beats
             for note: NoteData in enemy.pattern:
                 if note.beat_offset == lookahead_index:
                     note_approaching.emit(note, beat_number + lookahead_beats)
+
+# --- Half-beat pre-injection ---
+
+## Fires at beat_position=0.5 (halfway through each beat).
+## Pre-injects the NEXT beat's DEFEND notes into RhythmInput so they are active
+## ~half_beat_duration ms before the player needs to press them.
+## This symmetrises the effective window from (0 → +good_ms) to (−half_beat → +good_ms).
+func _on_half_beat(_beat_number: int) -> void:
+    if _combat_ended or _current_phase != Phase.DEFEND:
+        return
+    var enemy = _get_defending_enemy_internal()
+    if enemy == null:
+        return
+    # _phase_beat_count will be incremented on the next full beat,
+    # making beat_index = _phase_beat_count (the current value).
+    var next_beat_index: int = _phase_beat_count
+    if next_beat_index >= enemy.phase_length:
+        return  # next beat ends (or already past) this DEFEND turn; nothing to pre-inject
+    # Compute when the next beat is due so the note's expiry is beat-anchored.
+    var half_beat_ms: int = int(float(60.0 / BeatClock.bpm) * 500.0)
+    var due_ms: int = Time.get_ticks_msec() + half_beat_ms
+    for note: NoteData in enemy.pattern:
+        if note.beat_offset == next_beat_index:
+            if RhythmInput.add_note(note, due_ms) and debug_timing:
+                print("[PRE-INJECT] dir=%-5s  due in %d ms  window: −%d → +%.0f ms" % [
+                    note.direction, half_beat_ms, half_beat_ms, RhythmInput.good_ms])
 
 # --- Phase transitions ---
 
@@ -244,6 +278,10 @@ func _on_input_scored(_direction: StringName, score: StringName, _offset_ms: flo
                 combat_won.emit()
 
         Phase.DEFEND:
+            if debug_timing:
+                var tag := "CONSUMED" if note_consumed else "NO-NOTE (ignored — press early?)"
+                print("[INPUT ] dir=%-5s  offset=%+.1f ms  score=%-8s  %s" % [
+                    _direction, _offset_ms, score, tag])
             # Only respond to presses that consumed an active note.
             # Ignoring free-form presses prevents phantom blocking.
             if not note_consumed:
@@ -261,6 +299,8 @@ func _on_input_scored(_direction: StringName, score: StringName, _offset_ms: flo
                     _apply_damage_to_character(character, enemy.attack_power)
 
 func _on_note_missed(_note) -> void:
+    if debug_timing:
+        print("[EXPIRE] dir=%-5s  note expired → full damage" % _note.direction)
     # A targeted note expired without a press — treat as a full miss in DEFEND phase.
     if _current_phase != Phase.DEFEND:
         return
@@ -276,6 +316,8 @@ func _on_note_missed(_note) -> void:
 func teardown() -> void:
     if BeatClock.beat.is_connected(_on_beat):
         BeatClock.beat.disconnect(_on_beat)
+    if BeatClock.half_beat.is_connected(_on_half_beat):
+        BeatClock.half_beat.disconnect(_on_half_beat)
     if RhythmInput.input_scored.is_connected(_on_input_scored):
         RhythmInput.input_scored.disconnect(_on_input_scored)
     if RhythmInput.note_missed.is_connected(_on_note_missed):
