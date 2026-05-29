@@ -29,6 +29,7 @@ func _exit_tree() -> void:
 
 func _on_input_scored(direction: StringName, score: StringName, _offset: float, _consumed: bool) -> void:
 	var pitch: float = _get_pitch(direction)
+	DebugLog.audio("[SFX    ] score=%-8s  dir=%-5s  pitch=%.2f" % [score, direction, pitch])
 	match score:
 		&"perfect":
 			_perfect_player.pitch_scale = pitch

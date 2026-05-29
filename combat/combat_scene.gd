@@ -44,12 +44,6 @@ signal limit_break_ended()
 ## At 120 BPM, 2 beats = 1 second of visual approach time.
 @export var lookahead_beats: int = 2
 
-## Enable to print per-input and per-note timing diagnostics to Godot's Output panel.
-## Shows inject timing, input offset, and whether each press consumed a note.
-## Key to look for: "NO-NOTE" entries with negative offsets mean the player pressed
-## before the note was active — the effective window is 0 → +good_ms, not ±good_ms.
-@export var debug_timing: bool = false
-
 # --- Phase enum ---
 # Godot enums are scoped to the class. Reference as CombatScene.Phase.ATTACK
 # or just Phase.ATTACK within this script.
@@ -96,6 +90,11 @@ func setup(
     _limit_break_character = null
     _default_phase_length = player_phase_length
 
+    var enemy_names := ", ".join(_enemy_party.map(func(e): return e.enemy_name))
+    var player_names := ", ".join(_player_party.map(func(c): return c.character_name))
+    DebugLog.combat("[SETUP  ] combat started | players: [%s] | enemies: [%s] | player_first=%s" % [
+        player_names, enemy_names, player_first])
+
     # Connect to autoload signals.
     # In Godot 4, autoloads are accessed by their registered name as globals.
     BeatClock.beat.connect(_on_beat)
@@ -138,6 +137,9 @@ func try_activate_limit_break() -> bool:
     _limit_break_active = true
     _limit_break_character = character
     player_phase_length = character.limit_break_phase_length
+    DebugLog.combat("[LB     ] started | %s | phase_len=%d  mult=×%.1f" % [
+        character.character_name, character.limit_break_phase_length,
+        character.limit_break_multiplier])
     limit_break_started.emit(character)
     return true
 
@@ -194,8 +196,8 @@ func _on_half_beat(_beat_number: int) -> void:
     var due_ms: int = Time.get_ticks_msec() + half_beat_ms
     for note: NoteData in enemy.pattern:
         if note.beat_offset == next_beat_index:
-            if RhythmInput.add_note(note, due_ms) and debug_timing:
-                print("[PRE-INJECT] dir=%-5s  due in %d ms  window: −%d → +%.0f ms" % [
+            if RhythmInput.add_note(note, due_ms):
+                DebugLog.timing("[PRE-INJ] dir=%-5s  due in %d ms  window: −%d → +%.0f ms" % [
                     note.direction, half_beat_ms, half_beat_ms, RhythmInput.good_ms])
 
 # --- Phase transitions ---
@@ -211,11 +213,14 @@ func _end_attack_phase() -> void:
             _limit_break_character.limit_break_gauge = 0.0
         _limit_break_character = null
         player_phase_length = _default_phase_length
+        DebugLog.combat("[LB     ] ended — gauge reset")
         limit_break_ended.emit()
 
     _defend_index = _first_living_enemy_index()
     RhythmInput.clear_notes()
     _current_phase = Phase.DEFEND
+    var defending_name: String = _enemy_party[_defend_index].enemy_name if _defend_index < _enemy_party.size() else "?"
+    DebugLog.combat("[PHASE  ] ATTACK → DEFEND | defending: %s" % defending_name)
     phase_changed.emit(Phase.DEFEND)
 
     # Safety-net win check: normally triggered per-hit, but covers the edge
@@ -223,6 +228,7 @@ func _end_attack_phase() -> void:
     if _all_enemies_dead() and not _combat_ended:
         _combat_ended = true
         teardown()
+        DebugLog.combat("[WIN    ] all enemies defeated (safety-net check at phase boundary)")
         combat_won.emit()
 
 func _end_defend_phase() -> void:
@@ -238,7 +244,10 @@ func _end_defend_phase() -> void:
     if _defend_index >= _enemy_party.size():
         _sequence.reset()
         _current_phase = Phase.ATTACK
+        DebugLog.combat("[PHASE  ] DEFEND → ATTACK")
         phase_changed.emit(Phase.ATTACK)
+    else:
+        DebugLog.combat("[PHASE  ] DEFEND turn done | next: %s" % _enemy_party[_defend_index].enemy_name)
 
 # --- Input handlers ---
 
@@ -257,16 +266,25 @@ func _on_input_scored(_direction: StringName, score: StringName, _offset_ms: flo
             match score:
                 &"perfect":
                     if target != null:
-                        target.hp = max(0, target.hp - int(float(character.attack_power) * multiplier * lb_mult))
+                        var dmg := int(float(character.attack_power) * multiplier * lb_mult)
+                        var old_hp: int = target.hp
+                        target.hp = max(0, old_hp - dmg)
+                        DebugLog.combat("[ATTACK ] perfect | %s → %s for %d | hp %d → %d  (×%.1f combo)" % [
+                            character.character_name, target.enemy_name, dmg, old_hp, target.hp, multiplier])
                     # Charge gauge only when limit break is NOT active.
                     if not _limit_break_active:
                         var was_ready: bool = character.limit_break_gauge >= 1.0
                         character.limit_break_gauge = min(1.0, character.limit_break_gauge + character.charge_rate_perfect)
                         if not was_ready and character.limit_break_gauge >= 1.0:
+                            DebugLog.combat("[LB     ] gauge full — %s can activate limit break" % character.character_name)
                             limit_break_ready.emit(character)
                 &"good":
                     if target != null:
-                        target.hp = max(0, target.hp - int(float(character.attack_power) * 0.5 * multiplier * lb_mult))
+                        var dmg := int(float(character.attack_power) * 0.5 * multiplier * lb_mult)
+                        var old_hp: int = target.hp
+                        target.hp = max(0, old_hp - dmg)
+                        DebugLog.combat("[ATTACK ] good    | %s → %s for %d | hp %d → %d  (×%.1f combo)" % [
+                            character.character_name, target.enemy_name, dmg, old_hp, target.hp, multiplier])
                     if not _limit_break_active:
                         character.limit_break_gauge = min(1.0, character.limit_break_gauge + character.charge_rate_good)
                 # miss: no damage, no gauge charge
@@ -275,13 +293,13 @@ func _on_input_scored(_direction: StringName, score: StringName, _offset_ms: flo
             if _all_enemies_dead() and not _combat_ended:
                 _combat_ended = true
                 teardown()
+                DebugLog.combat("[WIN    ] all enemies defeated")
                 combat_won.emit()
 
         Phase.DEFEND:
-            if debug_timing:
-                var tag := "CONSUMED" if note_consumed else "NO-NOTE (ignored — press early?)"
-                print("[INPUT ] dir=%-5s  offset=%+.1f ms  score=%-8s  %s" % [
-                    _direction, _offset_ms, score, tag])
+            var tag := "CONSUMED" if note_consumed else "NO-NOTE (ignored)"
+            DebugLog.timing("[INPUT  ] dir=%-5s  offset=%+.1f ms  score=%-8s  %s" % [
+                _direction, _offset_ms, score, tag])
             # Only respond to presses that consumed an active note.
             # Ignoring free-form presses prevents phantom blocking.
             if not note_consumed:
@@ -292,15 +310,15 @@ func _on_input_scored(_direction: StringName, score: StringName, _offset_ms: flo
                 return
             match score:
                 &"perfect":
-                    pass  # fully blocked, no damage
+                    DebugLog.combat("[DEFEND ] perfect block | %s ← %s | no damage" % [
+                        character.character_name, enemy.enemy_name])
                 &"good":
                     _apply_damage_to_character(character, int(float(enemy.attack_power) * 0.5))
                 &"miss":
                     _apply_damage_to_character(character, enemy.attack_power)
 
 func _on_note_missed(_note) -> void:
-    if debug_timing:
-        print("[EXPIRE] dir=%-5s  note expired → full damage" % _note.direction)
+    DebugLog.timing("[EXPIRE ] dir=%-5s  note expired without a press" % _note.direction)
     # A targeted note expired without a press — treat as a full miss in DEFEND phase.
     if _current_phase != Phase.DEFEND:
         return
@@ -333,10 +351,14 @@ func _exit_tree() -> void:
 func _apply_damage_to_character(character, damage: int) -> void:
     if _combat_ended:
         return
-    character.hp = max(0, character.hp - damage)
+    var old_hp: int = character.hp
+    character.hp = max(0, old_hp - damage)
+    DebugLog.combat("[DEFEND ] %s took %d dmg | hp %d → %d/%d" % [
+        character.character_name, damage, old_hp, character.hp, character.max_hp])
     if _all_characters_dead():
         _combat_ended = true
         teardown()
+        DebugLog.combat("[LOST   ] all player characters defeated")
         combat_lost.emit()
 
 ## First living CharacterData in party (prototype: always the same character takes hits).

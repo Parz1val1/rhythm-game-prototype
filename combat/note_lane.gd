@@ -112,6 +112,7 @@ func _build_hit_zones() -> void:
 func _on_phase_changed(new_phase: int) -> void:
 	# Phase.ATTACK = 0, Phase.DEFEND = 1
 	visible = (new_phase == 1)
+	DebugLog.visual("[LANE   ] visible=%s" % (new_phase == 1))
 	if new_phase == 0:
 		# Clear all travelling visuals when entering ATTACK.
 		for visual in _visuals.values():
@@ -133,6 +134,8 @@ func _on_note_approaching(note: NoteData, _target_beat: int) -> void:
 	visual.position = spawn - Vector2(NOTE_HALF, NOTE_HALF)
 
 	var travel_time := float(_lookahead_beats) * (60.0 / BeatClock.bpm)
+	DebugLog.visual("[SPAWN  ] dir=%-5s  travel=%.0f ms" % [dir, travel_time * 1000.0])
+
 	var tween := create_tween()
 	tween.tween_property(visual, "position",
 		target - Vector2(NOTE_HALF, NOTE_HALF),
@@ -152,11 +155,14 @@ func _on_input_scored(direction: StringName, score: StringName, _offset: float, 
 		if is_instance_valid(visual) and String(note.direction) == dir:
 			_visuals.erase(note)
 			visual.flash_result(score)
+			DebugLog.visual("[FLASH  ] dir=%-5s  score=%s  (note visual consumed)" % [dir, score])
 			return
 	# No visual found (note may have just expired) — flash the hit zone directly.
+	DebugLog.visual("[FLASH  ] dir=%-5s  score=%s  (hit zone only — no travelling visual)" % [dir, score])
 	_flash_hit_zone(dir, score)
 
 func _on_note_missed(note: NoteData) -> void:
+	DebugLog.visual("[MISS   ] dir=%-5s  note expired — miss flash" % String(note.direction))
 	var visual = _visuals.get(note)
 	if is_instance_valid(visual):
 		_visuals.erase(note)

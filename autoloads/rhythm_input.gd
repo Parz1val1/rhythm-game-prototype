@@ -48,6 +48,8 @@ func add_note(note: NoteData, due_time_ms: int = 0) -> bool:
     return true
 
 func clear_notes() -> void:
+    if _active.size() > 0:
+        DebugLog.timing("[CLEAR  ] flushed %d active note(s)" % _active.size())
     _active.clear()
 
 # --- Input handling ---
