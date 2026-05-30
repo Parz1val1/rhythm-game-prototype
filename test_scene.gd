@@ -15,6 +15,19 @@ const EncounterDefinition  = preload("res://encounters/encounter_definition.gd")
 ## want to fight on a fresh F5.
 @export var encounter: EncounterDefinition
 
+@export_group("Debug Logging")
+## Master switch — all categories are silent while this is off.
+@export var log_enabled:        bool = false
+## Beat events, note pre-injection timing, press offsets, note expiry.
+@export var log_beat_timing:    bool = false
+## Phase transitions, damage dealt, HP changes, win/loss, limit break.
+@export var log_combat_events:  bool = false
+## Note visual spawning, hit-zone flashes.
+@export var log_note_visuals:   bool = false
+## Audio feedback cues (score, pitch).
+@export var log_audio_events:   bool = false
+@export_group("")
+
 ## Holds the encounter chosen in the ReplayUI across reload_current_scene().
 ## Static variables persist on the GDScript class between scene reloads.
 static var pending_encounter: EncounterDefinition = null
@@ -29,14 +42,13 @@ var _hero:   CharacterData
 var _combat: Node
 
 func _ready() -> void:
-	# --- Debug logging ---
-	# Uncomment any line below to enable that log category.
-	# All output goes to Godot's Output panel.
-	# DebugLog.enable_all()
-	# DebugLog.enabled = true; DebugLog.beat_timing   = true  # note injection, press offsets
-	# DebugLog.enabled = true; DebugLog.combat_events = true  # phases, damage, HP, win/loss
-	# DebugLog.enabled = true; DebugLog.note_visuals  = true  # lane visuals and flashes
-	# DebugLog.enabled = true; DebugLog.audio_events  = true  # SFX playback
+	# Apply debug logging toggles from the Inspector (Debug Logging group).
+	# Values are saved in test_scene.tscn so they persist between editor sessions.
+	DebugLog.enabled       = log_enabled
+	DebugLog.beat_timing   = log_beat_timing
+	DebugLog.combat_events = log_combat_events
+	DebugLog.note_visuals  = log_note_visuals
+	DebugLog.audio_events  = log_audio_events
 
 	# If a replay was requested, use the dropdown's selection instead of the
 	# Inspector default. Clear immediately so a hard F5 always uses the export.
