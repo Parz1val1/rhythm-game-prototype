@@ -29,6 +29,15 @@ var _hero:   CharacterData
 var _combat: Node
 
 func _ready() -> void:
+	# --- Debug logging ---
+	# Uncomment any line below to enable that log category.
+	# All output goes to Godot's Output panel.
+	# DebugLog.enable_all()
+	# DebugLog.enabled = true; DebugLog.beat_timing   = true  # note injection, press offsets
+	# DebugLog.enabled = true; DebugLog.combat_events = true  # phases, damage, HP, win/loss
+	# DebugLog.enabled = true; DebugLog.note_visuals  = true  # lane visuals and flashes
+	# DebugLog.enabled = true; DebugLog.audio_events  = true  # SFX playback
+
 	# If a replay was requested, use the dropdown's selection instead of the
 	# Inspector default. Clear immediately so a hard F5 always uses the export.
 	if pending_encounter != null:

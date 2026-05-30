@@ -47,15 +47,16 @@ from a paste of output rather than requiring a live session.
 | `DebugLog.visual(msg)` | `note_visuals` | Note visual spawning, hit-zone flashes |
 | `DebugLog.audio(msg)` | `audio_events` | Audio cue playback |
 
-### Enabling logs at runtime
-1. Run the scene → open the **Remote** tab in Godot's Scene panel.
-2. Click the **DebugLog** node → toggle `Enabled` + desired category flags in the Inspector.
-
-Or enable programmatically before combat starts:
+### Enabling logs
+`DebugLog` uses `static var` (not an autoload node), so there is no Inspector toggle.
+Set flags in code before the relevant system initialises — `test_scene.gd`'s `_ready()`
+is the natural place:
 ```gdscript
-DebugLog.enable_all()          # turn on every category
-DebugLog.enabled = true
-DebugLog.combat_events = true  # single category
+func _ready() -> void:
+    DebugLog.enable_all()          # all categories — comment out to silence
+    # DebugLog.enabled = true
+    # DebugLog.combat_events = true  # single category
+    ...
 ```
 
 ### Log format convention
@@ -86,12 +87,20 @@ DebugLog.combat_events = true  # single category
 ## Code Conventions
 
 ### Preload pattern (autoload workaround)
-Godot 4.6 autoloads initialize before `class_name` scope is fully resolved.
-Always use `preload()` constants instead of typed annotations for custom classes:
+Godot 4.6 autoloads parse before `class_name` global scope is fully resolved, and
+before other autoload names are registered. Two consequences:
+
+1. **Type annotations** using `class_name` types fail in autoloads — use `preload` constants:
 ```gdscript
 const NoteData = preload("res://rhythm_engine/note_data.gd")
-# NOT: var note: NoteData  ← can cause parse errors in autoloads
+# NOT: var note: NoteData  ← parse error in autoloads
 ```
+
+2. **`DebugLog`** (a static `class_name` utility) must also be preloaded in autoload scripts:
+```gdscript
+const DebugLog = preload("res://autoloads/debug_log.gd")
+```
+Regular scene scripts can use `DebugLog.timing(...)` directly via class_name — no preload needed.
 
 ### String vs StringName in Dictionaries
 `String` and `StringName` have different hash values. When a signal passes a `StringName`

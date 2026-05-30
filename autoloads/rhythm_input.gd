@@ -4,6 +4,9 @@ extends Node
 
 const NoteData   = preload("res://rhythm_engine/note_data.gd")
 const ActiveNote = preload("res://rhythm_engine/active_note.gd")
+# DebugLog is a class_name script, but autoloads can't rely on class_name scope
+# in Godot 4.6 — use the same preload-constant workaround as NoteData above.
+const DebugLog   = preload("res://autoloads/debug_log.gd")
 
 # --- Signals ---
 ## Emitted on every scored directional press.

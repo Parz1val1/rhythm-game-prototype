@@ -18,7 +18,6 @@ config/run/main_scene="res://test_scene.tscn"
 
 [autoload]
 
-DebugLog="*res://autoloads/debug_log.gd"
 BeatClock="*res://autoloads/beat_clock.gd"
 RhythmInput="*res://autoloads/rhythm_input.gd"
 
