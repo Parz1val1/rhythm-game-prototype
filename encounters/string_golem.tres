@@ -1,8 +1,8 @@
-[gd_resource type="Resource" script_class="EncounterDefinition" format=3]
+[gd_resource type="Resource" script_class="EncounterDefinition" format=3 uid="uid://4646gqe1de2a"]
 
-[ext_resource type="Script" path="res://characters/enemy_data.gd" id="1_b57sq"]
-[ext_resource type="Script" path="res://rhythm_engine/note_data.gd" id="2_wb05o"]
-[ext_resource type="Script" path="res://encounters/encounter_definition.gd" id="3_v6fl4"]
+[ext_resource type="Script" uid="uid://c0mi14cj67sd6" path="res://characters/enemy_data.gd" id="1_b57sq"]
+[ext_resource type="Script" uid="uid://ddllbrpmtkdl2" path="res://rhythm_engine/note_data.gd" id="2_wb05o"]
+[ext_resource type="Script" uid="uid://b12s3kg8vvvou" path="res://encounters/encounter_definition.gd" id="3_v6fl4"]
 
 [sub_resource type="Resource" id="Resource_j4f1e"]
 script = ExtResource("2_wb05o")

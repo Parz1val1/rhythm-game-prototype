@@ -1,3 +1,6 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
+
+# Auto-generated Godot UID sidecar files (regenerated on project open)
+*.uid

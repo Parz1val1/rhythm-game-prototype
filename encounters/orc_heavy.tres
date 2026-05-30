@@ -1,8 +1,8 @@
-[gd_resource type="Resource" script_class="EncounterDefinition" format=3]
+[gd_resource type="Resource" script_class="EncounterDefinition" format=3 uid="uid://cmf5rshkq86g2"]
 
-[ext_resource type="Script" path="res://characters/enemy_data.gd" id="1_i65yt"]
-[ext_resource type="Script" path="res://rhythm_engine/note_data.gd" id="2_q6u0q"]
-[ext_resource type="Script" path="res://encounters/encounter_definition.gd" id="3_obdhe"]
+[ext_resource type="Script" uid="uid://c0mi14cj67sd6" path="res://characters/enemy_data.gd" id="1_i65yt"]
+[ext_resource type="Script" uid="uid://ddllbrpmtkdl2" path="res://rhythm_engine/note_data.gd" id="2_q6u0q"]
+[ext_resource type="Script" uid="uid://b12s3kg8vvvou" path="res://encounters/encounter_definition.gd" id="3_obdhe"]
 
 [sub_resource type="Resource" id="Resource_tg6id"]
 script = ExtResource("2_q6u0q")
@@ -29,8 +29,8 @@ mode = "targeted"
 [sub_resource type="Resource" id="Resource_uutkm"]
 script = ExtResource("1_i65yt")
 enemy_name = "Orc"
-max_hp = 80
-hp = 80
+max_hp = 150
+hp = 150
 attack_power = 15
 pattern = Array[ExtResource("2_q6u0q")]([SubResource("Resource_tg6id"), SubResource("Resource_qv4sm"), SubResource("Resource_ndrbw"), SubResource("Resource_aghwc")])
 phase_length = 8
