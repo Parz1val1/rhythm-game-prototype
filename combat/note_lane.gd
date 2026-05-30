@@ -125,24 +125,33 @@ func _on_note_approaching(note: NoteData, target_beat: int) -> void:
 	if not _spawn_centers.has(dir):
 		return
 
-	var spawn  := _spawn_centers[dir] as Vector2
-	var target := _hz_centers[dir]    as Vector2
+	var spawn_edge := _spawn_centers[dir] as Vector2
+	var hit_zone   := _hz_centers[dir]    as Vector2
+
+	# Use actual beats remaining so late-announced notes (e.g. beat_offset=0
+	# emitted from the ATTACK→DEFEND transition) still arrive on time.
+	var beats_remaining: float = max(1.0, float(target_beat - BeatClock.beat_number))
+	var travel_time := beats_remaining * (60.0 / BeatClock.bpm)
+
+	# Spawn at a position proportional to beats_remaining so every note travels
+	# at the same apparent speed. Normal notes (beats_remaining == lookahead_beats)
+	# spawn at the screen edge. Early-announced notes spawn proportionally closer
+	# to the hit zone, making them visually distinct from same-direction notes that
+	# spawn at the edge at the same moment.
+	var spawn_fraction := minf(beats_remaining / float(_lookahead_beats), 1.0)
+	var spawn_pos := hit_zone.lerp(spawn_edge, spawn_fraction)
+
+	DebugLog.visual("[SPAWN  ] dir=%-5s  travel=%.0f ms  (%.1f beat(s))  spawn=%.0f%%" % [
+		dir, travel_time * 1000.0, beats_remaining, spawn_fraction * 100.0])
 
 	var visual: Control = NoteVisualScene.instantiate()
 	add_child(visual)
 	visual.init(note.direction)
-	visual.position = spawn - Vector2(NOTE_HALF, NOTE_HALF)
-
-	# Use actual beats remaining rather than a fixed lookahead constant.
-	# This lets notes announced late (e.g. the first note of a DEFEND phase)
-	# still arrive at the hit zone exactly when they are due.
-	var beats_remaining: float = max(1.0, float(target_beat - BeatClock.beat_number))
-	var travel_time := beats_remaining * (60.0 / BeatClock.bpm)
-	DebugLog.visual("[SPAWN  ] dir=%-5s  travel=%.0f ms  (%.1f beat(s))" % [dir, travel_time * 1000.0, beats_remaining])
+	visual.position = spawn_pos - Vector2(NOTE_HALF, NOTE_HALF)
 
 	var tween := create_tween()
 	tween.tween_property(visual, "position",
-		target - Vector2(NOTE_HALF, NOTE_HALF),
+		hit_zone - Vector2(NOTE_HALF, NOTE_HALF),
 		travel_time)
 	tween.tween_callback(func(): if is_instance_valid(visual): visual.queue_free())
 	tween.tween_callback(func(): _visuals.erase(note))
