@@ -153,8 +153,12 @@ func _on_note_approaching(note: NoteData, target_beat: int) -> void:
 	tween.tween_property(visual, "position",
 		hit_zone - Vector2(NOTE_HALF, NOTE_HALF),
 		travel_time)
+	# Only queue_free the visual when the tween finishes — do NOT erase from
+	# _visuals here. _on_input_scored and _on_note_missed are the sole owners of
+	# cleanup. If we erased here, a press arriving slightly after the tween ends
+	# would find no entry for this note, skip to the NEXT same-direction note,
+	# and wrongly consume its visual.
 	tween.tween_callback(func(): if is_instance_valid(visual): visual.queue_free())
-	tween.tween_callback(func(): _visuals.erase(note))
 
 	_visuals[note] = visual
 
@@ -162,24 +166,35 @@ func _on_input_scored(direction: StringName, score: StringName, _offset: float, 
 	if not note_consumed:
 		return
 	var dir := String(direction)
-	# Find the first travelling visual for this direction and flash it.
-	for note in _visuals.keys():
-		var visual = _visuals.get(note)
-		if is_instance_valid(visual) and String(note.direction) == dir:
-			_visuals.erase(note)
-			visual.flash_result(score)
+	# Find the first entry for this direction and consume it.
+	# The entry may be stale (visual already freed by the tween when the note
+	# arrived at the hit zone) — in that case, erase the stale entry and flash
+	# the hit zone. This prevents a late press from wrongly consuming a later
+	# same-direction visual that is still travelling.
+	for n in _visuals.keys():
+		if String(n.direction) != dir:
+			continue
+		var v = _visuals.get(n)
+		_visuals.erase(n)  # always consume the entry, travelling or arrived
+		if is_instance_valid(v):
+			v.flash_result(score)
 			DebugLog.visual("[FLASH  ] dir=%-5s  score=%s  (note visual consumed)" % [dir, score])
-			return
-	# No visual found (note may have just expired) — flash the hit zone directly.
-	DebugLog.visual("[FLASH  ] dir=%-5s  score=%s  (hit zone only — no travelling visual)" % [dir, score])
+		else:
+			# Visual already arrived at the hit zone — just flash the zone.
+			_flash_hit_zone(dir, score)
+			DebugLog.visual("[FLASH  ] dir=%-5s  score=%s  (visual arrived, zone flash)" % [dir, score])
+		return
+	# No entry at all — note may have been consumed before visual spawned.
+	DebugLog.visual("[FLASH  ] dir=%-5s  score=%s  (hit zone only — no visual entry)" % [dir, score])
 	_flash_hit_zone(dir, score)
 
 func _on_note_missed(note: NoteData) -> void:
 	DebugLog.visual("[MISS   ] dir=%-5s  note expired — miss flash" % String(note.direction))
-	var visual = _visuals.get(note)
-	if is_instance_valid(visual):
-		_visuals.erase(note)
-		visual.flash_result(&"miss")
+	if _visuals.has(note):
+		var visual = _visuals.get(note)
+		_visuals.erase(note)  # erase even if stale, to prevent build-up
+		if is_instance_valid(visual):
+			visual.flash_result(&"miss")
 	_flash_hit_zone(String(note.direction), &"miss")
 
 # ---------------------------------------------------------------------------
