@@ -120,7 +120,7 @@ func _on_phase_changed(new_phase: int) -> void:
 				visual.queue_free()
 		_visuals.clear()
 
-func _on_note_approaching(note: NoteData, _target_beat: int) -> void:
+func _on_note_approaching(note: NoteData, target_beat: int) -> void:
 	var dir := String(note.direction)
 	if not _spawn_centers.has(dir):
 		return
@@ -133,8 +133,12 @@ func _on_note_approaching(note: NoteData, _target_beat: int) -> void:
 	visual.init(note.direction)
 	visual.position = spawn - Vector2(NOTE_HALF, NOTE_HALF)
 
-	var travel_time := float(_lookahead_beats) * (60.0 / BeatClock.bpm)
-	DebugLog.visual("[SPAWN  ] dir=%-5s  travel=%.0f ms" % [dir, travel_time * 1000.0])
+	# Use actual beats remaining rather than a fixed lookahead constant.
+	# This lets notes announced late (e.g. the first note of a DEFEND phase)
+	# still arrive at the hit zone exactly when they are due.
+	var beats_remaining: float = max(1.0, float(target_beat - BeatClock.beat_number))
+	var travel_time := beats_remaining * (60.0 / BeatClock.bpm)
+	DebugLog.visual("[SPAWN  ] dir=%-5s  travel=%.0f ms  (%.1f beat(s))" % [dir, travel_time * 1000.0, beats_remaining])
 
 	var tween := create_tween()
 	tween.tween_property(visual, "position",

@@ -223,6 +223,20 @@ func _end_attack_phase() -> void:
     DebugLog.combat("[PHASE  ] ATTACK → DEFEND | defending: %s" % defending_name)
     phase_changed.emit(Phase.DEFEND)
 
+    # Announce DEFEND notes whose normal lookahead window falls before the phase start.
+    # note_approaching for beat_offset=k normally fires at beat_index = k - lookahead_beats,
+    # which is negative for the first lookahead_beats notes — so they'd never get a visual.
+    # Emit them now from the transition beat; note_lane uses target_beat for travel time
+    # so the visual duration correctly reflects how long until the note is actually due.
+    var early_enemy = _get_defending_enemy_internal()
+    if early_enemy != null:
+        for note: NoteData in early_enemy.pattern:
+            if note.beat_offset < lookahead_beats:
+                var target_beat: int = BeatClock.beat_number + 1 + note.beat_offset
+                note_approaching.emit(note, target_beat)
+                DebugLog.timing("[EARLY-A] dir=%-5s  target_beat=%d  (first-beat lookahead, travel=%d beat(s))" % [
+                    note.direction, target_beat, note.beat_offset + 1])
+
     # Safety-net win check: normally triggered per-hit, but covers the edge
     # case where the phase boundary fires before the last scored signal arrives.
     if _all_enemies_dead() and not _combat_ended:
