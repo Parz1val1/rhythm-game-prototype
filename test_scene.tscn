@@ -1,8 +1,9 @@
 [gd_scene format=3 uid="uid://cp6fvth1pmh50"]
 
 [ext_resource type="Script" uid="uid://doiug066vs7ax" path="res://test_scene.gd" id="1"]
-[ext_resource type="Resource" path="res://encounters/string_golem.tres" id="2_8pr8v"]
+[ext_resource type="Resource" path="res://characters/beatrice_profile.tres" id="2_buypi"]
 [ext_resource type="AudioStream" uid="uid://cayshwva0vr5i" path="res://audio/fassounds-escape-your-love-upbeat-fashion-pop-dance-412230.mp3" id="2_ia1lp"]
+[ext_resource type="Resource" path="res://encounters/drum_golem.tres" id="3_buypi"]
 [ext_resource type="PackedScene" path="res://combat/combat_ui.tscn" id="3_combatui"]
 [ext_resource type="PackedScene" path="res://combat/note_lane.tscn" id="4_noteln"]
 [ext_resource type="PackedScene" path="res://combat/audio_feedback.tscn" id="5_audiofb"]
@@ -10,7 +11,13 @@
 
 [node name="TestScene" type="Node2D" unique_id=2070855162]
 script = ExtResource("1")
-encounter = ExtResource("2_8pr8v")
+active_profile = ExtResource("2_buypi")
+encounter = ExtResource("3_buypi")
+log_enabled = true
+log_beat_timing = true
+log_combat_events = true
+log_note_visuals = true
+log_audio_events = true
 
 [node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="." unique_id=1811469649]
 stream = ExtResource("2_ia1lp")

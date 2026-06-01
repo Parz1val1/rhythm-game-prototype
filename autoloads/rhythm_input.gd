@@ -41,12 +41,12 @@ var _active: Array = []
 # --- Public API ---
 
 func score_timing(abs_offset_ms: float) -> StringName:
-    if abs_offset_ms <= perfect_ms:
-        return &"perfect"
-    elif abs_offset_ms <= good_ms:
-        return &"good"
-    else:
-        return &"miss"
+	if abs_offset_ms <= perfect_ms:
+		return &"perfect"
+	elif abs_offset_ms <= good_ms:
+		return &"good"
+	else:
+		return &"miss"
 
 ## Add a note to the scoring queue.
 ## due_time_ms: wall-clock timestamp when the note is ideally due (used for expiry).
@@ -56,140 +56,145 @@ func score_timing(abs_offset_ms: float) -> StringName:
 ## Returns true if the note was newly added, false if it was already active
 ## (duplicate-prevention so half_beat pre-injection and beat fallback can coexist).
 func add_note(note: NoteData, due_time_ms: int = 0) -> bool:
-    for an in _active:
-        if an.note == note:
-            return false   # already queued; caller can log a fallback if needed
-    var now := Time.get_ticks_msec()
-    _active.append(ActiveNote.new(note, now, due_time_ms if due_time_ms > 0 else now))
-    return true
+	for an in _active:
+		if an.note == note:
+			return false   # already queued; caller can log a fallback if needed
+	var now := Time.get_ticks_msec()
+	_active.append(ActiveNote.new(note, now, due_time_ms if due_time_ms > 0 else now))
+	return true
 
 func clear_notes() -> void:
-    if _active.size() > 0:
-        DebugLog.timing("[CLEAR  ] flushed %d active note(s)" % _active.size())
-    _active.clear()
+	if _active.size() > 0:
+		DebugLog.timing("[CLEAR  ] flushed %d active note(s)" % _active.size())
+	_active.clear()
 
 # --- Profile API ---
 
 ## Set the active CharacterInputProfile. Pass null to remove the filter.
 ## valid_inputs = [] means "accept all" (same as no profile).
 func set_active_profile(profile) -> void:
-    _active_profile = profile
-    _chord_buffer.clear()
+	_active_profile = profile
+	_chord_buffer.clear()
 
 ## Remove the active profile, restoring default (all inputs accepted) behavior.
 func clear_profile() -> void:
-    _active_profile = null
-    _chord_buffer.clear()
+	_active_profile = null
+	_chord_buffer.clear()
 
 ## Returns true if the given direction is allowed by the active profile.
 ## When no profile is set, or valid_inputs is empty, all directions are allowed.
 func is_input_allowed(direction: StringName) -> bool:
-    if _active_profile == null:
-        return true
-    var vi: Array = _active_profile.valid_inputs
-    if vi.is_empty():
-        return true
-    return direction in vi
+	if _active_profile == null:
+		return true
+	var vi: Array = _active_profile.valid_inputs
+	if vi.is_empty():
+		return true
+	return direction in vi
 
 # --- Input handling ---
 
 func _unhandled_input(event: InputEvent) -> void:
-    var direction := _get_direction(event)
-    if direction == &"":
-        return
+	var direction := _get_direction(event)
+	if direction == &"":
+		return
 
-    # Profile filtering: drop inputs not in the active profile's valid_inputs.
-    if not is_input_allowed(direction):
-        return
+	# Profile filtering: drop inputs not in the active profile's valid_inputs.
+	if not is_input_allowed(direction):
+		return
 
-    get_viewport().set_input_as_handled()
+	get_viewport().set_input_as_handled()
 
-    # Chord detection: record this press timestamp and check for matches.
-    if _active_profile != null and not _active_profile.chord_inputs.is_empty():
-        var now_ms: int = Time.get_ticks_msec()
-        _chord_buffer[direction] = now_ms
-        # Remove stale entries outside the chord window.
-        var window: float = _active_profile.chord_window_ms
-        for key in _chord_buffer.keys():
-            if float(now_ms - _chord_buffer[key]) > window:
-                _chord_buffer.erase(key)
-        # Check if the current buffer matches any defined chord.
-        for ci in range(_active_profile.chord_inputs.size()):
-            var chord_def: Array = _active_profile.chord_inputs[ci]
-            var matched: bool = true
-            for required in chord_def:
-                if required not in _chord_buffer:
-                    matched = false
-                    break
-            if matched:
-                # Output name: use chord_names[ci] if defined, else auto-generate.
-                var chord_name: StringName
-                if ci < _active_profile.chord_names.size() and _active_profile.chord_names[ci] != &"":
-                    chord_name = _active_profile.chord_names[ci]
-                else:
-                    chord_name = StringName("+".join(chord_def))
-                var chord_offset: float = BeatClock.get_offset_ms()
-                var chord_score: StringName = score_timing(abs(chord_offset))
-                _chord_buffer.clear()
-                # Try to consume a targeted note matching the chord output name.
-                var note_consumed: bool = false
-                for i in range(_active.size() - 1, -1, -1):
-                    var an = _active[i]
-                    if an.note.mode == &"targeted" and StringName(an.note.direction) == chord_name:
-                        _active.remove_at(i)
-                        note_consumed = true
-                        break
-                # Emit via input_scored (defence handler) AND input_chord (evaluator/UI).
-                input_scored.emit(chord_name, chord_score, chord_offset, note_consumed)
-                input_chord.emit(chord_name, chord_score)
-                return
+	# Chord detection: record this press timestamp and check for matches.
+	if _active_profile != null and not _active_profile.chord_inputs.is_empty():
+		var now_ms: int = Time.get_ticks_msec()
+		_chord_buffer[direction] = now_ms
+		# Remove stale entries outside the chord window.
+		var window: float = _active_profile.chord_window_ms
+		for key in _chord_buffer.keys():
+			if float(now_ms - _chord_buffer[key]) > window:
+				_chord_buffer.erase(key)
+		# Check if the current buffer matches any defined chord.
+		for ci in range(_active_profile.chord_inputs.size()):
+			var chord_def: Array = _active_profile.chord_inputs[ci]
+			var matched: bool = true
+			for required in chord_def:
+				if required not in _chord_buffer:
+					matched = false
+					break
+			if matched:
+				# Output name: use chord_names[ci] if defined, else auto-generate.
+				var chord_name: StringName
+				if ci < _active_profile.chord_names.size() and _active_profile.chord_names[ci] != &"":
+					chord_name = _active_profile.chord_names[ci]
+				else:
+					chord_name = StringName("+".join(chord_def))
+				var chord_offset: float = BeatClock.get_offset_ms()
+				var chord_score: StringName = score_timing(abs(chord_offset))
+				_chord_buffer.clear()
+				# Try to consume a targeted note matching the chord output name.
+				var note_consumed: bool = false
+				for i in range(_active.size() - 1, -1, -1):
+					var an = _active[i]
+					if an.note.mode == &"targeted" and StringName(an.note.direction) == chord_name:
+						_active.remove_at(i)
+						note_consumed = true
+						break
+				# Emit via input_scored (defence handler) AND input_chord (evaluator/UI).
+				input_scored.emit(chord_name, chord_score, chord_offset, note_consumed)
+				input_chord.emit(chord_name, chord_score)
+				return
 
-    var offset_ms: float = BeatClock.get_offset_ms()
-    var abs_offset: float = abs(offset_ms)
+	var offset_ms: float = BeatClock.get_offset_ms()
+	var abs_offset: float = abs(offset_ms)
 
-    # Targeted note takes priority — search in reverse for safe removal.
-    for i in range(_active.size() - 1, -1, -1):
-        var an = _active[i]
-        if an.note.mode == &"targeted" and an.note.direction == direction:
-            var score: StringName = score_timing(abs_offset)
-            _active.remove_at(i)
-            input_scored.emit(direction, score, offset_ms, true)
-            return
+	# Targeted note takes priority — search in reverse for safe removal.
+	for i in range(_active.size() - 1, -1, -1):
+		var an = _active[i]
+		if an.note.mode == &"targeted" and an.note.direction == direction:
+			var score: StringName = score_timing(abs_offset)
+			_active.remove_at(i)
+			input_scored.emit(direction, score, offset_ms, true)
+			return
 
-    # Free-form fallthrough — no matching targeted note active.
-    var score: StringName = score_timing(abs_offset)
-    input_scored.emit(direction, score, offset_ms, false)
+	# Free-form fallthrough — no matching targeted note active.
+	var score: StringName = score_timing(abs_offset)
+	input_scored.emit(direction, score, offset_ms, false)
 
 # --- Note expiry ---
 
 func _process(_delta: float) -> void:
-    var now: int = Time.get_ticks_msec()
-    for i in range(_active.size() - 1, -1, -1):
-        var an = _active[i]
-        if an.note.mode != &"targeted":
-            continue
-        # Use due_time_ms so expiry is anchored to the beat moment,
-        # not to when the note was injected (which may be earlier via half_beat).
-        var age_ms: float = float(now - an.due_time_ms)
-        if age_ms > good_ms:
-            var expired: NoteData = an.note
-            _active.remove_at(i)
-            note_missed.emit(expired)
+	var now: int = Time.get_ticks_msec()
+	# Collect expired notes before emitting any signals.
+	# Emitting note_missed inside the loop is unsafe: a signal handler can call
+	# clear_notes() (via teardown on combat_lost), which clears _active mid-loop
+	# and causes out-of-bounds access on the next iteration.
+	var expired: Array = []
+	for i in range(_active.size() - 1, -1, -1):
+		var an = _active[i]
+		if an.note.mode != &"targeted":
+			continue
+		var age_ms: float = float(now - an.due_time_ms)
+		if age_ms > good_ms:
+			expired.append(an.note)
+			_active.remove_at(i)
+	# Emit after the loop so signal handlers can safely modify _active.
+	for note in expired:
+		note_missed.emit(note)
 
 # --- Helpers ---
 
 func _get_direction(event: InputEvent) -> StringName:
-    # When a profile is active and has valid_inputs, check only those actions.
-    # This allows arbitrary input action names (e.g. drum_left) without modifying
-    # the hardcoded default list below.
-    if _active_profile != null and not _active_profile.valid_inputs.is_empty():
-        for action in _active_profile.valid_inputs:
-            if event.is_action_pressed(action):
-                return action
-        return &""
-    # Default: standard 4-direction rhythm actions.
-    if event.is_action_pressed(&"rhythm_up"):    return &"up"
-    if event.is_action_pressed(&"rhythm_down"):  return &"down"
-    if event.is_action_pressed(&"rhythm_left"):  return &"left"
-    if event.is_action_pressed(&"rhythm_right"): return &"right"
-    return &""
+	# When a profile is active and has valid_inputs, check only those actions.
+	# This allows arbitrary input action names (e.g. drum_left) without modifying
+	# the hardcoded default list below.
+	if _active_profile != null and not _active_profile.valid_inputs.is_empty():
+		for action in _active_profile.valid_inputs:
+			if event.is_action_pressed(action):
+				return action
+		return &""
+	# Default: standard 4-direction rhythm actions.
+	if event.is_action_pressed(&"rhythm_up"):    return &"up"
+	if event.is_action_pressed(&"rhythm_down"):  return &"down"
+	if event.is_action_pressed(&"rhythm_left"):  return &"left"
+	if event.is_action_pressed(&"rhythm_right"): return &"right"
+	return &""
