@@ -105,12 +105,14 @@ func setup(
     # Connect to autoload signals.
     # In Godot 4, autoloads are accessed by their registered name as globals.
     BeatClock.beat.connect(_on_beat)
-    # half_beat fires at beat_position=0.5, roughly one half-beat (~250ms at 120BPM)
-    # before the next full beat. We use it to pre-inject DEFEND notes so the note
-    # exists in RhythmInput before players press — fixing the asymmetric timing window.
+    # half_beat fires at beat_position=0.5 — used to pre-inject both next-full-beat
+    # notes and notes due right at the half-beat (beat_offset X.5).
     BeatClock.half_beat.connect(_on_half_beat)
+    # quarter_beat fires at 0.25 and 0.75 — supports X.25 and X.75 beat_offset notes.
+    BeatClock.quarter_beat.connect(_on_quarter_beat)
     RhythmInput.input_scored.connect(_on_input_scored)
     RhythmInput.note_missed.connect(_on_note_missed)
+    RhythmInput.input_chord.connect(_on_input_chord)
 
 ## Returns the enemy currently taking their DEFEND turn (nil if none).
 ## Used by test_scene.gd for HP display.
@@ -235,11 +237,45 @@ func _on_half_beat(_beat_number: int) -> void:
     # Compute when the next beat is due so the note's expiry is beat-anchored.
     var half_beat_ms: int = int(float(60.0 / BeatClock.bpm) * 500.0)
     var due_ms: int = Time.get_ticks_msec() + half_beat_ms
+    var now_ms: int = Time.get_ticks_msec()
     for note: NoteData in enemy.pattern:
+        # Pre-inject next whole-beat notes (due in ~half a beat from now).
         if abs(note.beat_offset - float(next_beat_index)) < 0.01:
             if RhythmInput.add_note(note, due_ms):
                 DebugLog.timing("[PRE-INJ] dir=%-5s  due in %d ms  window: −%d → +%.0f ms" % [
                     note.direction, half_beat_ms, half_beat_ms, RhythmInput.good_ms])
+        # Inject notes due at the current half-beat (beat_offset X.5) right now.
+        var half_index: float = float(_phase_beat_count - 1) + 0.5
+        if abs(note.beat_offset - half_index) < 0.01:
+            if RhythmInput.add_note(note, now_ms):
+                DebugLog.timing("[HALF-INJ] dir=%-5s  offset=%.1f (half-beat)" % [note.direction, half_index])
+
+## Fires at beat_position 0.25 and 0.75.
+## Injects notes with fractional beat_offsets (X.25 or X.75) into RhythmInput.
+func _on_quarter_beat(_beat_number: int) -> void:
+    if _combat_ended or _current_phase != Phase.DEFEND:
+        return
+    var enemy = _get_defending_enemy_internal()
+    if enemy == null:
+        return
+    var beat_idx: int = _phase_beat_count - 1
+    if beat_idx < 0:
+        return
+    var is_three_quarter: bool = BeatClock.beat_position >= 0.5
+    var qb_offset: float = float(beat_idx) + (0.75 if is_three_quarter else 0.25)
+    var now_ms: int = Time.get_ticks_msec()
+    for note: NoteData in enemy.pattern:
+        if abs(note.beat_offset - qb_offset) < 0.01:
+            if RhythmInput.add_note(note, now_ms):
+                DebugLog.timing("[QRT-INJ] dir=%-5s  offset=%.2f" % [note.direction, qb_offset])
+
+## Handles chord inputs (e.g. drum_both) in the same way as directional input_scored.
+## Emitted by RhythmInput after chord detection; chord_name is the output action name.
+func _on_input_chord(chord_name: StringName, score: StringName) -> void:
+    if _combat_ended or _current_phase != Phase.DEFEND:
+        return
+    # input_scored already fired for this chord (with note_consumed state).
+    # _on_input_chord is for evaluators / UI only — don't double-handle damage here.
 
 # --- Phase transitions ---
 
@@ -353,7 +389,7 @@ func _on_input_scored(_direction: StringName, score: StringName, _offset_ms: flo
                 &"directional":
                     _handle_defend_directional(_direction, score, _offset_ms, note_consumed)
                 &"percussive":
-                    pass   # stub — not yet implemented; Beatrice's path fills this in
+                    _handle_defend_percussive(_direction, score, _offset_ms, note_consumed)
                 _:
                     _handle_defend_directional(_direction, score, _offset_ms, note_consumed)
 
@@ -376,16 +412,51 @@ func teardown() -> void:
         BeatClock.beat.disconnect(_on_beat)
     if BeatClock.half_beat.is_connected(_on_half_beat):
         BeatClock.half_beat.disconnect(_on_half_beat)
+    if BeatClock.quarter_beat.is_connected(_on_quarter_beat):
+        BeatClock.quarter_beat.disconnect(_on_quarter_beat)
     if RhythmInput.input_scored.is_connected(_on_input_scored):
         RhythmInput.input_scored.disconnect(_on_input_scored)
     if RhythmInput.note_missed.is_connected(_on_note_missed):
         RhythmInput.note_missed.disconnect(_on_note_missed)
+    if RhythmInput.input_chord.is_connected(_on_input_chord):
+        RhythmInput.input_chord.disconnect(_on_input_chord)
     RhythmInput.clear_notes()
 
 func _exit_tree() -> void:
     teardown()
 
 # --- Helpers ---
+
+## DEFEND handler for defense_pattern_type == &"percussive" (Beatrice Styx).
+## Hand-matching: note_consumed == true means the pressed button matched the active
+## note's direction. Wrong hand or no note → no block (note will expire → damage).
+## Correct hand + perfect timing → full block + small counter-damage to enemy.
+## Correct hand + good timing   → full block, no damage either way.
+## Correct hand + miss timing   → partial damage to character (50%).
+func _handle_defend_percussive(_direction: StringName, score: StringName, _offset_ms: float, note_consumed: bool) -> void:
+    if not note_consumed:
+        return   # wrong hand or no active note — note will expire → note_missed handles damage
+    var enemy     = _get_defending_enemy_internal()
+    var character = _get_active_character()
+    if enemy == null or character == null:
+        return
+    match score:
+        &"perfect":
+            # Block AND deal counter-damage to the enemy.
+            var counter: int = max(1, int(float(enemy.attack_power) * 0.25))
+            enemy.hp = max(0, enemy.hp - counter)
+            DebugLog.combat("[DEFEND ] percussive PERFECT | %s counters %s for %d" % [
+                character.character_name, enemy.enemy_name, counter])
+            if _all_enemies_dead() and not _combat_ended:
+                _combat_ended = true
+                teardown()
+                DebugLog.combat("[WIN    ] enemy defeated by percussive counter")
+                combat_won.emit()
+        &"good":
+            DebugLog.combat("[DEFEND ] percussive good block | %s ← %s" % [
+                character.character_name, enemy.enemy_name])
+        &"miss":
+            _apply_damage_to_character(character, int(float(enemy.attack_power) * 0.5))
 
 ## DEFEND handler for defense_pattern_type == &"directional" (current default).
 ## Requires note_consumed == true; free-form presses are ignored.
