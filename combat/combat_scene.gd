@@ -220,54 +220,36 @@ func _on_beat(beat_number: int) -> void:
 # --- Half-beat pre-injection ---
 
 ## Fires at beat_position=0.5 (halfway through each beat).
-## Pre-injects the NEXT beat's DEFEND notes into RhythmInput so they are active
-## ~half_beat_duration ms before the player needs to press them.
-## This symmetrises the effective window from (0 → +good_ms) to (−half_beat → +good_ms).
+## Drives two injection calls:
+##   1. Pre-inject next whole-beat notes (due half a beat from now) so their
+##      expiry window is anchored to the beat moment, not to when they were queued.
+##   2. Inject notes due at the current half-beat position (right now).
 func _on_half_beat(_beat_number: int) -> void:
     if _combat_ended or _current_phase != Phase.DEFEND:
         return
-    var enemy = _get_defending_enemy_internal()
+    var enemy: EnemyData = _get_defending_enemy_internal()
     if enemy == null:
         return
-    # _phase_beat_count will be incremented on the next full beat,
-    # making beat_index = _phase_beat_count (the current value).
     var next_beat_index: int = _phase_beat_count
     if next_beat_index >= enemy.phase_length:
-        return  # next beat ends (or already past) this DEFEND turn; nothing to pre-inject
-    # Compute when the next beat is due so the note's expiry is beat-anchored.
+        return  # at or past phase end — skip both injections (preserves original guard)
     var half_beat_ms: int = int(float(60.0 / BeatClock.bpm) * 500.0)
-    var due_ms: int = Time.get_ticks_msec() + half_beat_ms
-    var now_ms: int = Time.get_ticks_msec()
-    for note: NoteData in enemy.pattern:
-        # Pre-inject next whole-beat notes (due in ~half a beat from now).
-        if abs(note.beat_offset - float(next_beat_index)) < 0.01:
-            if RhythmInput.add_note(note, due_ms):
-                DebugLog.timing("[PRE-INJ] dir=%-5s  due in %d ms  window: −%d → +%.0f ms" % [
-                    note.direction, half_beat_ms, half_beat_ms, RhythmInput.good_ms])
-        # Inject notes due at the current half-beat (beat_offset X.5) right now.
-        var half_index: float = float(_phase_beat_count - 1) + 0.5
-        if abs(note.beat_offset - half_index) < 0.01:
-            if RhythmInput.add_note(note, now_ms):
-                DebugLog.timing("[HALF-INJ] dir=%-5s  offset=%.1f (half-beat)" % [note.direction, half_index])
+    # Pre-inject notes due at the next whole beat.
+    _inject_notes_due(float(next_beat_index), Time.get_ticks_msec() + half_beat_ms)
+    # Inject notes due right now at the current half-beat position.
+    _inject_notes_due(float(_phase_beat_count - 1) + 0.5, Time.get_ticks_msec())
 
 ## Fires at beat_position 0.25 and 0.75.
-## Injects notes with fractional beat_offsets (X.25 or X.75) into RhythmInput.
+## Injects notes whose beat_offset matches the current quarter-beat position.
 func _on_quarter_beat(_beat_number: int) -> void:
     if _combat_ended or _current_phase != Phase.DEFEND:
-        return
-    var enemy = _get_defending_enemy_internal()
-    if enemy == null:
         return
     var beat_idx: int = _phase_beat_count - 1
     if beat_idx < 0:
         return
     var is_three_quarter: bool = BeatClock.beat_position >= 0.5
-    var qb_offset: float = float(beat_idx) + (0.75 if is_three_quarter else 0.25)
-    var now_ms: int = Time.get_ticks_msec()
-    for note: NoteData in enemy.pattern:
-        if abs(note.beat_offset - qb_offset) < 0.01:
-            if RhythmInput.add_note(note, now_ms):
-                DebugLog.timing("[QRT-INJ] dir=%-5s  offset=%.2f" % [note.direction, qb_offset])
+    var qb_pos: float = float(beat_idx) + (0.75 if is_three_quarter else 0.25)
+    _inject_notes_due(qb_pos, Time.get_ticks_msec())
 
 ## Handles chord inputs (e.g. drum_both) in the same way as directional input_scored.
 ## Emitted by RhythmInput after chord detection; chord_name is the output action name.
@@ -426,6 +408,20 @@ func _exit_tree() -> void:
     teardown()
 
 # --- Helpers ---
+
+## Inject every note in the current enemy's pattern whose beat_offset matches
+## phase_pos (within 0.01) into RhythmInput.
+## due_time_ms anchors the note's expiry window; pass now for immediate-due notes
+## or now+half_beat_ms for pre-injected next-beat notes.
+## Single injection path — called by _on_half_beat and _on_quarter_beat.
+func _inject_notes_due(phase_pos: float, due_time_ms: int) -> void:
+    var enemy: EnemyData = _get_defending_enemy_internal()
+    if enemy == null:
+        return
+    for note: NoteData in enemy.pattern:
+        if abs(note.beat_offset - phase_pos) < 0.01:
+            if RhythmInput.add_note(note, due_time_ms):
+                DebugLog.timing("[INJ    ] dir=%-5s  offset=%.2f" % [note.direction, phase_pos])
 
 ## DEFEND handler for defense_pattern_type == &"percussive" (Beatrice Styx).
 ## Hand-matching: note_consumed == true means the pressed button matched the active
