@@ -4,10 +4,13 @@ extends Node
 # Preload workarounds: autoloads load before global class_name scope is fully
 # initialized in Godot 4.6, so typed arrays with class_name types in their
 # annotation can cause parse errors. Using preload constants avoids that.
-const CharacterData      = preload("res://characters/character_data.gd")
-const EnemyData          = preload("res://characters/enemy_data.gd")
-const NoteData           = preload("res://rhythm_engine/note_data.gd")
-const SequenceEvaluator  = preload("res://combat/sequence_evaluator.gd")
+const CharacterData         = preload("res://characters/character_data.gd")
+const EnemyData             = preload("res://characters/enemy_data.gd")
+const NoteData              = preload("res://rhythm_engine/note_data.gd")
+const SequenceEvaluator     = preload("res://combat/sequence_evaluator.gd")
+const CharacterInputProfile = preload("res://characters/character_input_profile.gd")
+const AttackEvaluator       = preload("res://combat/attack_evaluator.gd")
+const PassthroughEvaluator  = preload("res://combat/passthrough_evaluator.gd")
 
 # --- Signals ---
 # Emitted when all enemies reach 0 HP.
@@ -62,8 +65,11 @@ var _phase_beat_count: int = 0
 var _defend_index: int = 0
 ## Set to true the moment combat ends so duplicate-emit guards and _on_beat can bail out.
 var _combat_ended: bool = false
-## Tracks combo count and computes damage multiplier during ATTACK phase.
-var _sequence := SequenceEvaluator.new()
+## Active character input profile (may be null = default 4-direction Luthier behavior).
+var _active_profile = null   # CharacterInputProfile or null
+## Evaluator for ATTACK phase damage. Replaced when a profile is set via set_active_profile().
+## Default is PassthroughEvaluator, which preserves the existing SequenceEvaluator behavior.
+var _evaluator: AttackEvaluator = PassthroughEvaluator.new()
 
 var _limit_break_active: bool = false
 var _limit_break_character = null   # CharacterData or null
@@ -84,7 +90,7 @@ func setup(
     _current_phase = Phase.ATTACK if player_first else Phase.DEFEND
     _phase_beat_count = 0
     _defend_index     = 0
-    _sequence.reset()
+    _evaluator.reset()
     _combat_ended = false
     _limit_break_active = false
     _limit_break_character = null
@@ -142,6 +148,30 @@ func try_activate_limit_break() -> bool:
         character.limit_break_multiplier])
     limit_break_started.emit(character)
     return true
+
+## Set the active CharacterInputProfile for this combat.
+## Configures both the attack evaluator (from profile.attack_evaluator) and
+## the defense type seam (from profile.defense_pattern_type).
+## Also calls RhythmInput.set_active_profile so input filtering matches.
+func set_active_profile(profile) -> void:
+    _active_profile = profile
+    if profile == null:
+        _evaluator = PassthroughEvaluator.new()
+        RhythmInput.clear_profile()
+    else:
+        _evaluator = _create_evaluator(profile.attack_evaluator)
+        RhythmInput.set_active_profile(profile)
+    _evaluator.reset()
+
+## Factory: returns the named evaluator, defaulting to PassthroughEvaluator.
+## Add new evaluator classes to this match block when implementing new characters.
+func _create_evaluator(name: StringName) -> AttackEvaluator:
+    match name:
+        &"passthrough":
+            return PassthroughEvaluator.new()
+        _:
+            push_warning("CombatScene: unknown evaluator '%s', using passthrough" % name)
+            return PassthroughEvaluator.new()
 
 # --- Beat handler ---
 
@@ -256,7 +286,7 @@ func _end_defend_phase() -> void:
 
     # All living enemies have had their turn — back to ATTACK.
     if _defend_index >= _enemy_party.size():
-        _sequence.reset()
+        _evaluator.reset()
         _current_phase = Phase.ATTACK
         DebugLog.combat("[PHASE  ] DEFEND → ATTACK")
         phase_changed.emit(Phase.ATTACK)
@@ -273,36 +303,26 @@ func _on_input_scored(_direction: StringName, score: StringName, _offset_ms: flo
             var character = _get_active_character()
             if character == null:
                 return
-            var multiplier: float = _sequence.record_hit(score)
-            # Limit break multiplier stacks on top of combo multiplier.
+            # Limit break multiplier stacks on top of the evaluator's combo multiplier.
             var lb_mult: float = character.limit_break_multiplier if _limit_break_active else 1.0
+            var base_dmg: int = _evaluator.record_hit(score, character.attack_power)
             var target = get_attack_target()
-            match score:
-                &"perfect":
-                    if target != null:
-                        var dmg := int(float(character.attack_power) * multiplier * lb_mult)
-                        var old_hp: int = target.hp
-                        target.hp = max(0, old_hp - dmg)
-                        DebugLog.combat("[ATTACK ] perfect | %s → %s for %d | hp %d → %d  (×%.1f combo)" % [
-                            character.character_name, target.enemy_name, dmg, old_hp, target.hp, multiplier])
-                    # Charge gauge only when limit break is NOT active.
-                    if not _limit_break_active:
-                        var was_ready: bool = character.limit_break_gauge >= 1.0
-                        character.limit_break_gauge = min(1.0, character.limit_break_gauge + character.charge_rate_perfect)
-                        if not was_ready and character.limit_break_gauge >= 1.0:
-                            DebugLog.combat("[LB     ] gauge full — %s can activate limit break" % character.character_name)
-                            limit_break_ready.emit(character)
-                &"good":
-                    if target != null:
-                        var dmg := int(float(character.attack_power) * 0.5 * multiplier * lb_mult)
-                        var old_hp: int = target.hp
-                        target.hp = max(0, old_hp - dmg)
-                        DebugLog.combat("[ATTACK ] good    | %s → %s for %d | hp %d → %d  (×%.1f combo)" % [
-                            character.character_name, target.enemy_name, dmg, old_hp, target.hp, multiplier])
-                    if not _limit_break_active:
-                        character.limit_break_gauge = min(1.0, character.limit_break_gauge + character.charge_rate_good)
-                # miss: no damage, no gauge charge
-            combo_updated.emit(_sequence.combo_count, _sequence.get_multiplier())
+            if base_dmg > 0 and target != null:
+                var dmg := int(float(base_dmg) * lb_mult)
+                var old_hp: int = target.hp
+                target.hp = max(0, old_hp - dmg)
+                DebugLog.combat("[ATTACK ] %s | %s → %s for %d | hp %d → %d  (×%.1f combo)" % [
+                    score, character.character_name, target.enemy_name, dmg, old_hp, target.hp,
+                    _evaluator.get_multiplier()])
+            # Charge limit break gauge (only when not in limit break, and only on hit)
+            if not _limit_break_active and score != &"miss":
+                var was_ready: bool = character.limit_break_gauge >= 1.0
+                var charge: float = character.charge_rate_perfect if score == &"perfect" else character.charge_rate_good
+                character.limit_break_gauge = min(1.0, character.limit_break_gauge + charge)
+                if not was_ready and character.limit_break_gauge >= 1.0:
+                    DebugLog.combat("[LB     ] gauge full — %s can activate limit break" % character.character_name)
+                    limit_break_ready.emit(character)
+            combo_updated.emit(_evaluator.get_combo_count(), _evaluator.get_multiplier())
             # Apply win condition immediately so the enemy bar empties on the killing hit.
             if _all_enemies_dead() and not _combat_ended:
                 _combat_ended = true
