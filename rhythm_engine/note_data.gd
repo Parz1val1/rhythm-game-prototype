@@ -7,8 +7,9 @@ extends Resource
 @export var beat_offset: float = 0.0
 
 ## Direction the player must press.
-## In free_form mode this still drives the pitch of the audio feedback sound.
-@export_enum("up", "down", "left", "right") var direction: String = "up"
+## Directional (Luthier): up / down / left / right.
+## Percussive (Beatrice): drum_left / drum_right / drum_both.
+@export_enum("up", "down", "left", "right", "drum_left", "drum_right", "drum_both") var direction: String = "up"
 
 ## Scoring mode for this note.
 ## targeted  — player must press the matching direction within the timing window.

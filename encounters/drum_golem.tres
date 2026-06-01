@@ -1,0 +1,61 @@
+[gd_resource type="Resource" script_class="EncounterDefinition" format=3]
+
+[ext_resource type="Script" path="res://characters/enemy_data.gd" id="1_dgolem"]
+[ext_resource type="Script" path="res://rhythm_engine/note_data.gd" id="2_dgolem"]
+[ext_resource type="Script" path="res://encounters/encounter_definition.gd" id="3_dgolem"]
+
+[sub_resource type="Resource" id="Note_0"]
+script = ExtResource("2_dgolem")
+beat_offset = 0.0
+direction = "drum_left"
+mode = "targeted"
+
+[sub_resource type="Resource" id="Note_1"]
+script = ExtResource("2_dgolem")
+beat_offset = 0.5
+direction = "drum_right"
+mode = "targeted"
+
+[sub_resource type="Resource" id="Note_2"]
+script = ExtResource("2_dgolem")
+beat_offset = 1.0
+direction = "drum_left"
+mode = "targeted"
+
+[sub_resource type="Resource" id="Note_3"]
+script = ExtResource("2_dgolem")
+beat_offset = 1.5
+direction = "drum_both"
+mode = "targeted"
+
+[sub_resource type="Resource" id="Note_4"]
+script = ExtResource("2_dgolem")
+beat_offset = 2.0
+direction = "drum_right"
+mode = "targeted"
+
+[sub_resource type="Resource" id="Note_5"]
+script = ExtResource("2_dgolem")
+beat_offset = 2.5
+direction = "drum_left"
+mode = "targeted"
+
+[sub_resource type="Resource" id="Note_6"]
+script = ExtResource("2_dgolem")
+beat_offset = 3.0
+direction = "drum_both"
+mode = "targeted"
+
+[sub_resource type="Resource" id="Enemy_dgolem"]
+script = ExtResource("1_dgolem")
+enemy_name = "Drum Golem"
+max_hp = 60
+hp = 60
+attack_power = 14
+phase_length = 4
+pattern = Array[ExtResource("2_dgolem")]([SubResource("Note_0"), SubResource("Note_1"), SubResource("Note_2"), SubResource("Note_3"), SubResource("Note_4"), SubResource("Note_5"), SubResource("Note_6")])
+
+[resource]
+script = ExtResource("3_dgolem")
+encounter_id = "drum_golem"
+enemies = Array[ExtResource("1_dgolem")]([SubResource("Enemy_dgolem")])
