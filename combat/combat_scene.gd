@@ -90,8 +90,8 @@ func setup(
     _limit_break_character = null
     _default_phase_length = player_phase_length
 
-    var enemy_names := ", ".join(_enemy_party.map(func(e): return e.enemy_name))
-    var player_names := ", ".join(_player_party.map(func(c): return c.character_name))
+    var enemy_names := ", ".join(_enemy_party.map(func(e: EnemyData): return e.enemy_name))
+    var player_names := ", ".join(_player_party.map(func(c: CharacterData): return c.character_name))
     DebugLog.combat("[SETUP  ] combat started | players: [%s] | enemies: [%s] | player_first=%s" % [
         player_names, enemy_names, player_first])
 
@@ -116,7 +116,7 @@ func get_current_defending_enemy() -> EnemyData:
 
 ## Returns the first living enemy (the player's attack target).
 func get_attack_target() -> EnemyData:
-    for e in _enemy_party:
+    for e: EnemyData in _enemy_party:
         if e.hp > 0:
             return e
     return null
@@ -362,7 +362,7 @@ func _exit_tree() -> void:
 # --- Helpers ---
 
 ## Applies damage and checks loss condition.
-func _apply_damage_to_character(character, damage: int) -> void:
+func _apply_damage_to_character(character: CharacterData, damage: int) -> void:
     if _combat_ended:
         return
     var old_hp: int = character.hp
@@ -376,32 +376,35 @@ func _apply_damage_to_character(character, damage: int) -> void:
         combat_lost.emit()
 
 ## First living CharacterData in party (prototype: always the same character takes hits).
-func _get_active_character():
-    for c in _player_party:
+func _get_active_character() -> CharacterData:
+    for c: CharacterData in _player_party:
         if c.hp > 0:
             return c
     return null
 
 ## Internal version for use within this script (no phase guard).
-func _get_defending_enemy_internal():
-    if _defend_index < _enemy_party.size() and _enemy_party[_defend_index].hp > 0:
-        return _enemy_party[_defend_index]
+func _get_defending_enemy_internal() -> EnemyData:
+    if _defend_index < _enemy_party.size():
+        var e: EnemyData = _enemy_party[_defend_index]
+        if e.hp > 0:
+            return e
     return null
 
 func _first_living_enemy_index() -> int:
     for i in range(_enemy_party.size()):
-        if _enemy_party[i].hp > 0:
+        var e: EnemyData = _enemy_party[i]
+        if e.hp > 0:
             return i
     return _enemy_party.size()  # all dead
 
 func _all_enemies_dead() -> bool:
-    for e in _enemy_party:
+    for e: EnemyData in _enemy_party:
         if e.hp > 0:
             return false
     return true
 
 func _all_characters_dead() -> bool:
-    for c in _player_party:
+    for c: CharacterData in _player_party:
         if c.hp > 0:
             return false
     return true
