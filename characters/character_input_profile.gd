@@ -12,9 +12,13 @@ extends Resource
 
 ## Chord definitions: each entry is an Array of StringName actions that,
 ## when pressed within chord_window_ms of each other, register as one combined action.
-## The combined action name is the entries joined with "+" e.g. "up+down".
-## Example: [[&"up", &"down"], [&"left", &"right"]]
+## Example: [[&"drum_left", &"drum_right"]]
 @export var chord_inputs: Array[Array] = []
+
+## Output action name for each chord in chord_inputs (parallel array).
+## When empty or shorter than chord_inputs, the output name auto-generates as "a+b".
+## Example: [&"drum_both"] makes drum_left+drum_right register as &"drum_both".
+@export var chord_names: Array[StringName] = []
 
 ## How close together (ms) two simultaneous inputs must be to count as a chord.
 @export var chord_window_ms: float = 30.0

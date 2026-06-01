@@ -114,17 +114,34 @@ func _unhandled_input(event: InputEvent) -> void:
             if float(now_ms - _chord_buffer[key]) > window:
                 _chord_buffer.erase(key)
         # Check if the current buffer matches any defined chord.
-        for chord_def in _active_profile.chord_inputs:
+        for ci in range(_active_profile.chord_inputs.size()):
+            var chord_def: Array = _active_profile.chord_inputs[ci]
             var matched: bool = true
             for required in chord_def:
                 if required not in _chord_buffer:
                     matched = false
                     break
             if matched:
-                var chord_name := StringName("+".join(chord_def))
-                var score: StringName = score_timing(abs(BeatClock.get_offset_ms()))
+                # Output name: use chord_names[ci] if defined, else auto-generate.
+                var chord_name: StringName
+                if ci < _active_profile.chord_names.size() and _active_profile.chord_names[ci] != &"":
+                    chord_name = _active_profile.chord_names[ci]
+                else:
+                    chord_name = StringName("+".join(chord_def))
+                var chord_offset: float = BeatClock.get_offset_ms()
+                var chord_score: StringName = score_timing(abs(chord_offset))
                 _chord_buffer.clear()
-                input_chord.emit(chord_name, score)
+                # Try to consume a targeted note matching the chord output name.
+                var note_consumed: bool = false
+                for i in range(_active.size() - 1, -1, -1):
+                    var an = _active[i]
+                    if an.note.mode == &"targeted" and StringName(an.note.direction) == chord_name:
+                        _active.remove_at(i)
+                        note_consumed = true
+                        break
+                # Emit via input_scored (defence handler) AND input_chord (evaluator/UI).
+                input_scored.emit(chord_name, chord_score, chord_offset, note_consumed)
+                input_chord.emit(chord_name, chord_score)
                 return
 
     var offset_ms: float = BeatClock.get_offset_ms()
@@ -162,6 +179,15 @@ func _process(_delta: float) -> void:
 # --- Helpers ---
 
 func _get_direction(event: InputEvent) -> StringName:
+    # When a profile is active and has valid_inputs, check only those actions.
+    # This allows arbitrary input action names (e.g. drum_left) without modifying
+    # the hardcoded default list below.
+    if _active_profile != null and not _active_profile.valid_inputs.is_empty():
+        for action in _active_profile.valid_inputs:
+            if event.is_action_pressed(action):
+                return action
+        return &""
+    # Default: standard 4-direction rhythm actions.
     if event.is_action_pressed(&"rhythm_up"):    return &"up"
     if event.is_action_pressed(&"rhythm_down"):  return &"down"
     if event.is_action_pressed(&"rhythm_left"):  return &"left"
