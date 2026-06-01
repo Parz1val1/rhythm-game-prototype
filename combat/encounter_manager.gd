@@ -5,7 +5,37 @@
 # as EncounterManager.method_name() after preloading or via class_name lookup.
 class_name EncounterManager
 
-## Load and initialize a CombatScene from an encounter definition.
+# Preload workaround (parse-order safety — same rationale as CharacterData above).
+const EncounterDefinition = preload("res://encounters/encounter_definition.gd")
+
+## Start combat from an EncounterDefinition resource file.
+##
+## Preferred over start_combat() for new work — encounters live in .tres files
+## under encounters/ and are fully editable in the Godot Inspector.
+## Each enemy is deep-duplicated so runtime HP mutations don't corrupt the asset.
+##
+## tree:         The active SceneTree (pass get_tree() from your calling scene).
+## player_party: Array of CharacterData representing the player's current party.
+## definition:   An EncounterDefinition resource loaded from encounters/*.tres.
+## player_first: true = players attack first (surprise); false = enemies first (ambush).
+static func start_combat_from_definition(
+    tree: SceneTree,
+    player_party: Array[CharacterData],
+    definition: EncounterDefinition,
+    player_first: bool = true
+) -> Node:
+    var enemies: Array[EnemyData] = []
+    for e in definition.enemies:
+        enemies.append(e.duplicate(true) as EnemyData)
+    var scene: Node = preload("res://combat/combat_scene.tscn").instantiate()
+    tree.current_scene.add_child(scene)
+    scene.setup(player_party, enemies, player_first)
+    return scene
+
+## Load and initialize a CombatScene from a hardcoded encounter ID.
+##
+## Legacy path — kept for backward compatibility and headless tests.
+## Prefer start_combat_from_definition() for new work.
 ##
 ## tree:         The active SceneTree (pass get_tree() from your calling scene).
 ## player_party: Array of CharacterData representing the player's current party.
@@ -38,6 +68,8 @@ static func _generate_enemies(encounter_id: StringName) -> Array[EnemyData]:
             return [_make_orc()]
         &"goblin_pair":
             return [_make_goblin(), _make_goblin_scout()]
+        &"string_golem":
+            return [_make_string_golem()]
         _:
             push_warning("EncounterManager: unknown encounter_id '%s', defaulting to goblin_single" % encounter_id)
             return [_make_goblin()]
@@ -105,4 +137,30 @@ static func _make_goblin_scout() -> EnemyData:
     n1.beat_offset = 1; n1.direction = &"right"; n1.mode = &"targeted"
 
     e.pattern = [n0, n1]
+    return e
+
+## String Golem: 8-beat all-targeted pattern, alternating up/down then left/right pairs.
+## High attack power — requires limit break or sustained perfect combo to survive.
+static func _make_string_golem() -> EnemyData:
+    var e := EnemyData.new()
+    e.enemy_name   = "String Golem"
+    e.max_hp       = 120
+    e.hp           = 120
+    e.attack_power = 18
+    e.phase_length = 8
+
+    # Alternating up/down pairs, then left/right flourish — all targeted.
+    var dirs: Array[StringName] = [
+        &"up", &"down", &"up", &"down",
+        &"left", &"right", &"left", &"right",
+    ]
+    var notes: Array[NoteData] = []
+    for i in range(8):
+        var n := NoteData.new()
+        n.beat_offset = i
+        n.direction   = dirs[i]
+        n.mode        = &"targeted"
+        notes.append(n)
+
+    e.pattern = notes
     return e

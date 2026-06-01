@@ -1,7 +1,6 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://ddr7cwq48aycw"]
 
-[ext_resource type="Script" path="res://combat/combat_scene.gd" id="1"]
+[ext_resource type="Script" uid="uid://bcf8o42bc025s" path="res://combat/combat_scene.gd" id="1"]
 
-[node name="CombatScene" type="Node"]
+[node name="CombatScene" type="Node" unique_id=859269327]
 script = ExtResource("1")
-player_phase_length = 4

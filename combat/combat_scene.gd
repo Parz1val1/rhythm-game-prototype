@@ -4,9 +4,10 @@ extends Node
 # Preload workarounds: autoloads load before global class_name scope is fully
 # initialized in Godot 4.6, so typed arrays with class_name types in their
 # annotation can cause parse errors. Using preload constants avoids that.
-const CharacterData = preload("res://characters/character_data.gd")
-const EnemyData     = preload("res://characters/enemy_data.gd")
-const NoteData      = preload("res://rhythm_engine/note_data.gd")
+const CharacterData      = preload("res://characters/character_data.gd")
+const EnemyData          = preload("res://characters/enemy_data.gd")
+const NoteData           = preload("res://rhythm_engine/note_data.gd")
+const SequenceEvaluator  = preload("res://combat/sequence_evaluator.gd")
 
 # --- Signals ---
 # Emitted when all enemies reach 0 HP.
@@ -14,10 +15,34 @@ signal combat_won()
 # Emitted when all player characters reach 0 HP.
 signal combat_lost()
 
+## Fired `lookahead_beats` beats before a note is due during DEFEND.
+## Note lane visualizers connect to this to spawn approaching note visuals.
+## note:        the NoteData that will be due at target_beat_number
+## target_beat: the BeatClock.beat_number value when the note must be pressed
+signal note_approaching(note: NoteData, target_beat: int)
+
+## Fired whenever the combat phase changes.
+## new_phase matches the Phase enum: 0 = ATTACK, 1 = DEFEND
+signal phase_changed(new_phase: int)
+
+## Fires after each ATTACK phase input with current combo count and multiplier.
+signal combo_updated(combo_count: int, multiplier: float)
+
+## Fires when a character's limit_break_gauge first reaches 1.0.
+signal limit_break_ready(character: CharacterData)
+## Fires when the limit break phase begins.
+signal limit_break_started(character: CharacterData)
+## Fires when the limit break phase ends and gauge resets.
+signal limit_break_ended()
+
 # --- Configuration ---
 ## How many beats the player's ATTACK phase lasts before switching to DEFEND.
 ## Exported so it can be overridden per scene in the Inspector.
 @export var player_phase_length: int = 4
+
+## How many beats ahead to announce incoming notes via note_approaching.
+## At 120 BPM, 2 beats = 1 second of visual approach time.
+@export var lookahead_beats: int = 2
 
 # --- Phase enum ---
 # Godot enums are scoped to the class. Reference as CombatScene.Phase.ATTACK
@@ -35,10 +60,14 @@ var _current_phase: Phase = Phase.ATTACK
 var _phase_beat_count: int = 0
 ## Index into _enemy_party for the enemy currently in their DEFEND turn.
 var _defend_index: int = 0
-## Accumulated damage from the current ATTACK phase (applied at phase end).
-var _damage_accumulator: float = 0.0
 ## Set to true the moment combat ends so duplicate-emit guards and _on_beat can bail out.
 var _combat_ended: bool = false
+## Tracks combo count and computes damage multiplier during ATTACK phase.
+var _sequence := SequenceEvaluator.new()
+
+var _limit_break_active: bool = false
+var _limit_break_character = null   # CharacterData or null
+var _default_phase_length: int = 4  # saved on setup(), restored after limit break
 
 # --- Public API ---
 
@@ -55,12 +84,24 @@ func setup(
     _current_phase = Phase.ATTACK if player_first else Phase.DEFEND
     _phase_beat_count = 0
     _defend_index     = 0
-    _damage_accumulator = 0.0
+    _sequence.reset()
     _combat_ended = false
+    _limit_break_active = false
+    _limit_break_character = null
+    _default_phase_length = player_phase_length
+
+    var enemy_names := ", ".join(_enemy_party.map(func(e): return e.enemy_name))
+    var player_names := ", ".join(_player_party.map(func(c): return c.character_name))
+    DebugLog.combat("[SETUP  ] combat started | players: [%s] | enemies: [%s] | player_first=%s" % [
+        player_names, enemy_names, player_first])
 
     # Connect to autoload signals.
     # In Godot 4, autoloads are accessed by their registered name as globals.
     BeatClock.beat.connect(_on_beat)
+    # half_beat fires at beat_position=0.5, roughly one half-beat (~250ms at 120BPM)
+    # before the next full beat. We use it to pre-inject DEFEND notes so the note
+    # exists in RhythmInput before players press — fixing the asymmetric timing window.
+    BeatClock.half_beat.connect(_on_half_beat)
     RhythmInput.input_scored.connect(_on_input_scored)
     RhythmInput.note_missed.connect(_on_note_missed)
 
@@ -84,9 +125,27 @@ func get_attack_target() -> EnemyData:
 func get_phase_name() -> StringName:
     return &"ATTACK" if _current_phase == Phase.ATTACK else &"DEFEND"
 
+## Activate limit break for the active character.
+## Only works during ATTACK phase when the character's gauge is full.
+## Returns true if activated, false otherwise.
+func try_activate_limit_break() -> bool:
+    if _current_phase != Phase.ATTACK or _limit_break_active or _combat_ended:
+        return false
+    var character = _get_active_character()
+    if character == null or character.limit_break_gauge < 1.0:
+        return false
+    _limit_break_active = true
+    _limit_break_character = character
+    player_phase_length = character.limit_break_phase_length
+    DebugLog.combat("[LB     ] started | %s | phase_len=%d  mult=×%.1f" % [
+        character.character_name, character.limit_break_phase_length,
+        character.limit_break_multiplier])
+    limit_break_started.emit(character)
+    return true
+
 # --- Beat handler ---
 
-func _on_beat(_beat_number: int) -> void:
+func _on_beat(beat_number: int) -> void:
     if _combat_ended:
         return
     _phase_beat_count += 1
@@ -105,32 +164,85 @@ func _on_beat(_beat_number: int) -> void:
             if _phase_beat_count > enemy.phase_length:
                 _end_defend_phase()
                 return
-            # Inject notes for beat index (_phase_beat_count - 1).
-            # beat_count=1 → beat_index=0 (first note in pattern), etc.
+            # Notes are pre-injected at half_beat (~250ms early) via _on_half_beat().
+            # No injection here — doing it again after a note is consumed causes
+            # a phantom re-add that expires and deals double damage.
             var beat_index: int = _phase_beat_count - 1
-            for note in enemy.pattern:
-                if note.beat_offset == beat_index:
-                    RhythmInput.add_note(note)
+            # Pre-announce notes due LOOKAHEAD_BEATS from now for visual spawning.
+            var lookahead_index: int = beat_index + lookahead_beats
+            for note: NoteData in enemy.pattern:
+                if note.beat_offset == lookahead_index:
+                    note_approaching.emit(note, beat_number + lookahead_beats)
+
+# --- Half-beat pre-injection ---
+
+## Fires at beat_position=0.5 (halfway through each beat).
+## Pre-injects the NEXT beat's DEFEND notes into RhythmInput so they are active
+## ~half_beat_duration ms before the player needs to press them.
+## This symmetrises the effective window from (0 → +good_ms) to (−half_beat → +good_ms).
+func _on_half_beat(_beat_number: int) -> void:
+    if _combat_ended or _current_phase != Phase.DEFEND:
+        return
+    var enemy = _get_defending_enemy_internal()
+    if enemy == null:
+        return
+    # _phase_beat_count will be incremented on the next full beat,
+    # making beat_index = _phase_beat_count (the current value).
+    var next_beat_index: int = _phase_beat_count
+    if next_beat_index >= enemy.phase_length:
+        return  # next beat ends (or already past) this DEFEND turn; nothing to pre-inject
+    # Compute when the next beat is due so the note's expiry is beat-anchored.
+    var half_beat_ms: int = int(float(60.0 / BeatClock.bpm) * 500.0)
+    var due_ms: int = Time.get_ticks_msec() + half_beat_ms
+    for note: NoteData in enemy.pattern:
+        if note.beat_offset == next_beat_index:
+            if RhythmInput.add_note(note, due_ms):
+                DebugLog.timing("[PRE-INJ] dir=%-5s  due in %d ms  window: −%d → +%.0f ms" % [
+                    note.direction, half_beat_ms, half_beat_ms, RhythmInput.good_ms])
 
 # --- Phase transitions ---
 
 func _end_attack_phase() -> void:
-    # Apply accumulated damage to the first living enemy.
-    var target = get_attack_target()
-    if target != null:
-        var damage: int = int(_damage_accumulator)
-        target.hp = max(0, target.hp - damage)
+    # Damage is applied per-hit in _on_input_scored; nothing to apply here.
+    _phase_beat_count = 0
 
-    _damage_accumulator = 0.0
-    _phase_beat_count   = 0
-    _defend_index       = _first_living_enemy_index()
+    # End limit break if it was active this phase.
+    if _limit_break_active:
+        _limit_break_active = false
+        if _limit_break_character != null:
+            _limit_break_character.limit_break_gauge = 0.0
+        _limit_break_character = null
+        player_phase_length = _default_phase_length
+        DebugLog.combat("[LB     ] ended — gauge reset")
+        limit_break_ended.emit()
+
+    _defend_index = _first_living_enemy_index()
     RhythmInput.clear_notes()
     _current_phase = Phase.DEFEND
+    var defending_name: String = _enemy_party[_defend_index].enemy_name if _defend_index < _enemy_party.size() else "?"
+    DebugLog.combat("[PHASE  ] ATTACK → DEFEND | defending: %s" % defending_name)
+    phase_changed.emit(Phase.DEFEND)
 
-    # Check win condition after applying damage.
+    # Announce DEFEND notes whose normal lookahead window falls before the phase start.
+    # note_approaching for beat_offset=k normally fires at beat_index = k - lookahead_beats,
+    # which is negative for the first lookahead_beats notes — so they'd never get a visual.
+    # Emit them now from the transition beat; note_lane uses target_beat for travel time
+    # so the visual duration correctly reflects how long until the note is actually due.
+    var early_enemy = _get_defending_enemy_internal()
+    if early_enemy != null:
+        for note: NoteData in early_enemy.pattern:
+            if note.beat_offset < lookahead_beats:
+                var target_beat: int = BeatClock.beat_number + 1 + note.beat_offset
+                note_approaching.emit(note, target_beat)
+                DebugLog.timing("[EARLY-A] dir=%-5s  target_beat=%d  (first-beat lookahead, travel=%d beat(s))" % [
+                    note.direction, target_beat, note.beat_offset + 1])
+
+    # Safety-net win check: normally triggered per-hit, but covers the edge
+    # case where the phase boundary fires before the last scored signal arrives.
     if _all_enemies_dead() and not _combat_ended:
         _combat_ended = true
         teardown()
+        DebugLog.combat("[WIN    ] all enemies defeated (safety-net check at phase boundary)")
         combat_won.emit()
 
 func _end_defend_phase() -> void:
@@ -144,37 +256,83 @@ func _end_defend_phase() -> void:
 
     # All living enemies have had their turn — back to ATTACK.
     if _defend_index >= _enemy_party.size():
+        _sequence.reset()
         _current_phase = Phase.ATTACK
+        DebugLog.combat("[PHASE  ] DEFEND → ATTACK")
+        phase_changed.emit(Phase.ATTACK)
+    else:
+        DebugLog.combat("[PHASE  ] DEFEND turn done | next: %s" % _enemy_party[_defend_index].enemy_name)
 
 # --- Input handlers ---
 
-func _on_input_scored(_direction: StringName, score: StringName, _offset_ms: float) -> void:
+func _on_input_scored(_direction: StringName, score: StringName, _offset_ms: float, note_consumed: bool) -> void:
+    if _combat_ended:
+        return
     match _current_phase:
         Phase.ATTACK:
             var character = _get_active_character()
             if character == null:
                 return
+            var multiplier: float = _sequence.record_hit(score)
+            # Limit break multiplier stacks on top of combo multiplier.
+            var lb_mult: float = character.limit_break_multiplier if _limit_break_active else 1.0
+            var target = get_attack_target()
             match score:
                 &"perfect":
-                    _damage_accumulator += float(character.attack_power)
+                    if target != null:
+                        var dmg := int(float(character.attack_power) * multiplier * lb_mult)
+                        var old_hp: int = target.hp
+                        target.hp = max(0, old_hp - dmg)
+                        DebugLog.combat("[ATTACK ] perfect | %s → %s for %d | hp %d → %d  (×%.1f combo)" % [
+                            character.character_name, target.enemy_name, dmg, old_hp, target.hp, multiplier])
+                    # Charge gauge only when limit break is NOT active.
+                    if not _limit_break_active:
+                        var was_ready: bool = character.limit_break_gauge >= 1.0
+                        character.limit_break_gauge = min(1.0, character.limit_break_gauge + character.charge_rate_perfect)
+                        if not was_ready and character.limit_break_gauge >= 1.0:
+                            DebugLog.combat("[LB     ] gauge full — %s can activate limit break" % character.character_name)
+                            limit_break_ready.emit(character)
                 &"good":
-                    _damage_accumulator += float(character.attack_power) * 0.5
-                # miss: accumulate nothing
+                    if target != null:
+                        var dmg := int(float(character.attack_power) * 0.5 * multiplier * lb_mult)
+                        var old_hp: int = target.hp
+                        target.hp = max(0, old_hp - dmg)
+                        DebugLog.combat("[ATTACK ] good    | %s → %s for %d | hp %d → %d  (×%.1f combo)" % [
+                            character.character_name, target.enemy_name, dmg, old_hp, target.hp, multiplier])
+                    if not _limit_break_active:
+                        character.limit_break_gauge = min(1.0, character.limit_break_gauge + character.charge_rate_good)
+                # miss: no damage, no gauge charge
+            combo_updated.emit(_sequence.combo_count, _sequence.get_multiplier())
+            # Apply win condition immediately so the enemy bar empties on the killing hit.
+            if _all_enemies_dead() and not _combat_ended:
+                _combat_ended = true
+                teardown()
+                DebugLog.combat("[WIN    ] all enemies defeated")
+                combat_won.emit()
 
         Phase.DEFEND:
+            var tag := "CONSUMED" if note_consumed else "NO-NOTE (ignored)"
+            DebugLog.timing("[INPUT  ] dir=%-5s  offset=%+.1f ms  score=%-8s  %s" % [
+                _direction, _offset_ms, score, tag])
+            # Only respond to presses that consumed an active note.
+            # Ignoring free-form presses prevents phantom blocking.
+            if not note_consumed:
+                return
             var enemy     = _get_defending_enemy_internal()
             var character = _get_active_character()
             if enemy == null or character == null:
                 return
             match score:
                 &"perfect":
-                    pass  # fully blocked, no damage
+                    DebugLog.combat("[DEFEND ] perfect block | %s ← %s | no damage" % [
+                        character.character_name, enemy.enemy_name])
                 &"good":
                     _apply_damage_to_character(character, int(float(enemy.attack_power) * 0.5))
                 &"miss":
                     _apply_damage_to_character(character, enemy.attack_power)
 
 func _on_note_missed(_note) -> void:
+    DebugLog.timing("[EXPIRE ] dir=%-5s  note expired without a press" % _note.direction)
     # A targeted note expired without a press — treat as a full miss in DEFEND phase.
     if _current_phase != Phase.DEFEND:
         return
@@ -190,6 +348,8 @@ func _on_note_missed(_note) -> void:
 func teardown() -> void:
     if BeatClock.beat.is_connected(_on_beat):
         BeatClock.beat.disconnect(_on_beat)
+    if BeatClock.half_beat.is_connected(_on_half_beat):
+        BeatClock.half_beat.disconnect(_on_half_beat)
     if RhythmInput.input_scored.is_connected(_on_input_scored):
         RhythmInput.input_scored.disconnect(_on_input_scored)
     if RhythmInput.note_missed.is_connected(_on_note_missed):
@@ -205,10 +365,14 @@ func _exit_tree() -> void:
 func _apply_damage_to_character(character, damage: int) -> void:
     if _combat_ended:
         return
-    character.hp = max(0, character.hp - damage)
+    var old_hp: int = character.hp
+    character.hp = max(0, old_hp - damage)
+    DebugLog.combat("[DEFEND ] %s took %d dmg | hp %d → %d/%d" % [
+        character.character_name, damage, old_hp, character.hp, character.max_hp])
     if _all_characters_dead():
         _combat_ended = true
         teardown()
+        DebugLog.combat("[LOST   ] all player characters defeated")
         combat_lost.emit()
 
 ## First living CharacterData in party (prototype: always the same character takes hits).

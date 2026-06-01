@@ -1,42 +1,26 @@
 [gd_scene format=3 uid="uid://cp6fvth1pmh50"]
 
 [ext_resource type="Script" uid="uid://doiug066vs7ax" path="res://test_scene.gd" id="1"]
+[ext_resource type="Resource" path="res://encounters/string_golem.tres" id="2_8pr8v"]
 [ext_resource type="AudioStream" uid="uid://cayshwva0vr5i" path="res://audio/fassounds-escape-your-love-upbeat-fashion-pop-dance-412230.mp3" id="2_ia1lp"]
+[ext_resource type="PackedScene" path="res://combat/combat_ui.tscn" id="3_combatui"]
+[ext_resource type="PackedScene" path="res://combat/note_lane.tscn" id="4_noteln"]
+[ext_resource type="PackedScene" path="res://combat/audio_feedback.tscn" id="5_audiofb"]
+[ext_resource type="PackedScene" path="res://combat/replay_ui.tscn" id="7_replay"]
 
 [node name="TestScene" type="Node2D" unique_id=2070855162]
 script = ExtResource("1")
-bpm = 130.0
-intro_offset_ms = 1200.0
+encounter = ExtResource("2_8pr8v")
 
 [node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="." unique_id=1811469649]
 stream = ExtResource("2_ia1lp")
 
-[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=492335820]
+[node name="CombatUI" parent="." unique_id=1799381395 instance=ExtResource("3_combatui")]
 
-[node name="VBox" type="VBoxContainer" parent="CanvasLayer" unique_id=157026521]
-offset_right = 500.0
-offset_bottom = 250.0
+[node name="NoteLane" parent="." unique_id=1812133656 instance=ExtResource("4_noteln")]
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="BPMLabel" type="Label" parent="CanvasLayer/VBox" unique_id=1055477790]
-layout_mode = 2
-text = "BPM: --"
+[node name="AudioFeedback" parent="." unique_id=1952430492 instance=ExtResource("5_audiofb")]
 
-[node name="BeatLabel" type="Label" parent="CanvasLayer/VBox" unique_id=1695363693]
-layout_mode = 2
-text = "Beat: --"
-
-[node name="ScoreLabel" type="Label" parent="CanvasLayer/VBox" unique_id=1268630759]
-layout_mode = 2
-text = "Last: --"
-
-[node name="PhaseLabel" type="Label" parent="CanvasLayer/VBox" unique_id=392517534]
-layout_mode = 2
-text = "Phase: --"
-
-[node name="EnemyHPLabel" type="Label" parent="CanvasLayer/VBox" unique_id=722122688]
-layout_mode = 2
-text = "Enemy: --"
-
-[node name="PlayerHPLabel" type="Label" parent="CanvasLayer/VBox" unique_id=1683365527]
-layout_mode = 2
-text = "Player HP: --"
+[node name="ReplayUI" parent="." unique_id=1902740689 instance=ExtResource("7_replay")]

@@ -1,147 +1,113 @@
 # test_scene.gd
-# The prototype's main scene. Exercises the full rhythm combat stack:
-# BeatClock → CombatScene ← RhythmInput
-# Run in Godot (F5) and press arrow keys on the beat to see scoring.
+# Prototype's main scene. Exercises the full rhythm combat stack.
+# Run in Godot (F5) and press arrow keys on the beat.
 extends Node2D
 
-# Preload workarounds: class_name global scope may not be fully initialized
-# when this script parses, so use preload constants for typed declarations.
-const CharacterData    = preload("res://characters/character_data.gd")
-const EnemyData        = preload("res://characters/enemy_data.gd")
-const EncounterManager = preload("res://combat/encounter_manager.gd")
+const CharacterData        = preload("res://characters/character_data.gd")
+const EncounterManager     = preload("res://combat/encounter_manager.gd")
+const EncounterDefinition  = preload("res://encounters/encounter_definition.gd")
 
-## Set to false to test ambush (enemies attack first).
+## Set false to test ambush (enemies attack first).
 @export var player_first: bool = true
 
-## Change to &"orc_heavy" or &"goblin_pair" to test other encounters.
-@export var encounter_id: StringName = &"goblin_single"
+## Drag an encounters/*.tres file here to select the default encounter.
+## The ReplayUI dropdown overrides this on replay — set it to whatever you
+## want to fight on a fresh F5.
+@export var encounter: EncounterDefinition
 
-## BPM to use for this session. Set in the Inspector to match your song,
-## then press Play — BeatClock picks it up before the first beat fires.
-@export var bpm: float = 120.0
+@export_group("Debug Logging")
+## Master switch — all categories are silent while this is off.
+@export var log_enabled:        bool = false
+## Beat events, note pre-injection timing, press offsets, note expiry.
+@export var log_beat_timing:    bool = false
+## Phase transitions, damage dealt, HP changes, win/loss, limit break.
+@export var log_combat_events:  bool = false
+## Note visual spawning, hit-zone flashes.
+@export var log_note_visuals:   bool = false
+## Audio feedback cues (score, pitch).
+@export var log_audio_events:   bool = false
+@export_group("")
 
-## Milliseconds before the first beat of your song.
-## If the track has a silent or non-rhythmic intro, set this to how long
-## (in ms) that intro lasts so the beat clock waits before counting.
-@export var intro_offset_ms: float = 0.0
+## Holds the encounter chosen in the ReplayUI across reload_current_scene().
+## Static variables persist on the GDScript class between scene reloads.
+static var pending_encounter: EncounterDefinition = null
 
-# Node references — @onready populates these after _ready() begins.
-# The $ shorthand is equivalent to get_node("NodePath").
-@onready var _audio:        AudioStreamPlayer = $AudioStreamPlayer
-@onready var _bpm_label:    Label = $CanvasLayer/VBox/BPMLabel
-@onready var _beat_label:   Label = $CanvasLayer/VBox/BeatLabel
-@onready var _score_label:  Label = $CanvasLayer/VBox/ScoreLabel
-@onready var _phase_label:  Label = $CanvasLayer/VBox/PhaseLabel
-@onready var _enemy_label:  Label = $CanvasLayer/VBox/EnemyHPLabel
-@onready var _player_label: Label = $CanvasLayer/VBox/PlayerHPLabel
+@onready var _audio:          AudioStreamPlayer = $AudioStreamPlayer
+@onready var _combat_ui:      Node              = $CombatUI
+@onready var _note_lane:      Node              = $NoteLane
+@onready var _audio_feedback: Node              = $AudioFeedback
+@onready var _replay_ui:      Node              = $ReplayUI
 
 var _hero:   CharacterData
-var _combat: Node   # CombatScene instance
-
-# Previous-frame HP values used to detect damage events for the red flash.
-var _prev_player_hp: int = -1
-var _prev_enemy_hp:  int = -1
+var _combat: Node
 
 func _ready() -> void:
-	# Build a default player character for the prototype.
-	_hero                = CharacterData.new()
-	_hero.character_name = "Hero"
-	_hero.max_hp         = 100
-	_hero.hp             = 100
-	_hero.attack_power   = 12
+	# Apply debug logging toggles from the Inspector (Debug Logging group).
+	# Values are saved in test_scene.tscn so they persist between editor sessions.
+	DebugLog.enabled       = log_enabled
+	DebugLog.beat_timing   = log_beat_timing
+	DebugLog.combat_events = log_combat_events
+	DebugLog.note_visuals  = log_note_visuals
+	DebugLog.audio_events  = log_audio_events
 
-	# Apply the exported BPM and intro offset before starting.
-	BeatClock.bpm = bpm
-	BeatClock.intro_offset_ms = intro_offset_ms
+	# If a replay was requested, use the dropdown's selection instead of the
+	# Inspector default. Clear immediately so a hard F5 always uses the export.
+	if pending_encounter != null:
+		encounter = pending_encounter
+		pending_encounter = null
 
-	# Start audio then anchor BeatClock to it.
-	# If res://audio/placeholder_beat.ogg does not exist, audio_player.play()
-	# silently fails and BeatClock falls back to wall-clock time automatically.
+	# Load hero. Duplicate so runtime HP mutations don't pollute the cached asset.
+	_hero = load("res://characters/luthier_frett.tres") as CharacterData
+	if _hero == null:
+		push_error("test_scene: luthier_frett.tres not found — using fallback hero")
+		_hero                = CharacterData.new()
+		_hero.character_name = "Hero"
+		_hero.max_hp         = 100
+		_hero.hp             = 100
+		_hero.attack_power   = 12
+	else:
+		_hero = _hero.duplicate() as CharacterData
+
+	_audio_feedback.setup(_hero)   # connect pitch-shifted SFX to RhythmInput
+
+	BeatClock.bpm             = 130.0
+	BeatClock.intro_offset_ms = 1200.0
 	_audio.play()
 	BeatClock.start(_audio)
 
-	# Build a typed array for start_combat (required by its Array[CharacterData] param).
-	var party: Array[CharacterData] = [_hero]
+	if encounter == null:
+		push_error("test_scene: no encounter assigned — drag an encounters/*.tres file into the Encounter field in the Inspector")
+		return
 
-	# Load the encounter. EncounterManager adds CombatScene as a child of this scene.
-	_combat = EncounterManager.start_combat(get_tree(), party, encounter_id, player_first)
+	var party: Array[CharacterData] = [_hero]
+	_combat = EncounterManager.start_combat_from_definition(get_tree(), party, encounter, player_first)
 	_combat.combat_won.connect(_on_combat_won)
 	_combat.combat_lost.connect(_on_combat_lost)
 
-	# Connect beat flash and input display.
-	BeatClock.beat.connect(_on_beat)
-	RhythmInput.input_scored.connect(_on_input_scored)
+	_combat_ui.setup(_combat, _hero)
+	_note_lane.setup(_combat)
 
-func _exit_tree() -> void:
-	if BeatClock.beat.is_connected(_on_beat):
-		BeatClock.beat.disconnect(_on_beat)
-	if RhythmInput.input_scored.is_connected(_on_input_scored):
-		RhythmInput.input_scored.disconnect(_on_input_scored)
+	# Pre-select the active encounter in the replay dropdown.
+	_replay_ui.set_active_encounter(encounter)
+	_replay_ui.replay_requested.connect(_on_replay_requested)
 
-func _process(_delta: float) -> void:
-	# Keep BeatClock in sync if bpm or intro_offset_ms are tweaked live in the remote Inspector.
-	BeatClock.bpm = bpm
-	BeatClock.intro_offset_ms = intro_offset_ms
-	_bpm_label.text  = "BPM: %.0f" % BeatClock.bpm
-	_beat_label.text = "Beat: %d  (pos: %.2f)" % [BeatClock.beat_number, BeatClock.beat_position]
-
-	# Phase label: yellow while attacking, blue while defending.
-	var phase: StringName = _combat.get_phase_name()
-	_phase_label.text = "Phase: %s" % phase
-	_phase_label.modulate = Color.YELLOW if phase == &"ATTACK" else Color(0.4, 0.8, 1.0)
-
-	# Player HP — flash red on damage.
-	_player_label.text = "Player HP: %d / %d" % [_hero.hp, _hero.max_hp]
-	if _prev_player_hp != -1 and _hero.hp < _prev_player_hp:
-		_flash_red(_player_label)
-	_prev_player_hp = _hero.hp
-
-	# Enemy HP — flash red on damage.
-	var target: EnemyData = _combat.get_attack_target()
-	var current_enemy_hp: int = target.hp if target != null else -1
-	if target != null:
-		_enemy_label.text = "Enemy: %s  HP: %d / %d" % [target.enemy_name, target.hp, target.max_hp]
-		if _prev_enemy_hp != -1 and current_enemy_hp < _prev_enemy_hp:
-			_flash_red(_enemy_label)
-	else:
-		_enemy_label.text = "Enemy: none"
-	_prev_enemy_hp = current_enemy_hp
-
-func _on_beat(_beat_number: int) -> void:
-	# Visual pulse: flash the beat label yellow for 0.1 seconds.
-	_beat_label.modulate = Color.YELLOW
-	# create_timer() is a one-shot timer that auto-frees — no Timer node needed.
-	await get_tree().create_timer(0.1).timeout
-	if not is_instance_valid(self):
+func _unhandled_input(event: InputEvent) -> void:
+	if _combat == null:
 		return
-	_beat_label.modulate = Color.WHITE
-
-func _flash_red(label: Label) -> void:
-	label.modulate = Color.RED
-	await get_tree().create_timer(0.2).timeout
-	if not is_instance_valid(self):
-		return
-	label.modulate = Color.WHITE
-
-func _on_input_scored(direction: StringName, score: StringName, offset_ms: float) -> void:
-	_score_label.text = "Last: %-5s  %-7s  (%+.1f ms)" % [direction, score, offset_ms]
+	if event.is_action_pressed(&"limit_break"):
+		_combat.try_activate_limit_break()
 
 func _on_combat_won() -> void:
-	# Flush final HP values before set_process(false) freezes the labels.
-	_player_label.text = "Player HP: %d / %d" % [_hero.hp, _hero.max_hp]
-	_enemy_label.text  = "Enemy: none"
-	_score_label.text  = "*** VICTORY! ***"
 	BeatClock.stop()
 	_audio.stop()
-	set_process(false)
+	_replay_ui.show_outcome(true)
 
 func _on_combat_lost() -> void:
-	# Flush final HP values before set_process(false) freezes the labels.
-	_player_label.text = "Player HP: %d / %d" % [_hero.hp, _hero.max_hp]
-	var target: EnemyData = _combat.get_attack_target()
-	if target != null:
-		_enemy_label.text = "Enemy: %s  HP: %d / %d" % [target.enemy_name, target.hp, target.max_hp]
-	_score_label.text = "*** DEFEAT! ***"
 	BeatClock.stop()
 	_audio.stop()
-	set_process(false)
+	_replay_ui.show_outcome(false)
+
+func _on_replay_requested(new_encounter: EncounterDefinition) -> void:
+	# Store selection so _ready() can pick it up after the scene reloads.
+	pending_encounter = new_encounter
+	get_tree().reload_current_scene()

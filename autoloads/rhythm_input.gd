@@ -1,124 +1,106 @@
 # autoloads/rhythm_input.gd
 # Registered as autoload "RhythmInput" in project.godot.
-# Receives input events before any scene node because autoloads sit at the top
-# of the scene tree. _unhandled_input fires only for events not consumed by UI.
 extends Node
 
-# Type alias for NoteData to resolve parse-time type resolution issues
-# In Godot 4.6, class_name declarations create global scope but autoloads
-# load before global scope is fully initialized. This is a known pattern.
-const NoteData = preload("res://rhythm_engine/note_data.gd")
+const NoteData   = preload("res://rhythm_engine/note_data.gd")
+const ActiveNote = preload("res://rhythm_engine/active_note.gd")
+# DebugLog is a class_name script, but autoloads can't rely on class_name scope
+# in Godot 4.6 — use the same preload-constant workaround as NoteData above.
+const DebugLog   = preload("res://autoloads/debug_log.gd")
 
 # --- Signals ---
-
 ## Emitted on every scored directional press.
-## direction: &"up" / &"down" / &"left" / &"right"
-## score:     &"perfect" / &"good" / &"miss"
-## offset_ms: signed ms from nearest beat (negative=early, positive=late)
-signal input_scored(direction: StringName, score: StringName, offset_ms: float)
+## note_consumed: true if this press consumed an active targeted/free_form note.
+##                false if player pressed with no active note (ignore in DEFEND).
+signal input_scored(direction: StringName, score: StringName, offset_ms: float, note_consumed: bool)
 
 ## Emitted when a targeted note expires without a matching press.
-## CombatScene listens to this to apply full defend-phase damage.
 signal note_missed(note: NoteData)
 
 # --- Configurable thresholds ---
-
-## Absolute offset ≤ perfect_ms scores as "perfect".
 @export var perfect_ms: float = 50.0
-
-## Absolute offset ≤ good_ms scores as "good". Beyond this = "miss".
 @export var good_ms: float = 120.0
 
 # --- Active note queue ---
-
-## Targeted notes currently in the scoring window.
-## Populated by CombatScene via add_note(). Expired notes emit note_missed.
-var active_notes: Array[NoteData] = []
-
-## Parallel array: the Time.get_ticks_msec() value when each note was injected.
-## Used to detect expiry without modifying NoteData.
-var _note_inject_times: Array[int] = []
+# Array[ActiveNote] — typed as Array (untyped) due to preload workaround in autoloads.
+var _active: Array = []
 
 # --- Public API ---
 
-## Score an absolute timing offset against the configured thresholds.
-## abs_offset_ms must be >= 0 (pass abs(BeatClock.get_offset_ms())).
-## Returns &"perfect", &"good", or &"miss".
-## Public (no underscore) so test/test_scoring.gd can call it directly.
 func score_timing(abs_offset_ms: float) -> StringName:
-	if abs_offset_ms <= perfect_ms:
-		return &"perfect"
-	elif abs_offset_ms <= good_ms:
-		return &"good"
-	else:
-		return &"miss"
+    if abs_offset_ms <= perfect_ms:
+        return &"perfect"
+    elif abs_offset_ms <= good_ms:
+        return &"good"
+    else:
+        return &"miss"
 
-## Inject a note into the active window. Called by CombatScene on each beat signal.
-## Records the injection timestamp for expiry checking — NoteData is not mutated.
-func add_note(note: NoteData) -> void:
-	active_notes.append(note)
-	_note_inject_times.append(Time.get_ticks_msec())
+## Add a note to the scoring queue.
+## due_time_ms: wall-clock timestamp when the note is ideally due (used for expiry).
+##   Pass 0 (default) to use the current time — identical to legacy behaviour.
+##   Pass a future timestamp to pre-inject the note before its beat, so early
+##   presses can consume it while expiry is still anchored to the beat moment.
+## Returns true if the note was newly added, false if it was already active
+## (duplicate-prevention so half_beat pre-injection and beat fallback can coexist).
+func add_note(note: NoteData, due_time_ms: int = 0) -> bool:
+    for an in _active:
+        if an.note == note:
+            return false   # already queued; caller can log a fallback if needed
+    var now := Time.get_ticks_msec()
+    _active.append(ActiveNote.new(note, now, due_time_ms if due_time_ms > 0 else now))
+    return true
 
-## Flush all active notes without scoring. Call at phase transitions.
 func clear_notes() -> void:
-	active_notes.clear()
-	_note_inject_times.clear()
+    if _active.size() > 0:
+        DebugLog.timing("[CLEAR  ] flushed %d active note(s)" % _active.size())
+    _active.clear()
 
 # --- Input handling ---
 
-## Called by Godot for every InputEvent not consumed by a UI control.
-## Scores the press against active targeted notes first (hybrid model), then
-## falls back to free-form beat scoring if no targeted note matches.
 func _unhandled_input(event: InputEvent) -> void:
-	var direction := _get_direction(event)
-	if direction == &"":
-		return
+    var direction := _get_direction(event)
+    if direction == &"":
+        return
 
-	# Mark as handled so no other node processes this rhythm input.
-	get_viewport().set_input_as_handled()
+    get_viewport().set_input_as_handled()
 
-	var offset_ms: float = BeatClock.get_offset_ms()
-	var abs_offset: float = abs(offset_ms)
+    var offset_ms: float = BeatClock.get_offset_ms()
+    var abs_offset: float = abs(offset_ms)
 
-	# --- Hybrid scoring: targeted note takes priority over free-form ---
-	# Search active_notes in reverse so removal by index is safe.
-	for i in range(active_notes.size() - 1, -1, -1):
-		var note: NoteData = active_notes[i]
-		if note.mode == &"targeted" and note.direction == direction:
-			# Found a matching targeted note — score it and remove from queue.
-			var score: StringName = score_timing(abs_offset)
-			active_notes.remove_at(i)
-			_note_inject_times.remove_at(i)
-			input_scored.emit(direction, score, offset_ms)
-			return
+    # Targeted note takes priority — search in reverse for safe removal.
+    for i in range(_active.size() - 1, -1, -1):
+        var an = _active[i]
+        if an.note.mode == &"targeted" and an.note.direction == direction:
+            var score: StringName = score_timing(abs_offset)
+            _active.remove_at(i)
+            input_scored.emit(direction, score, offset_ms, true)
+            return
 
-	# No matching targeted note — treat as free-form beat press.
-	var score: StringName = score_timing(abs_offset)
-	input_scored.emit(direction, score, offset_ms)
+    # Free-form fallthrough — no matching targeted note active.
+    var score: StringName = score_timing(abs_offset)
+    input_scored.emit(direction, score, offset_ms, false)
 
 # --- Note expiry ---
 
-## Each frame, check whether any targeted note's timing window has closed.
-## A note expires when more than good_ms has elapsed since it was injected.
 func _process(_delta: float) -> void:
-	var now: int = Time.get_ticks_msec()
-	# Iterate in reverse so removal by index doesn't skip entries.
-	for i in range(active_notes.size() - 1, -1, -1):
-		if active_notes[i].mode != &"targeted":
-			continue
-		var age_ms: float = float(now - _note_inject_times[i])
-		if age_ms > good_ms:
-			var expired: NoteData = active_notes[i]
-			active_notes.remove_at(i)
-			_note_inject_times.remove_at(i)
-			note_missed.emit(expired)
+    var now: int = Time.get_ticks_msec()
+    for i in range(_active.size() - 1, -1, -1):
+        var an = _active[i]
+        if an.note.mode != &"targeted":
+            continue
+        # Use due_time_ms so expiry is anchored to the beat moment,
+        # not to when the note was injected (which may be earlier via half_beat).
+        var age_ms: float = float(now - an.due_time_ms)
+        if age_ms > good_ms:
+            var expired: NoteData = an.note
+            _active.remove_at(i)
+            note_missed.emit(expired)
 
 # --- Helpers ---
 
 func _get_direction(event: InputEvent) -> StringName:
-	# is_action_pressed() returns true only on the initial press, not hold.
-	if event.is_action_pressed(&"rhythm_up"):    return &"up"
-	if event.is_action_pressed(&"rhythm_down"):  return &"down"
-	if event.is_action_pressed(&"rhythm_left"):  return &"left"
-	if event.is_action_pressed(&"rhythm_right"): return &"right"
-	return &""
+    if event.is_action_pressed(&"rhythm_up"):    return &"up"
+    if event.is_action_pressed(&"rhythm_down"):  return &"down"
+    if event.is_action_pressed(&"rhythm_left"):  return &"left"
+    if event.is_action_pressed(&"rhythm_right"): return &"right"
+    return &""
