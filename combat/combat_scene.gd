@@ -163,6 +163,14 @@ func set_active_profile(profile) -> void:
         RhythmInput.set_active_profile(profile)
     _evaluator.reset()
 
+## Returns the active defense pattern type.
+## &"directional" = arrow-matching (current default).
+## &"percussive"  = timing-only (Beatrice's path, not yet implemented).
+func get_defense_type() -> StringName:
+    if _active_profile == null:
+        return &"directional"
+    return _active_profile.defense_pattern_type
+
 ## Factory: returns the named evaluator, defaulting to PassthroughEvaluator.
 ## Add new evaluator classes to this match block when implementing new characters.
 func _create_evaluator(name: StringName) -> AttackEvaluator:
@@ -334,22 +342,14 @@ func _on_input_scored(_direction: StringName, score: StringName, _offset_ms: flo
             var tag := "CONSUMED" if note_consumed else "NO-NOTE (ignored)"
             DebugLog.timing("[INPUT  ] dir=%-5s  offset=%+.1f ms  score=%-8s  %s" % [
                 _direction, _offset_ms, score, tag])
-            # Only respond to presses that consumed an active note.
-            # Ignoring free-form presses prevents phantom blocking.
-            if not note_consumed:
-                return
-            var enemy     = _get_defending_enemy_internal()
-            var character = _get_active_character()
-            if enemy == null or character == null:
-                return
-            match score:
-                &"perfect":
-                    DebugLog.combat("[DEFEND ] perfect block | %s ← %s | no damage" % [
-                        character.character_name, enemy.enemy_name])
-                &"good":
-                    _apply_damage_to_character(character, int(float(enemy.attack_power) * 0.5))
-                &"miss":
-                    _apply_damage_to_character(character, enemy.attack_power)
+            # Route to the appropriate defend handler based on defense_pattern_type.
+            match get_defense_type():
+                &"directional":
+                    _handle_defend_directional(_direction, score, _offset_ms, note_consumed)
+                &"percussive":
+                    pass   # stub — not yet implemented; Beatrice's path fills this in
+                _:
+                    _handle_defend_directional(_direction, score, _offset_ms, note_consumed)
 
 func _on_note_missed(_note) -> void:
     DebugLog.timing("[EXPIRE ] dir=%-5s  note expired without a press" % _note.direction)
@@ -380,6 +380,24 @@ func _exit_tree() -> void:
     teardown()
 
 # --- Helpers ---
+
+## DEFEND handler for defense_pattern_type == &"directional" (current default).
+## Requires note_consumed == true; free-form presses are ignored.
+func _handle_defend_directional(_direction: StringName, score: StringName, _offset_ms: float, note_consumed: bool) -> void:
+    if not note_consumed:
+        return
+    var enemy     = _get_defending_enemy_internal()
+    var character = _get_active_character()
+    if enemy == null or character == null:
+        return
+    match score:
+        &"perfect":
+            DebugLog.combat("[DEFEND ] perfect block | %s ← %s | no damage" % [
+                character.character_name, enemy.enemy_name])
+        &"good":
+            _apply_damage_to_character(character, int(float(enemy.attack_power) * 0.5))
+        &"miss":
+            _apply_damage_to_character(character, enemy.attack_power)
 
 ## Applies damage and checks loss condition.
 func _apply_damage_to_character(character: CharacterData, damage: int) -> void:
