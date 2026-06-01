@@ -2,11 +2,12 @@
 # Registered as autoload "RhythmInput" in project.godot.
 extends Node
 
-const NoteData   = preload("res://rhythm_engine/note_data.gd")
-const ActiveNote = preload("res://rhythm_engine/active_note.gd")
+const NoteData              = preload("res://rhythm_engine/note_data.gd")
+const ActiveNote            = preload("res://rhythm_engine/active_note.gd")
+const CharacterInputProfile = preload("res://characters/character_input_profile.gd")
 # DebugLog is a class_name script, but autoloads can't rely on class_name scope
 # in Godot 4.6 — use the same preload-constant workaround as NoteData above.
-const DebugLog   = preload("res://autoloads/debug_log.gd")
+const DebugLog              = preload("res://autoloads/debug_log.gd")
 
 # --- Signals ---
 ## Emitted on every scored directional press.
@@ -17,9 +18,21 @@ signal input_scored(direction: StringName, score: StringName, offset_ms: float, 
 ## Emitted when a targeted note expires without a matching press.
 signal note_missed(note: NoteData)
 
+## Emitted when two or more inputs within chord_window_ms are recognised as a chord.
+## chord_name is the inputs joined with "+" e.g. "up+down".
+signal input_chord(chord_name: StringName, score: StringName)
+
 # --- Configurable thresholds ---
 @export var perfect_ms: float = 50.0
 @export var good_ms: float = 120.0
+
+# --- Active profile ---
+# Null = no filter (default: all registered rhythm actions accepted).
+var _active_profile = null   # CharacterInputProfile or null
+
+# Chord detection: keys pressed within chord_window_ms accumulate here.
+# Dict of StringName → int (wall-clock ms of press). Cleared after chord check.
+var _chord_buffer: Dictionary = {}
 
 # --- Active note queue ---
 # Array[ActiveNote] — typed as Array (untyped) due to preload workaround in autoloads.
@@ -55,6 +68,29 @@ func clear_notes() -> void:
         DebugLog.timing("[CLEAR  ] flushed %d active note(s)" % _active.size())
     _active.clear()
 
+# --- Profile API ---
+
+## Set the active CharacterInputProfile. Pass null to remove the filter.
+## valid_inputs = [] means "accept all" (same as no profile).
+func set_active_profile(profile) -> void:
+    _active_profile = profile
+    _chord_buffer.clear()
+
+## Remove the active profile, restoring default (all inputs accepted) behavior.
+func clear_profile() -> void:
+    _active_profile = null
+    _chord_buffer.clear()
+
+## Returns true if the given direction is allowed by the active profile.
+## When no profile is set, or valid_inputs is empty, all directions are allowed.
+func is_input_allowed(direction: StringName) -> bool:
+    if _active_profile == null:
+        return true
+    var vi: Array = _active_profile.valid_inputs
+    if vi.is_empty():
+        return true
+    return direction in vi
+
 # --- Input handling ---
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -62,7 +98,34 @@ func _unhandled_input(event: InputEvent) -> void:
     if direction == &"":
         return
 
+    # Profile filtering: drop inputs not in the active profile's valid_inputs.
+    if not is_input_allowed(direction):
+        return
+
     get_viewport().set_input_as_handled()
+
+    # Chord detection: record this press timestamp and check for matches.
+    if _active_profile != null and not _active_profile.chord_inputs.is_empty():
+        var now_ms: int = Time.get_ticks_msec()
+        _chord_buffer[direction] = now_ms
+        # Remove stale entries outside the chord window.
+        var window: float = _active_profile.chord_window_ms
+        for key in _chord_buffer.keys():
+            if float(now_ms - _chord_buffer[key]) > window:
+                _chord_buffer.erase(key)
+        # Check if the current buffer matches any defined chord.
+        for chord_def in _active_profile.chord_inputs:
+            var matched: bool = true
+            for required in chord_def:
+                if required not in _chord_buffer:
+                    matched = false
+                    break
+            if matched:
+                var chord_name := StringName("+".join(chord_def))
+                var score: StringName = score_timing(abs(BeatClock.get_offset_ms()))
+                _chord_buffer.clear()
+                input_chord.emit(chord_name, score)
+                return
 
     var offset_ms: float = BeatClock.get_offset_ms()
     var abs_offset: float = abs(offset_ms)
