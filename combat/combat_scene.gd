@@ -230,14 +230,19 @@ func _on_half_beat(_beat_number: int) -> void:
     var enemy: EnemyData = _get_defending_enemy_internal()
     if enemy == null:
         return
-    var next_beat_index: int = _phase_beat_count
-    if next_beat_index >= enemy.phase_length:
-        return  # at or past phase end — skip both injections (preserves original guard)
     var half_beat_ms: int = int(float(60.0 / BeatClock.bpm) * 500.0)
-    # Pre-inject notes due at the next whole beat.
-    _inject_notes_due(float(next_beat_index), Time.get_ticks_msec() + half_beat_ms)
-    # Inject notes due right now at the current half-beat position.
-    _inject_notes_due(float(_phase_beat_count - 1) + 0.5, Time.get_ticks_msec())
+    var next_beat_index: int = _phase_beat_count
+    # Pre-inject next whole-beat notes only while that beat is within the phase.
+    # beat_offset = float(next_beat_index) exists only for beat_index 0..phase_length-1.
+    if next_beat_index < enemy.phase_length:
+        _inject_notes_due(float(next_beat_index), Time.get_ticks_msec() + half_beat_ms)
+    # Inject the current half-beat position regardless of whether the next full beat
+    # is within the phase. This fixes the off-by-one that silently dropped the note
+    # at beat_offset = phase_length - 0.5 (the last half-beat of the last beat).
+    # Guard: pre-phase half_beat (pbc=0) gives half_pos=-0.5 which no real note has.
+    var half_pos: float = float(_phase_beat_count - 1) + 0.5
+    if half_pos >= 0.0:
+        _inject_notes_due(half_pos, Time.get_ticks_msec())
 
 ## Fires at beat_position 0.25 and 0.75.
 ## Injects notes whose beat_offset matches the current quarter-beat position.

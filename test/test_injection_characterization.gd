@@ -32,11 +32,12 @@ func _run() -> void:
 		printerr("FAIL: BeatClock not found"); return
 
 	# Build a test-only enemy with one note per subdivision in a 2-beat phase.
-	# Offsets covered: 0.0 (whole), 0.25 (quarter), 0.5 (half), 0.75 (3/4), 1.0 (next whole).
-	# Note: beat_offset=1.5 (last half-beat of a 2-beat phase) is NOT tested here —
-	# the current _on_half_beat guard (next_beat_index >= phase_length) skips it,
-	# and the refactor must preserve that behavior.
-	var offsets: Array[float] = [0.0, 0.25, 0.5, 0.75, 1.0]
+	# Offsets covered: 0.0 (whole), 0.25 (quarter), 0.5 (half), 0.75 (3/4),
+	#                  1.0 (next whole), 1.5 (last half-beat = phase_length - 0.5).
+	# beat_offset=1.5 was previously silently dropped by an off-by-one guard
+	# (>= instead of <) in _on_half_beat. The fix splits the guard so pre-injection
+	# uses the strict < check while the current-half-beat injection always fires.
+	var offsets: Array[float] = [0.0, 0.25, 0.5, 0.75, 1.0, 1.5]
 	var notes: Array[NoteData] = []
 	for off in offsets:
 		var n = NoteData.new()
@@ -102,11 +103,17 @@ func _run() -> void:
 	combat._on_beat(2)
 	_check("beat[2]: no direct injection",       ri._active.size() == 0,        true)
 
-	# ── half_beat(2) — phase_beat_count=2 = phase_length → guard fires ────────
-	# next_beat_index=2 >= phase_length=2 → returns early → NO injection.
+	# ── half_beat(2) — phase_beat_count=2 = phase_length ──────────────────────
+	# Pre-inject guard: next_beat_index=2 < phase_length=2 is FALSE → no pre-inject
+	#   (correct: there is no beat_offset=2.0 note in a 2-beat pattern).
+	# Half-beat injection: half_pos=1.5 >= 0 → fires → injects beat_offset=1.5.
+	# PREVIOUSLY (off-by-one): the >= guard returned early, silently dropping 1.5.
 	ri.clear_notes()
 	combat._on_half_beat(2)
-	_check("half_beat[2]: guard early-return → 0 notes", ri._active.size() == 0, true)
+	_check("half_beat[2]: injects last-half-beat offset=1.5 (off-by-one fixed)",
+		_has_offset(ri, 1.5), true)
+	_check("half_beat[2]: exactly 1 note (pre-inject skipped past phase end)",
+		ri._active.size() == 1, true)
 
 	ri.clear_notes()
 	combat.queue_free()
