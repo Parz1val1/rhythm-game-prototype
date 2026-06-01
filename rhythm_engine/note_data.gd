@@ -1,11 +1,10 @@
-## Which beat within the repeating pattern this note fires on (0-indexed, whole beats only).
-## E.g. beat_offset=2 fires on beat index 2 of a 4-beat pattern.
-## Stored as int because patterns fire on whole beats in this prototype.
-## Promote to float when half-beat notes are needed.
+## Which beat within the repeating pattern this note fires on (0-indexed).
+## Float so sub-beat patterns (e.g. 0.5, 1.5) work for rapid drumming / simultaneous hits.
+## Whole-beat patterns (0, 1, 2 …) continue to work unchanged.
 class_name NoteData
 extends Resource
 
-@export var beat_offset: int = 0
+@export var beat_offset: float = 0.0
 
 ## Direction the player must press.
 ## In free_form mode this still drives the pitch of the audio feedback sound.

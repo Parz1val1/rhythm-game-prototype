@@ -169,9 +169,9 @@ func _on_beat(beat_number: int) -> void:
             # a phantom re-add that expires and deals double damage.
             var beat_index: int = _phase_beat_count - 1
             # Pre-announce notes due LOOKAHEAD_BEATS from now for visual spawning.
-            var lookahead_index: int = beat_index + lookahead_beats
+            var lookahead_index: float = float(beat_index + lookahead_beats)
             for note: NoteData in enemy.pattern:
-                if note.beat_offset == lookahead_index:
+                if abs(note.beat_offset - lookahead_index) < 0.01:
                     note_approaching.emit(note, beat_number + lookahead_beats)
 
 # --- Half-beat pre-injection ---
@@ -195,7 +195,7 @@ func _on_half_beat(_beat_number: int) -> void:
     var half_beat_ms: int = int(float(60.0 / BeatClock.bpm) * 500.0)
     var due_ms: int = Time.get_ticks_msec() + half_beat_ms
     for note: NoteData in enemy.pattern:
-        if note.beat_offset == next_beat_index:
+        if abs(note.beat_offset - float(next_beat_index)) < 0.01:
             if RhythmInput.add_note(note, due_ms):
                 DebugLog.timing("[PRE-INJ] dir=%-5s  due in %d ms  window: −%d → +%.0f ms" % [
                     note.direction, half_beat_ms, half_beat_ms, RhythmInput.good_ms])
@@ -231,7 +231,7 @@ func _end_attack_phase() -> void:
     var early_enemy = _get_defending_enemy_internal()
     if early_enemy != null:
         for note: NoteData in early_enemy.pattern:
-            if note.beat_offset < lookahead_beats:
+            if note.beat_offset < float(lookahead_beats):
                 var target_beat: int = BeatClock.beat_number + 1 + note.beat_offset
                 note_approaching.emit(note, target_beat)
                 DebugLog.timing("[EARLY-A] dir=%-5s  target_beat=%d  (first-beat lookahead, travel=%d beat(s))" % [
