@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="SoloStyle" format=3]
+
+[ext_resource type="Script" path="res://characters/solo_style.gd" id="1_bsolos"]
+
+[resource]
+script = ExtResource("1_bsolos")
+instrument_name = "Drums"
+audio_bus = "Drums"
+scale_steps = Array[int]([0, 0, 0, 0])
+root_note = 48
+accent_color = Color(0.8, 0.15, 0.1, 1)
+phase_intro_text = "Beatrice takes the stage!"

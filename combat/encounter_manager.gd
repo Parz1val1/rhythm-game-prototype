@@ -70,6 +70,8 @@ static func _generate_enemies(encounter_id: StringName) -> Array[EnemyData]:
             return [_make_goblin(), _make_goblin_scout()]
         &"string_golem":
             return [_make_string_golem()]
+        &"drum_golem":
+            return [_make_drum_golem()]
         _:
             push_warning("EncounterManager: unknown encounter_id '%s', defaulting to goblin_single" % encounter_id)
             return [_make_goblin()]
@@ -163,4 +165,33 @@ static func _make_string_golem() -> EnemyData:
         notes.append(n)
 
     e.pattern = notes
+    return e
+
+## Drum Golem: 4-beat pattern for Beatrice's percussive defense.
+## Uses drum_left, drum_right, drum_both and half-beat (0.5) sub-beat offsets.
+static func _make_drum_golem() -> EnemyData:
+    var e := EnemyData.new()
+    e.enemy_name   = "Drum Golem"
+    e.max_hp       = 60
+    e.hp           = 60
+    e.attack_power = 14
+    e.phase_length = 4
+
+    # Beat 0:   drum_left  — on beat
+    # Beat 0.5: drum_right — rapid half-beat switch
+    # Beat 1:   drum_left
+    # Beat 1.5: drum_both  — chord accent on half-beat
+    # Beat 2:   drum_right
+    # Beat 2.5: drum_left  — rapid alternate
+    # Beat 3:   drum_both  — closing accent
+    var offsets: Array[float]      = [0.0,         0.5,          1.0,         1.5,          2.0,          2.5,         3.0]
+    var dirs:    Array[StringName] = [&"drum_left", &"drum_right", &"drum_left", &"drum_both", &"drum_right", &"drum_left", &"drum_both"]
+    var drum_notes: Array[NoteData] = []
+    for i in range(offsets.size()):
+        var n := NoteData.new()
+        n.beat_offset = offsets[i]
+        n.direction   = dirs[i]
+        n.mode        = &"targeted"
+        drum_notes.append(n)
+    e.pattern = drum_notes
     return e

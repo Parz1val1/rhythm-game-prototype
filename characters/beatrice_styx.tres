@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CharacterData" format=3]
+
+[ext_resource type="Script" path="res://characters/character_data.gd" id="1_bdata"]
+[ext_resource type="Resource" path="res://characters/beatrice_solo_style.tres" id="2_bstyle"]
+
+[resource]
+script = ExtResource("1_bdata")
+character_name = "Beatrice Styx"
+max_hp = 90
+hp = 90
+attack_power = 12
+limit_break_gauge = 0.0
+charge_rate_perfect = 0.10
+charge_rate_good = 0.04
+limit_break_phase_length = 8
+limit_break_multiplier = 2.5
+solo_style = ExtResource("2_bstyle")
