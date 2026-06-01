@@ -67,16 +67,19 @@ func _build_zones() -> void:
 		_hit_zones[dir] = hz
 
 func _on_phase_changed(new_phase: int) -> void:
-	visible = (new_phase == 1)
 	if new_phase == 0:
+		visible = false
 		for v in _visuals.values():
 			if is_instance_valid(v): v.queue_free()
 		_visuals.clear()
+	# Do NOT auto-show on DEFEND entry — show lazily from _on_note_approaching.
 
 func _on_note_approaching(note: NoteData, target_beat: int) -> void:
 	var dir := note.direction
 	if not _zone_x.has(dir):
 		return
+	if not visible:
+		visible = true
 	var x: float  = _zone_x[dir]
 	var beats_rem: float = max(0.5, float(target_beat - BeatClock.beat_number))
 	var travel    := beats_rem * (60.0 / BeatClock.bpm)

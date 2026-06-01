@@ -110,20 +110,26 @@ func _build_hit_zones() -> void:
 # ---------------------------------------------------------------------------
 
 func _on_phase_changed(new_phase: int) -> void:
-	# Phase.ATTACK = 0, Phase.DEFEND = 1
-	visible = (new_phase == 1)
-	DebugLog.visual("[LANE   ] visible=%s" % (new_phase == 1))
 	if new_phase == 0:
-		# Clear all travelling visuals when entering ATTACK.
+		# Entering ATTACK: hide and clear travelling visuals.
+		visible = false
+		DebugLog.visual("[LANE   ] visible=false (ATTACK)")
 		for visual in _visuals.values():
 			if is_instance_valid(visual):
 				visual.queue_free()
 		_visuals.clear()
+	# Do NOT auto-show on DEFEND entry. Show lazily in _on_note_approaching only
+	# when a direction this lane handles actually arrives. This prevents empty
+	# up/down/left/right hit zones appearing during a percussive-enemy DEFEND phase.
 
 func _on_note_approaching(note: NoteData, target_beat: int) -> void:
 	var dir := String(note.direction)
 	if not _spawn_centers.has(dir):
 		return
+	# Reveal on first note this lane handles, so hit zones only appear when needed.
+	if not visible:
+		visible = true
+		DebugLog.visual("[LANE   ] visible=true (first note_approaching for dir=%s)" % dir)
 
 	var spawn_edge := _spawn_centers[dir] as Vector2
 	var hit_zone   := _hz_centers[dir]    as Vector2

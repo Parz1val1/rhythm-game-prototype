@@ -121,16 +121,18 @@ func _ready() -> void:
 	add_child(_profile_label)
 	_update_profile_label(profile)
 
-	# Note lane: hide arrow lanes for percussive, show drum lane instead.
+	# Always set up NoteLane — it shows only when it receives a note_approaching for a
+	# direction it handles (up/down/left/right). This ensures directional-note enemies
+	# are visible even when Beatrice's percussive profile is active.
+	# For percussive profiles, also create DrumLane for drum-direction enemies.
+	# Both lanes coexist; each silently ignores directions the other handles.
 	var is_percussive := profile != null and profile.defense_pattern_type == &"percussive"
-	_note_lane.visible = not is_percussive
+	_note_lane.setup(_combat)
 	if is_percussive:
 		_drum_lane = DrumLaneScript.new()
 		add_child(_drum_lane)
 		_drum_lane.position = Vector2(326, 200)
 		_drum_lane.setup(_combat)
-	else:
-		_note_lane.setup(_combat)
 
 	# Drum pattern display (attack readout) — shown only for Beatrice.
 	if use_beatrice:
