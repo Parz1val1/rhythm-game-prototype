@@ -1,14 +1,14 @@
 # combat/drum_lane.gd
 # Percussive DEFEND visualizer for Beatrice Styx.
-# Shows three hit zones (L / B / R) horizontally at the bottom of the screen.
-# Notes fall from the top of the panel toward the hit zones.
+# Shows two hit zones (L / R). A drum_both note spawns visuals in BOTH lanes
+# simultaneously — the player reads it as "press both at once".
 # Builds its entire UI in code — no .tscn required.
 extends Control
 
 const NoteData = preload("res://rhythm_engine/note_data.gd")
 
 const ZONE_SIZE  := 50.0
-const ZONE_Y     := 200.0   # hit zone Y position within the panel
+const ZONE_Y     := 200.0
 const LANE_W     := 500.0
 const LANE_H     := 260.0
 const SPAWN_Y    := 0.0
@@ -18,15 +18,17 @@ const HZ_PERFECT := Color(0.40, 1.00, 0.50)
 const HZ_GOOD    := Color(1.00, 0.85, 0.30)
 const HZ_MISS    := Color(1.00, 0.25, 0.25)
 
-const ZONE_LABELS := { &"drum_left": "L", &"drum_both": "B", &"drum_right": "R" }
+const ZONE_LABELS := { &"drum_left": "L", &"drum_right": "R" }
 const ZONE_COLORS := {
 	&"drum_left":  Color(0.6, 0.2, 0.2),
-	&"drum_both":  Color(0.6, 0.4, 0.1),
 	&"drum_right": Color(0.2, 0.2, 0.6),
 }
-# X-center of each hit zone within the panel.
+# drum_both uses both zone colors; a brighter tint signals "hit both"
+const COLOR_BOTH := Color(0.8, 0.5, 0.1)
+
 var _zone_x: Dictionary = {}
 var _hit_zones: Dictionary = {}
+# Maps NoteData → Control (single) or Array[Control] (drum_both dual visual)
 var _visuals: Dictionary = {}
 var _lookahead_beats: int = 2
 
@@ -49,7 +51,8 @@ func _exit_tree() -> void:
 		RhythmInput.note_missed.disconnect(_on_note_missed)
 
 func _build_zones() -> void:
-	var positions := { &"drum_left": LANE_W * 0.25, &"drum_both": LANE_W * 0.5, &"drum_right": LANE_W * 0.75 }
+	# Two zones only — L at 1/3, R at 2/3.
+	var positions := { &"drum_left": LANE_W * 0.33, &"drum_right": LANE_W * 0.67 }
 	for dir in positions:
 		var x: float = positions[dir]
 		_zone_x[dir] = x
@@ -69,50 +72,66 @@ func _build_zones() -> void:
 func _on_phase_changed(new_phase: int) -> void:
 	if new_phase == 0:
 		visible = false
-		for v in _visuals.values():
-			if is_instance_valid(v): v.queue_free()
+		for entry in _visuals.values():
+			_free_entry(entry)
 		_visuals.clear()
-	# Do NOT auto-show on DEFEND entry — show lazily from _on_note_approaching.
+	# Lazy show — reveal on first note_approaching.
 
 func _on_note_approaching(note: NoteData, target_beat: int) -> void:
-	var dir := note.direction
+	var dir := StringName(note.direction)
+	if dir == &"drum_both":
+		# Spawn a visual in each of the two lanes — player reads it as "press both".
+		if not visible: visible = true
+		var v_l := _spawn_visual(&"drum_left",  target_beat, COLOR_BOTH)
+		var v_r := _spawn_visual(&"drum_right", target_beat, COLOR_BOTH)
+		_visuals[note] = [v_l, v_r]
+		return
 	if not _zone_x.has(dir):
 		return
-	if not visible:
-		visible = true
-	var x: float  = _zone_x[dir]
+	if not visible: visible = true
+	_visuals[note] = _spawn_visual(dir, target_beat, ZONE_COLORS.get(dir, Color.WHITE))
+
+func _spawn_visual(dir: StringName, target_beat: int, color: Color) -> ColorRect:
+	var x: float = _zone_x[dir]
 	var beats_rem: float = max(0.5, float(target_beat - BeatClock.beat_number))
-	var travel    := beats_rem * (60.0 / BeatClock.bpm)
-	var visual    := ColorRect.new()
-	visual.size   = Vector2(ZONE_SIZE - 6.0, 14.0)
-	visual.color  = ZONE_COLORS.get(dir, Color.WHITE)
-	visual.position = Vector2(x - (ZONE_SIZE - 6.0) * 0.5, SPAWN_Y)
-	add_child(visual)
+	var travel := beats_rem * (60.0 / BeatClock.bpm)
+	var v := ColorRect.new()
+	v.size     = Vector2(ZONE_SIZE - 6.0, 14.0)
+	v.color    = color
+	v.position = Vector2(x - (ZONE_SIZE - 6.0) * 0.5, SPAWN_Y)
+	add_child(v)
 	var tween := create_tween()
-	tween.tween_property(visual, "position:y", ZONE_Y - 7.0, travel)
-	tween.tween_callback(func(): if is_instance_valid(visual): visual.queue_free())
-	_visuals[note] = visual
+	tween.tween_property(v, "position:y", ZONE_Y - 7.0, travel)
+	tween.tween_callback(func(): if is_instance_valid(v): v.queue_free())
+	return v
 
 func _on_input_scored(direction: StringName, score: StringName, _off: float, note_consumed: bool) -> void:
 	if not note_consumed:
 		return
-	_flash_and_consume(direction, score)
+	# Find and free the visual(s) for this direction, then flash zone(s).
+	for note in _visuals.keys():
+		var note_dir := StringName(note.direction)
+		if note_dir != direction:
+			continue
+		_free_entry(_visuals[note])
+		_visuals.erase(note)
+		break
+	if direction == &"drum_both":
+		_flash_zone(&"drum_left", score)
+		_flash_zone(&"drum_right", score)
+	else:
+		_flash_zone(direction, score)
 
 func _on_note_missed(note: NoteData) -> void:
 	if _visuals.has(note):
-		var v = _visuals[note]
+		_free_entry(_visuals[note])
 		_visuals.erase(note)
-		if is_instance_valid(v): v.queue_free()
-	_flash_zone(StringName(note.direction), &"miss")
-
-func _flash_and_consume(direction: StringName, score: StringName) -> void:
-	for note in _visuals.keys():
-		if note.direction == String(direction):
-			var v = _visuals[note]
-			_visuals.erase(note)
-			if is_instance_valid(v): v.queue_free()
-			break
-	_flash_zone(direction, score)
+	var dir := StringName(note.direction)
+	if dir == &"drum_both":
+		_flash_zone(&"drum_left", &"miss")
+		_flash_zone(&"drum_right", &"miss")
+	else:
+		_flash_zone(dir, &"miss")
 
 func _flash_zone(dir: StringName, score: StringName) -> void:
 	var hz = _hit_zones.get(dir) as ColorRect
@@ -127,3 +146,10 @@ func _flash_zone(dir: StringName, score: StringName) -> void:
 	await get_tree().create_timer(0.12).timeout
 	if is_instance_valid(hz):
 		hz.color = HZ_DIM
+
+func _free_entry(entry) -> void:
+	if entry is Array:
+		for v in entry:
+			if is_instance_valid(v): v.queue_free()
+	elif is_instance_valid(entry):
+		entry.queue_free()
