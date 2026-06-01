@@ -125,6 +125,16 @@ Use it for data that must survive a replay (e.g., the selected encounter).
 Always disconnect in `teardown()` / `_exit_tree()` and guard with `is_connected()`.
 Stale connections cause hard-to-reproduce double-fire bugs.
 
+## Resource Loading Rule
+
+**Always call `.duplicate(true)` when loading a CharacterData (or any gameplay Resource) for use in a live combat.** This prevents runtime HP / gauge mutations from corrupting the cached asset between fights.
+
+```gdscript
+_hero = load("res://characters/luthier_frett.tres").duplicate(true) as CharacterData
+```
+
+`EncounterManager.start_combat_from_definition` already does this for enemies. Follow the same pattern anywhere else a Resource is loaded for gameplay.
+
 ## Adding a New Feature — Checklist
 1. Write a failing headless test in `test/test_<feature>.gd` first.
 2. Implement the feature.
