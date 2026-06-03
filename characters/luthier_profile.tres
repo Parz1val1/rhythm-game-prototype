@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1_lprof")
-valid_inputs = [&"up", &"down", &"left", &"right"]
+valid_inputs = []
 chord_inputs = []
 chord_names = []
 chord_window_ms = 30.0
