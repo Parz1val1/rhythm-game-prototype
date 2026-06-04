@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1_lprof")
-valid_inputs = []
+input_map = {&"rhythm_up": &"up", &"rhythm_down": &"down", &"rhythm_left": &"left", &"rhythm_right": &"right"}
 chord_inputs = []
 chord_names = []
 chord_window_ms = 30.0

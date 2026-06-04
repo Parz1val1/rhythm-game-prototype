@@ -5,13 +5,20 @@
 class_name CharacterInputProfile
 extends Resource
 
-## Which input actions this character's inputs are filtered to.
-## An empty array means "accept all registered rhythm actions" (default / Luthier path).
-## Example for a 4-direction player: [&"up", &"down", &"left", &"right"]
-@export var valid_inputs: Array[StringName] = []
+## Maps InputMap action names to the direction alias they produce.
+## The alias is what flows through RhythmInput, notes, evaluators, and audio.
+##
+## Examples:
+##   Luthier (translated):  {&"rhythm_up": &"up", &"rhythm_down": &"down", ...}
+##   Beatrice (identity):   {&"drum_left": &"drum_left", &"drum_right": &"drum_right"}
+##
+## An empty dictionary means "use the built-in default directional map" — the same
+## fallback used when no profile is set at all (rhythm_up/down/left/right → up/down/left/right).
+@export var input_map: Dictionary = {}
 
-## Chord definitions: each entry is an Array of StringName actions that,
-## when pressed within chord_window_ms of each other, register as one combined action.
+## Chord definitions: each entry is an Array of direction aliases (the VALUES of
+## input_map, not raw action names) that, when all appear in the chord buffer within
+## chord_window_ms of each other, fire as a single combined action.
 ## Example: [[&"drum_left", &"drum_right"]]
 @export var chord_inputs: Array[Array] = []
 
@@ -30,10 +37,9 @@ extends Resource
 
 ## Which AttackEvaluator class to use for ATTACK phase damage.
 ## Matched by name in CombatScene._create_evaluator().
-## &"passthrough" preserves the current SequenceEvaluator-based behavior.
 @export var attack_evaluator: StringName = &"passthrough"
 
 ## How the DEFEND phase interprets incoming notes.
 ## &"directional" — arrow-matching (current default).
-## &"percussive"  — timing-only (Beatrice's path, not yet implemented).
+## &"percussive"  — timing-only (Beatrice's path).
 @export var defense_pattern_type: StringName = &"directional"

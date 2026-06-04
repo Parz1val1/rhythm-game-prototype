@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1_bprof")
-valid_inputs = [&"drum_left", &"drum_right"]
+input_map = {&"drum_left": &"drum_left", &"drum_right": &"drum_right"}
 chord_inputs = [[&"drum_left", &"drum_right"]]
 chord_names = [&"drum_both"]
 chord_window_ms = 35.0
