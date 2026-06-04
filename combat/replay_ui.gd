@@ -132,7 +132,7 @@ func _on_play_pressed() -> void:
 	if enc_idx < 0 or enc_idx >= _encounters.size():
 		push_warning("ReplayUI: no encounter selected")
 		return
-	var hero_path := _character_paths[char_idx] if char_idx >= 0 \
+	var hero_path: String = _character_paths[char_idx] if char_idx >= 0 \
 		and char_idx < _character_paths.size() else ""
 	visible = false
 	replay_requested.emit(_encounters[enc_idx] as EncounterDefinition, hero_path)
