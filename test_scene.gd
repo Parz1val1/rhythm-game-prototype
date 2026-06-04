@@ -35,7 +35,7 @@ const _PROFILE_MAP := {
 @export var log_audio_events:   bool = false
 @export_group("")
 
-## Survives reload_current_scene() — set by dropdown or carried from previous session.
+## Survives reload_current_scene() — set by replay_ui before the reload.
 static var pending_encounter: EncounterDefinition = null
 static var pending_hero_path: String = ""
 
@@ -45,15 +45,13 @@ static var pending_hero_path: String = ""
 @onready var _audio_feedback: Node              = $AudioFeedback
 @onready var _replay_ui:      Node              = $ReplayUI
 
-var _hero:              CharacterData
-var _hero_path:         String = ""
-var _combat:            Node
-var _drum_feedback:     Node = null
-var _drum_lane:         Node = null
-var _drum_pattern:      Node = null
-var _profile_label:     Label = null
-var _char_select:       OptionButton = null
-var _char_paths:        Array = []   # parallel to _char_select items
+var _hero:          CharacterData
+var _hero_path:     String = ""
+var _combat:        Node
+var _drum_feedback: Node = null
+var _drum_lane:     Node = null
+var _drum_pattern:  Node = null
+var _profile_label: Label = null
 
 func _ready() -> void:
 	DebugLog.enabled       = log_enabled
@@ -66,7 +64,7 @@ func _ready() -> void:
 		encounter = pending_encounter
 		pending_encounter = null
 
-	# Resolve hero path: dropdown selection → Inspector default (Luthier).
+	# Resolve hero path: replay selection → Inspector default (Luthier).
 	_hero_path = pending_hero_path if pending_hero_path != "" \
 		else "res://characters/luthier_frett.tres"
 	pending_hero_path = ""
@@ -112,7 +110,7 @@ func _ready() -> void:
 
 	var is_percussive := profile != null and profile.defense_pattern_type == &"percussive"
 
-	# Drum feedback audio — Beatrice-specific path.
+	# Drum feedback audio — percussive path only.
 	if is_percussive:
 		_drum_feedback = DrumFeedbackScript.new()
 		add_child(_drum_feedback)
@@ -136,9 +134,8 @@ func _ready() -> void:
 		_drum_pattern.setup(_combat, _combat.player_phase_length)
 
 	_replay_ui.set_active_encounter(encounter)
+	_replay_ui.set_active_character(_hero_path)
 	_replay_ui.replay_requested.connect(_on_replay_requested)
-
-	_setup_character_selector()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _combat == null:
@@ -156,13 +153,9 @@ func _on_combat_lost() -> void:
 	_audio.stop()
 	_replay_ui.show_outcome(false)
 
-func _on_replay_requested(new_encounter: EncounterDefinition) -> void:
+func _on_replay_requested(new_encounter: EncounterDefinition, hero_path: String) -> void:
 	pending_encounter = new_encounter
-	# Capture current character selection so it survives the reload.
-	if _char_select != null:
-		var idx := _char_select.selected
-		if idx >= 0 and idx < _char_paths.size():
-			pending_hero_path = _char_paths[idx]
+	pending_hero_path = hero_path
 	get_tree().reload_current_scene()
 
 func _update_profile_label(profile: CharacterInputProfile) -> void:
@@ -176,59 +169,3 @@ func _update_profile_label(profile: CharacterInputProfile) -> void:
 			profile.attack_evaluator,
 			profile.defense_pattern_type,
 		]
-
-# ---------------------------------------------------------------------------
-# Character selector dropdown
-# ---------------------------------------------------------------------------
-
-func _setup_character_selector() -> void:
-	_char_select = OptionButton.new()
-	_char_select.position = Vector2(8, 30)
-	_char_select.custom_minimum_size = Vector2(220, 0)
-	add_child(_char_select)
-
-	_char_paths.clear()
-	_char_select.clear()
-
-	var dir := DirAccess.open("res://characters/")
-	if dir == null:
-		push_warning("test_scene: could not open res://characters/")
-		return
-
-	var entries: Array = []
-	dir.list_dir_begin()
-	var fname := dir.get_next()
-	while fname != "":
-		if not dir.current_is_dir() and fname.ends_with(".tres"):
-			var path := "res://characters/" + fname
-			var res := load(path)
-			# Keep only CharacterData resources (has character_name field).
-			if res != null and res.get_script() != null and res.has_method("get") \
-					and res.get("character_name") != null:
-				entries.append({"path": path, "name": res.character_name})
-		fname = dir.get_next()
-	dir.list_dir_end()
-
-	# Alphabetical by character name for stable ordering.
-	entries.sort_custom(func(a, b): return a["name"] < b["name"])
-
-	for entry in entries:
-		_char_select.add_item(entry["name"])
-		_char_paths.append(entry["path"])
-
-	# Pre-select the currently active character.
-	for i in _char_paths.size():
-		if _char_paths[i] == _hero_path:
-			_char_select.select(i)
-			break
-
-	_char_select.item_selected.connect(_on_character_selected)
-
-func _on_character_selected(idx: int) -> void:
-	if idx < 0 or idx >= _char_paths.size():
-		return
-	# Store choice and reload so all systems reinitialise cleanly.
-	pending_hero_path = _char_paths[idx]
-	# Preserve the active encounter across the reload.
-	pending_encounter = encounter
-	get_tree().reload_current_scene()
