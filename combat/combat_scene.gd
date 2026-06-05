@@ -300,12 +300,14 @@ func _end_attack_phase() -> void:
     # so the visual duration correctly reflects how long until the note is actually due.
     var early_enemy = _get_defending_enemy_internal()
     if early_enemy != null:
-        for note: NoteData in early_enemy.pattern:
-            if note.beat_offset < float(lookahead_beats):
-                var target_beat: int = BeatClock.beat_number + 1 + note.beat_offset
-                note_approaching.emit(note, target_beat)
-                DebugLog.timing("[EARLY-A] dir=%-5s  target_beat=%d  (first-beat lookahead, travel=%d beat(s))" % [
-                    note.direction, target_beat, note.beat_offset + 1])
+        var _early_defense_type := get_defense_type()
+        for hit in early_enemy.neutral_pattern:
+            if hit.beat_offset < float(lookahead_beats):
+                var target_beat: int = BeatClock.beat_number + 1 + int(hit.beat_offset)
+                for _early_note in NeutralPatternTranslator.resolve_notes(hit, _early_defense_type):
+                    note_approaching.emit(_early_note, target_beat)
+                    DebugLog.timing("[EARLY-A] dir=%-5s  target_beat=%d  (first-beat lookahead, travel=%d beat(s))" % [
+                        _early_note.direction, target_beat, hit.beat_offset + 1])
 
     # Safety-net win check: normally triggered per-hit, but covers the edge
     # case where the phase boundary fires before the last scored signal arrives.

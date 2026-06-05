@@ -3,14 +3,14 @@
 # Run: godot --headless --path . -s res://tools/create_encounter_resources.gd
 #
 # Array assignment rule (Godot 4):
-#   e.pattern = [...]  ← FAILS: can't assign Array[Variant] to Array[NoteData] via Variant.
-#   e.pattern.append(n) ← WORKS: array is a reference; append respects the existing typed array.
+#   e.neutral_pattern = [...]  ← FAILS: can't assign Array[Variant] to Array[NeutralHit] via Variant.
+#   e.neutral_pattern.append(h) ← WORKS: array is a reference; append respects the existing typed array.
 extends SceneTree
 
-# preload is safe here: NoteData/EnemyData/EncounterDefinition reference no autoloads.
+# preload is safe here: NeutralHit/EnemyData/EncounterDefinition reference no autoloads.
 const EncounterDefinitionScript = preload("res://encounters/encounter_definition.gd")
 const EnemyDataScript            = preload("res://characters/enemy_data.gd")
-const NoteDataScript             = preload("res://rhythm_engine/note_data.gd")
+const NeutralHitScript           = preload("res://rhythm_engine/neutral_hit.gd")
 
 func _init() -> void:
 	await process_frame
@@ -32,14 +32,13 @@ func _save(enc, path: String) -> void:
 	else:
 		print("  OK    %s" % path)
 
-# --- Note helper ---
+# --- Hit helper ---
 
-func _note(beat_offset: int, direction: String, mode: String):
-	var n = NoteDataScript.new()
-	n.beat_offset = beat_offset
-	n.direction   = direction
-	n.mode        = mode
-	return n
+func _hit(beat_offset: float, lane_count: int):
+	var h = NeutralHitScript.new()
+	h.beat_offset = beat_offset
+	h.lane_count  = lane_count
+	return h
 
 # --- Enemy helpers ---
 
@@ -48,9 +47,9 @@ func _make_goblin():
 	e.enemy_name   = "Goblin"
 	e.max_hp       = 40;  e.hp           = 40
 	e.attack_power = 8;   e.phase_length = 4
-	e.pattern.append(_note(0, "up",   "targeted"))
-	e.pattern.append(_note(2, "down", "targeted"))
-	e.pattern.append(_note(3, "up",   "free_form"))
+	e.neutral_pattern.append(_hit(0.0, 1))
+	e.neutral_pattern.append(_hit(2.0, 1))
+	e.neutral_pattern.append(_hit(3.0, 1))
 	return e
 
 func _make_goblin_scout():
@@ -58,8 +57,8 @@ func _make_goblin_scout():
 	e.enemy_name   = "Goblin Scout"
 	e.max_hp       = 25;  e.hp           = 25
 	e.attack_power = 5;   e.phase_length = 2
-	e.pattern.append(_note(0, "left",  "targeted"))
-	e.pattern.append(_note(1, "right", "targeted"))
+	e.neutral_pattern.append(_hit(0.0, 1))
+	e.neutral_pattern.append(_hit(1.0, 1))
 	return e
 
 func _make_orc():
@@ -67,9 +66,8 @@ func _make_orc():
 	e.enemy_name   = "Orc"
 	e.max_hp       = 80;  e.hp           = 80
 	e.attack_power = 15;  e.phase_length = 8
-	var dirs := ["up", "right", "down", "left"]
 	for i in range(4):
-		e.pattern.append(_note(i * 2, dirs[i], "targeted"))
+		e.neutral_pattern.append(_hit(float(i * 2), 1))
 	return e
 
 func _make_string_golem_enemy():
@@ -77,9 +75,8 @@ func _make_string_golem_enemy():
 	e.enemy_name   = "String Golem"
 	e.max_hp       = 120; e.hp           = 120
 	e.attack_power = 18;  e.phase_length = 8
-	var dirs := ["up", "down", "up", "down", "left", "right", "left", "right"]
 	for i in range(8):
-		e.pattern.append(_note(i, dirs[i], "targeted"))
+		e.neutral_pattern.append(_hit(float(i), 1))
 	return e
 
 # --- Encounter assemblers ---
