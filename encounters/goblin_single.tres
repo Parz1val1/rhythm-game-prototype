@@ -1,31 +1,32 @@
 [gd_resource type="Resource" script_class="EncounterDefinition" format=3 uid="uid://4d7us708s8mf"]
 
 [ext_resource type="Script" uid="uid://c0mi14cj67sd6" path="res://characters/enemy_data.gd" id="1_i30op"]
-[ext_resource type="Script" uid="uid://ddllbrpmtkdl2" path="res://rhythm_engine/note_data.gd" id="2_kti04"]
+[ext_resource type="Script" path="res://rhythm_engine/neutral_hit.gd" id="2_kti04"]
 [ext_resource type="Script" uid="uid://b12s3kg8vvvou" path="res://encounters/encounter_definition.gd" id="3_tvroy"]
 
-[sub_resource type="Resource" id="Resource_xk7ak"]
+[sub_resource type="Resource" id="Hit_0"]
 script = ExtResource("2_kti04")
-mode = "targeted"
+beat_offset = 0.0
+lane_count = 1
 
-[sub_resource type="Resource" id="Resource_o7gwk"]
+[sub_resource type="Resource" id="Hit_1"]
 script = ExtResource("2_kti04")
-beat_offset = 2
-direction = "down"
-mode = "targeted"
+beat_offset = 2.0
+lane_count = 1
 
-[sub_resource type="Resource" id="Resource_ntj87"]
+[sub_resource type="Resource" id="Hit_2"]
 script = ExtResource("2_kti04")
-beat_offset = 3
+beat_offset = 3.0
+lane_count = 1
 
-[sub_resource type="Resource" id="Resource_jfd62"]
+[sub_resource type="Resource" id="Enemy_goblin"]
 script = ExtResource("1_i30op")
 enemy_name = "Goblin"
 max_hp = 40
 hp = 40
-pattern = Array[ExtResource("2_kti04")]([SubResource("Resource_xk7ak"), SubResource("Resource_o7gwk"), SubResource("Resource_ntj87")])
+neutral_pattern = Array[ExtResource("2_kti04")]([SubResource("Hit_0"), SubResource("Hit_1"), SubResource("Hit_2")])
 
 [resource]
 script = ExtResource("3_tvroy")
 encounter_id = "goblin_single"
-enemies = Array[ExtResource("1_i30op")]([SubResource("Resource_jfd62")])
+enemies = Array[ExtResource("1_i30op")]([SubResource("Enemy_goblin")])

@@ -1,56 +1,48 @@
 [gd_resource type="Resource" script_class="EncounterDefinition" format=3]
 
 [ext_resource type="Script" path="res://characters/enemy_data.gd" id="1_arch"]
-[ext_resource type="Script" path="res://rhythm_engine/note_data.gd" id="2_arch"]
+[ext_resource type="Script" path="res://rhythm_engine/neutral_hit.gd" id="2_arch"]
 [ext_resource type="Script" path="res://encounters/encounter_definition.gd" id="3_arch"]
 
-[sub_resource type="Resource" id="Note_0"]
+[sub_resource type="Resource" id="Hit_0"]
 script = ExtResource("2_arch")
-beat_offset = 0
-direction = "up"
-mode = "targeted"
+beat_offset = 0.0
+lane_count = 1
 
-[sub_resource type="Resource" id="Note_1"]
+[sub_resource type="Resource" id="Hit_1"]
 script = ExtResource("2_arch")
-beat_offset = 1
-direction = "right"
-mode = "targeted"
+beat_offset = 1.0
+lane_count = 1
 
-[sub_resource type="Resource" id="Note_2"]
+[sub_resource type="Resource" id="Hit_2"]
 script = ExtResource("2_arch")
-beat_offset = 2
-direction = "down"
-mode = "targeted"
+beat_offset = 2.0
+lane_count = 1
 
-[sub_resource type="Resource" id="Note_3"]
+[sub_resource type="Resource" id="Hit_3"]
 script = ExtResource("2_arch")
-beat_offset = 3
-direction = "left"
-mode = "targeted"
+beat_offset = 3.0
+lane_count = 1
 
-[sub_resource type="Resource" id="Note_4"]
+[sub_resource type="Resource" id="Hit_4"]
 script = ExtResource("2_arch")
-beat_offset = 4
-direction = "up"
-mode = "targeted"
+beat_offset = 4.0
+lane_count = 1
 
-[sub_resource type="Resource" id="Note_5"]
+[sub_resource type="Resource" id="Hit_5"]
 script = ExtResource("2_arch")
-beat_offset = 5
-direction = "right"
-mode = "targeted"
+beat_offset = 5.0
+lane_count = 1
 
-[sub_resource type="Resource" id="Note_6"]
+[sub_resource type="Resource" id="Hit_6"]
 script = ExtResource("2_arch")
-beat_offset = 6
-direction = "down"
-mode = "targeted"
+beat_offset = 6.0
+lane_count = 1
 
-[sub_resource type="Resource" id="Note_7"]
+[sub_resource type="Resource" id="Hit_7"]
 script = ExtResource("2_arch")
-beat_offset = 7
-direction = "left"
-mode = "targeted"
+beat_offset = 7.0
+lane_count = 1
 
 [sub_resource type="Resource" id="Enemy_0"]
 script = ExtResource("1_arch")
@@ -58,7 +50,7 @@ enemy_name = "Arrow Archer"
 max_hp = 80
 hp = 80
 attack_power = 14
-pattern = Array[ExtResource("2_arch")]([SubResource("Note_0"), SubResource("Note_1"), SubResource("Note_2"), SubResource("Note_3"), SubResource("Note_4"), SubResource("Note_5"), SubResource("Note_6"), SubResource("Note_7")])
+neutral_pattern = Array[ExtResource("2_arch")]([SubResource("Hit_0"), SubResource("Hit_1"), SubResource("Hit_2"), SubResource("Hit_3"), SubResource("Hit_4"), SubResource("Hit_5"), SubResource("Hit_6"), SubResource("Hit_7")])
 phase_length = 8
 
 [resource]

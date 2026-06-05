@@ -1,64 +1,59 @@
 [gd_resource type="Resource" script_class="EncounterDefinition" format=3 uid="uid://4646gqe1de2a"]
 
 [ext_resource type="Script" uid="uid://c0mi14cj67sd6" path="res://characters/enemy_data.gd" id="1_b57sq"]
-[ext_resource type="Script" uid="uid://ddllbrpmtkdl2" path="res://rhythm_engine/note_data.gd" id="2_wb05o"]
+[ext_resource type="Script" path="res://rhythm_engine/neutral_hit.gd" id="2_wb05o"]
 [ext_resource type="Script" uid="uid://b12s3kg8vvvou" path="res://encounters/encounter_definition.gd" id="3_v6fl4"]
 
-[sub_resource type="Resource" id="Resource_j4f1e"]
+[sub_resource type="Resource" id="Hit_0"]
 script = ExtResource("2_wb05o")
-mode = "targeted"
+beat_offset = 0.0
+lane_count = 1
 
-[sub_resource type="Resource" id="Resource_8dy2d"]
+[sub_resource type="Resource" id="Hit_1"]
 script = ExtResource("2_wb05o")
-beat_offset = 1
-direction = "down"
-mode = "targeted"
+beat_offset = 1.0
+lane_count = 1
 
-[sub_resource type="Resource" id="Resource_p1fr7"]
+[sub_resource type="Resource" id="Hit_2"]
 script = ExtResource("2_wb05o")
-beat_offset = 2
-mode = "targeted"
+beat_offset = 2.0
+lane_count = 1
 
-[sub_resource type="Resource" id="Resource_ndgip"]
+[sub_resource type="Resource" id="Hit_3"]
 script = ExtResource("2_wb05o")
-beat_offset = 3
-direction = "down"
-mode = "targeted"
+beat_offset = 3.0
+lane_count = 1
 
-[sub_resource type="Resource" id="Resource_b8uy5"]
+[sub_resource type="Resource" id="Hit_4"]
 script = ExtResource("2_wb05o")
-beat_offset = 4
-direction = "left"
-mode = "targeted"
+beat_offset = 4.0
+lane_count = 1
 
-[sub_resource type="Resource" id="Resource_oru2o"]
+[sub_resource type="Resource" id="Hit_5"]
 script = ExtResource("2_wb05o")
-beat_offset = 5
-direction = "right"
-mode = "targeted"
+beat_offset = 5.0
+lane_count = 1
 
-[sub_resource type="Resource" id="Resource_oly23"]
+[sub_resource type="Resource" id="Hit_6"]
 script = ExtResource("2_wb05o")
-beat_offset = 6
-direction = "left"
-mode = "targeted"
+beat_offset = 6.0
+lane_count = 1
 
-[sub_resource type="Resource" id="Resource_4r2jp"]
+[sub_resource type="Resource" id="Hit_7"]
 script = ExtResource("2_wb05o")
-beat_offset = 7
-direction = "right"
-mode = "targeted"
+beat_offset = 7.0
+lane_count = 1
 
-[sub_resource type="Resource" id="Resource_g8ue0"]
+[sub_resource type="Resource" id="Enemy_golem"]
 script = ExtResource("1_b57sq")
 enemy_name = "String Golem"
 max_hp = 120
 hp = 120
 attack_power = 18
-pattern = Array[ExtResource("2_wb05o")]([SubResource("Resource_j4f1e"), SubResource("Resource_8dy2d"), SubResource("Resource_p1fr7"), SubResource("Resource_ndgip"), SubResource("Resource_b8uy5"), SubResource("Resource_oru2o"), SubResource("Resource_oly23"), SubResource("Resource_4r2jp")])
+neutral_pattern = Array[ExtResource("2_wb05o")]([SubResource("Hit_0"), SubResource("Hit_1"), SubResource("Hit_2"), SubResource("Hit_3"), SubResource("Hit_4"), SubResource("Hit_5"), SubResource("Hit_6"), SubResource("Hit_7")])
 phase_length = 8
 
 [resource]
 script = ExtResource("3_v6fl4")
 encounter_id = "string_golem"
-enemies = Array[ExtResource("1_b57sq")]([SubResource("Resource_g8ue0")])
+enemies = Array[ExtResource("1_b57sq")]([SubResource("Enemy_golem")])

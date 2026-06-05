@@ -1,6 +1,6 @@
 # test/test_injection_characterization.gd
 # Characterization test: documents which notes get injected at which beat positions.
-# Uses a synthetic enemy with one note per subdivision type (whole, quarter, half,
+# Uses a synthetic enemy with one hit per subdivision type (whole, quarter, half,
 # three-quarter) so the test exercises every injection path.
 #
 # This test MUST pass both before and after the injection-consolidation refactor.
@@ -9,8 +9,8 @@
 # Run: godot --headless --path . -s res://test/test_injection_characterization.gd
 extends SceneTree
 
-const NoteData    = preload("res://rhythm_engine/note_data.gd")
-const EnemyData   = preload("res://characters/enemy_data.gd")
+const NeutralHit    = preload("res://rhythm_engine/neutral_hit.gd")
+const EnemyData     = preload("res://characters/enemy_data.gd")
 const CharacterData = preload("res://characters/character_data.gd")
 
 func _init() -> void:
@@ -31,25 +31,21 @@ func _run() -> void:
 	if bc == null:
 		printerr("FAIL: BeatClock not found"); return
 
-	# Build a test-only enemy with one note per subdivision in a 2-beat phase.
+	# Build a test-only enemy with one neutral hit per subdivision in a 2-beat phase.
 	# Offsets covered: 0.0 (whole), 0.25 (quarter), 0.5 (half), 0.75 (3/4),
 	#                  1.0 (next whole), 1.5 (last half-beat = phase_length - 0.5).
 	# beat_offset=1.5 was previously silently dropped by an off-by-one guard
 	# (>= instead of <) in _on_half_beat. The fix splits the guard so pre-injection
 	# uses the strict < check while the current-half-beat injection always fires.
 	var offsets: Array[float] = [0.0, 0.25, 0.5, 0.75, 1.0, 1.5]
-	var notes: Array[NoteData] = []
-	for off in offsets:
-		var n = NoteData.new()
-		n.beat_offset = off
-		n.direction   = &"drum_left"
-		n.mode        = &"targeted"
-		notes.append(n)
-
 	var enemy = EnemyData.new()
 	enemy.enemy_name = "Test"; enemy.max_hp = 40; enemy.hp = 40
 	enemy.attack_power = 5;  enemy.phase_length = 2
-	enemy.pattern = notes
+	for off in offsets:
+		var h := NeutralHit.new()
+		h.beat_offset = off
+		h.lane_count  = 1
+		enemy.neutral_pattern.append(h)
 
 	var combat = load("res://combat/combat_scene.tscn").instantiate()
 	root.add_child(combat)

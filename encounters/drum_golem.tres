@@ -1,49 +1,43 @@
 [gd_resource type="Resource" script_class="EncounterDefinition" format=3 uid="uid://dg5jb3uwcdfhs"]
 
 [ext_resource type="Script" uid="uid://c0mi14cj67sd6" path="res://characters/enemy_data.gd" id="1_dgolem"]
-[ext_resource type="Script" uid="uid://ddllbrpmtkdl2" path="res://rhythm_engine/note_data.gd" id="2_dgolem"]
+[ext_resource type="Script" path="res://rhythm_engine/neutral_hit.gd" id="2_dgolem"]
 [ext_resource type="Script" uid="uid://b12s3kg8vvvou" path="res://encounters/encounter_definition.gd" id="3_dgolem"]
 
-[sub_resource type="Resource" id="Note_0"]
+[sub_resource type="Resource" id="Hit_0"]
 script = ExtResource("2_dgolem")
-direction = "drum_left"
-mode = "targeted"
+beat_offset = 0.0
+lane_count = 1
 
-[sub_resource type="Resource" id="Note_1"]
+[sub_resource type="Resource" id="Hit_1"]
 script = ExtResource("2_dgolem")
 beat_offset = 0.5
-direction = "drum_right"
-mode = "targeted"
+lane_count = 1
 
-[sub_resource type="Resource" id="Note_2"]
+[sub_resource type="Resource" id="Hit_2"]
 script = ExtResource("2_dgolem")
 beat_offset = 1.0
-direction = "drum_left"
-mode = "targeted"
+lane_count = 1
 
-[sub_resource type="Resource" id="Note_3"]
+[sub_resource type="Resource" id="Hit_3"]
 script = ExtResource("2_dgolem")
 beat_offset = 1.5
-direction = "drum_both"
-mode = "targeted"
+lane_count = 2
 
-[sub_resource type="Resource" id="Note_4"]
+[sub_resource type="Resource" id="Hit_4"]
 script = ExtResource("2_dgolem")
 beat_offset = 2.0
-direction = "drum_right"
-mode = "targeted"
+lane_count = 1
 
-[sub_resource type="Resource" id="Note_5"]
+[sub_resource type="Resource" id="Hit_5"]
 script = ExtResource("2_dgolem")
 beat_offset = 2.5
-direction = "drum_left"
-mode = "targeted"
+lane_count = 1
 
-[sub_resource type="Resource" id="Note_6"]
+[sub_resource type="Resource" id="Hit_6"]
 script = ExtResource("2_dgolem")
 beat_offset = 3.0
-direction = "drum_both"
-mode = "targeted"
+lane_count = 2
 
 [sub_resource type="Resource" id="Enemy_dgolem"]
 script = ExtResource("1_dgolem")
@@ -51,7 +45,7 @@ enemy_name = "Drum Golem"
 max_hp = 60
 hp = 60
 attack_power = 14
-pattern = Array[ExtResource("2_dgolem")]([SubResource("Note_0"), SubResource("Note_1"), SubResource("Note_2"), SubResource("Note_3"), SubResource("Note_4"), SubResource("Note_5"), SubResource("Note_6")])
+neutral_pattern = Array[ExtResource("2_dgolem")]([SubResource("Hit_0"), SubResource("Hit_1"), SubResource("Hit_2"), SubResource("Hit_3"), SubResource("Hit_4"), SubResource("Hit_5"), SubResource("Hit_6")])
 
 [resource]
 script = ExtResource("3_dgolem")

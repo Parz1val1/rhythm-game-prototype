@@ -71,7 +71,10 @@ func score_timing(abs_offset_ms: float) -> StringName:
 ## (duplicate-prevention so half_beat pre-injection and beat fallback can coexist).
 func add_note(note: NoteData, due_time_ms: int = 0) -> bool:
 	for an in _active:
-		if an.note == note:
+		# Content-based check so translator-created NoteData objects (fresh instances
+		# each call) are still caught as duplicates by position + direction.
+		if is_equal_approx(an.note.beat_offset, note.beat_offset) \
+				and an.note.direction == note.direction:
 			return false   # already queued; caller can log a fallback if needed
 	var now := Time.get_ticks_msec()
 	_active.append(ActiveNote.new(note, now, due_time_ms if due_time_ms > 0 else now))

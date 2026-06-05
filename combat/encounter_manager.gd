@@ -78,9 +78,11 @@ static func _generate_enemies(encounter_id: StringName) -> Array[EnemyData]:
 
 # --- Enemy constructors ---
 # Each returns a fully initialized EnemyData Resource.
-# Patterns use beat_offset values in range [0, phase_length - 1].
+# Patterns use neutral hits: beat_offset in range [0, phase_length-1], lane_count 1 or 2.
+# Directions are resolved at injection time by NeutralPatternTranslator using the
+# defending character's defense_pattern_type.
 
-## Standard goblin: 4-beat pattern mixing targeted and free-form notes.
+## Standard goblin: 4-beat pattern, 3 single hits.
 static func _make_goblin() -> EnemyData:
     var e := EnemyData.new()
     e.enemy_name   = "Goblin"
@@ -88,22 +90,12 @@ static func _make_goblin() -> EnemyData:
     e.hp           = 40
     e.attack_power = 8
     e.phase_length = 4
-
-    # Beat 0: targeted up   — player must press Up
-    var n0 := NoteData.new()
-    n0.beat_offset = 0; n0.direction = &"up";   n0.mode = &"targeted"
-    # Beat 2: targeted down — player must press Down
-    var n1 := NoteData.new()
-    n1.beat_offset = 2; n1.direction = &"down"; n1.mode = &"targeted"
-    # Beat 3: free-form     — any press on the beat counts
-    var n2 := NoteData.new()
-    n2.beat_offset = 3; n2.direction = &"up";   n2.mode = &"free_form"
-
-    e.pattern = [n0, n1, n2]
+    e.neutral_pattern.append(_hit(0.0, 1))
+    e.neutral_pattern.append(_hit(2.0, 1))
+    e.neutral_pattern.append(_hit(3.0, 1))
     return e
 
-## Heavy orc: 8-beat pattern of four targeted notes on every other beat.
-## Hits harder; tests that longer phase_length cycles correctly.
+## Heavy orc: 8-beat pattern, 4 single hits on every other beat.
 static func _make_orc() -> EnemyData:
     var e := EnemyData.new()
     e.enemy_name   = "Orc"
@@ -111,20 +103,11 @@ static func _make_orc() -> EnemyData:
     e.hp           = 80
     e.attack_power = 15
     e.phase_length = 8
-
-    var dirs: Array[StringName] = [&"up", &"right", &"down", &"left"]
-    var notes: Array[NoteData] = []
     for i in range(4):
-        var n := NoteData.new()
-        n.beat_offset = i * 2   # beats 0, 2, 4, 6
-        n.direction   = dirs[i]
-        n.mode        = &"targeted"
-        notes.append(n)
-
-    e.pattern = notes
+        e.neutral_pattern.append(_hit(float(i * 2), 1))
     return e
 
-## Fast goblin scout: 2-beat pattern, low HP, tests rapid defend-phase cycling.
+## Fast goblin scout: 2-beat pattern, 2 single hits.
 static func _make_goblin_scout() -> EnemyData:
     var e := EnemyData.new()
     e.enemy_name   = "Goblin Scout"
@@ -132,17 +115,11 @@ static func _make_goblin_scout() -> EnemyData:
     e.hp           = 25
     e.attack_power = 5
     e.phase_length = 2
-
-    var n0 := NoteData.new()
-    n0.beat_offset = 0; n0.direction = &"left";  n0.mode = &"targeted"
-    var n1 := NoteData.new()
-    n1.beat_offset = 1; n1.direction = &"right"; n1.mode = &"targeted"
-
-    e.pattern = [n0, n1]
+    e.neutral_pattern.append(_hit(0.0, 1))
+    e.neutral_pattern.append(_hit(1.0, 1))
     return e
 
-## String Golem: 8-beat all-targeted pattern, alternating up/down then left/right pairs.
-## High attack power — requires limit break or sustained perfect combo to survive.
+## String Golem: 8-beat all-single neutral pattern.
 static func _make_string_golem() -> EnemyData:
     var e := EnemyData.new()
     e.enemy_name   = "String Golem"
@@ -150,25 +127,13 @@ static func _make_string_golem() -> EnemyData:
     e.hp           = 120
     e.attack_power = 18
     e.phase_length = 8
-
-    # Alternating up/down pairs, then left/right flourish — all targeted.
-    var dirs: Array[StringName] = [
-        &"up", &"down", &"up", &"down",
-        &"left", &"right", &"left", &"right",
-    ]
-    var notes: Array[NoteData] = []
     for i in range(8):
-        var n := NoteData.new()
-        n.beat_offset = i
-        n.direction   = dirs[i]
-        n.mode        = &"targeted"
-        notes.append(n)
-
-    e.pattern = notes
+        e.neutral_pattern.append(_hit(float(i), 1))
     return e
 
-## Drum Golem: 4-beat pattern for Beatrice's percussive defense.
-## Uses drum_left, drum_right, drum_both and half-beat (0.5) sub-beat offsets.
+## Drum Golem: 4-beat half-beat pattern, single hits + two chords (lane_count 2).
+## Resolved to percussive vocabulary for Beatrice: L,R,L,both,L,R,both.
+## Resolved to directional vocabulary for any other character.
 static func _make_drum_golem() -> EnemyData:
     var e := EnemyData.new()
     e.enemy_name   = "Drum Golem"
@@ -176,22 +141,15 @@ static func _make_drum_golem() -> EnemyData:
     e.hp           = 60
     e.attack_power = 14
     e.phase_length = 4
-
-    # Beat 0:   drum_left  — on beat
-    # Beat 0.5: drum_right — rapid half-beat switch
-    # Beat 1:   drum_left
-    # Beat 1.5: drum_both  — chord accent on half-beat
-    # Beat 2:   drum_right
-    # Beat 2.5: drum_left  — rapid alternate
-    # Beat 3:   drum_both  — closing accent
-    var offsets: Array[float]      = [0.0,         0.5,          1.0,         1.5,          2.0,          2.5,         3.0]
-    var dirs:    Array[StringName] = [&"drum_left", &"drum_right", &"drum_left", &"drum_both", &"drum_right", &"drum_left", &"drum_both"]
-    var drum_notes: Array[NoteData] = []
+    # beat 0.0, 0.5, 1.0 = single; 1.5 = chord; 2.0, 2.5 = single; 3.0 = chord
+    var offsets: Array[float]  = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
+    var lanes:   Array[int]    = [1,   1,   1,   2,   1,   1,   2  ]
     for i in range(offsets.size()):
-        var n := NoteData.new()
-        n.beat_offset = offsets[i]
-        n.direction   = dirs[i]
-        n.mode        = &"targeted"
-        drum_notes.append(n)
-    e.pattern = drum_notes
+        e.neutral_pattern.append(_hit(offsets[i], lanes[i]))
     return e
+
+static func _hit(beat_offset: float, lane_count: int) -> NeutralHit:
+    var h := NeutralHit.new()
+    h.beat_offset = beat_offset
+    h.lane_count  = lane_count
+    return h

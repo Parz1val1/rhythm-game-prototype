@@ -4,15 +4,16 @@ extends Node
 # Preload workarounds: autoloads load before global class_name scope is fully
 # initialized in Godot 4.6, so typed arrays with class_name types in their
 # annotation can cause parse errors. Using preload constants avoids that.
-const CharacterData         = preload("res://characters/character_data.gd")
-const EnemyData             = preload("res://characters/enemy_data.gd")
-const NoteData              = preload("res://rhythm_engine/note_data.gd")
-const SequenceEvaluator     = preload("res://combat/sequence_evaluator.gd")
-const CharacterInputProfile = preload("res://characters/character_input_profile.gd")
-const AttackEvaluator       = preload("res://combat/attack_evaluator.gd")
-const PassthroughEvaluator  = preload("res://combat/passthrough_evaluator.gd")
-const BeatriceEvaluator     = preload("res://combat/beatrice_evaluator.gd")
-const LuthierEvaluator      = preload("res://combat/luthier_evaluator.gd")
+const CharacterData              = preload("res://characters/character_data.gd")
+const EnemyData                  = preload("res://characters/enemy_data.gd")
+const NoteData                   = preload("res://rhythm_engine/note_data.gd")
+const NeutralPatternTranslator   = preload("res://combat/neutral_pattern_translator.gd")
+const SequenceEvaluator          = preload("res://combat/sequence_evaluator.gd")
+const CharacterInputProfile      = preload("res://characters/character_input_profile.gd")
+const AttackEvaluator            = preload("res://combat/attack_evaluator.gd")
+const PassthroughEvaluator       = preload("res://combat/passthrough_evaluator.gd")
+const BeatriceEvaluator          = preload("res://combat/beatrice_evaluator.gd")
+const LuthierEvaluator           = preload("res://combat/luthier_evaluator.gd")
 
 # --- Signals ---
 # Emitted when all enemies reach 0 HP.
@@ -216,9 +217,11 @@ func _on_beat(beat_number: int) -> void:
             var beat_index: int = _phase_beat_count - 1
             # Pre-announce notes due LOOKAHEAD_BEATS from now for visual spawning.
             var lookahead_index: float = float(beat_index + lookahead_beats)
-            for note: NoteData in enemy.pattern:
-                if abs(note.beat_offset - lookahead_index) < 0.01:
-                    note_approaching.emit(note, beat_number + lookahead_beats)
+            var _defense_type := get_defense_type()
+            for hit in enemy.neutral_pattern:
+                if abs(hit.beat_offset - lookahead_index) < 0.01:
+                    for _approaching in NeutralPatternTranslator.resolve_notes(hit, _defense_type):
+                        note_approaching.emit(_approaching, beat_number + lookahead_beats)
 
 # --- Half-beat pre-injection ---
 
@@ -428,10 +431,12 @@ func _inject_notes_due(phase_pos: float, due_time_ms: int) -> void:
     var enemy: EnemyData = _get_defending_enemy_internal()
     if enemy == null:
         return
-    for note: NoteData in enemy.pattern:
-        if abs(note.beat_offset - phase_pos) < 0.01:
-            if RhythmInput.add_note(note, due_time_ms):
-                DebugLog.timing("[INJ    ] dir=%-5s  offset=%.2f" % [note.direction, phase_pos])
+    var defense_type := get_defense_type()
+    for hit in enemy.neutral_pattern:
+        if abs(hit.beat_offset - phase_pos) < 0.01:
+            for note in NeutralPatternTranslator.resolve_notes(hit, defense_type):
+                if RhythmInput.add_note(note, due_time_ms):
+                    DebugLog.timing("[INJ    ] dir=%-5s  offset=%.2f" % [note.direction, phase_pos])
 
 ## DEFEND handler for defense_pattern_type == &"percussive" (Beatrice Styx).
 ## Hand-matching: note_consumed == true means the pressed button matched the active

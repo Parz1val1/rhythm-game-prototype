@@ -1,41 +1,39 @@
 [gd_resource type="Resource" script_class="EncounterDefinition" format=3 uid="uid://cmf5rshkq86g2"]
 
 [ext_resource type="Script" uid="uid://c0mi14cj67sd6" path="res://characters/enemy_data.gd" id="1_i65yt"]
-[ext_resource type="Script" uid="uid://ddllbrpmtkdl2" path="res://rhythm_engine/note_data.gd" id="2_q6u0q"]
+[ext_resource type="Script" path="res://rhythm_engine/neutral_hit.gd" id="2_q6u0q"]
 [ext_resource type="Script" uid="uid://b12s3kg8vvvou" path="res://encounters/encounter_definition.gd" id="3_obdhe"]
 
-[sub_resource type="Resource" id="Resource_tg6id"]
+[sub_resource type="Resource" id="Hit_0"]
 script = ExtResource("2_q6u0q")
-mode = "targeted"
+beat_offset = 0.0
+lane_count = 1
 
-[sub_resource type="Resource" id="Resource_qv4sm"]
+[sub_resource type="Resource" id="Hit_1"]
 script = ExtResource("2_q6u0q")
-beat_offset = 2
-direction = "right"
-mode = "targeted"
+beat_offset = 2.0
+lane_count = 1
 
-[sub_resource type="Resource" id="Resource_ndrbw"]
+[sub_resource type="Resource" id="Hit_2"]
 script = ExtResource("2_q6u0q")
-beat_offset = 4
-direction = "down"
-mode = "targeted"
+beat_offset = 4.0
+lane_count = 1
 
-[sub_resource type="Resource" id="Resource_aghwc"]
+[sub_resource type="Resource" id="Hit_3"]
 script = ExtResource("2_q6u0q")
-beat_offset = 6
-direction = "left"
-mode = "targeted"
+beat_offset = 6.0
+lane_count = 1
 
-[sub_resource type="Resource" id="Resource_uutkm"]
+[sub_resource type="Resource" id="Enemy_orc"]
 script = ExtResource("1_i65yt")
 enemy_name = "Orc"
 max_hp = 150
 hp = 150
 attack_power = 15
-pattern = Array[ExtResource("2_q6u0q")]([SubResource("Resource_tg6id"), SubResource("Resource_qv4sm"), SubResource("Resource_ndrbw"), SubResource("Resource_aghwc")])
+neutral_pattern = Array[ExtResource("2_q6u0q")]([SubResource("Hit_0"), SubResource("Hit_1"), SubResource("Hit_2"), SubResource("Hit_3")])
 phase_length = 8
 
 [resource]
 script = ExtResource("3_obdhe")
 encounter_id = "orc_heavy"
-enemies = Array[ExtResource("1_i65yt")]([SubResource("Resource_uutkm")])
+enemies = Array[ExtResource("1_i65yt")]([SubResource("Enemy_orc")])
