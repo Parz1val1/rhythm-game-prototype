@@ -1,13 +1,15 @@
-[gd_resource type="Resource" script_class="CharacterInputProfile" format=3]
+[gd_resource type="Resource" script_class="CharacterInputProfile" format=3 uid="uid://cb45to5plns6o"]
 
-[ext_resource type="Script" path="res://characters/character_input_profile.gd" id="1_bprof"]
+[ext_resource type="Script" uid="uid://c5su0fthtrowb" path="res://characters/character_input_profile.gd" id="1_bprof"]
 
 [resource]
 script = ExtResource("1_bprof")
-input_map = {&"drum_left": &"drum_left", &"drum_right": &"drum_right"}
-chord_inputs = [[&"drum_left", &"drum_right"]]
-chord_names = [&"drum_both"]
+input_map = {
+&"drum_left": &"drum_left",
+&"drum_right": &"drum_right"
+}
+chord_inputs = Array[Array]([[&"drum_left", &"drum_right"]])
+chord_names = Array[StringName]([&"drum_both"])
 chord_window_ms = 35.0
-scoring_mode = &"rhythm"
 attack_evaluator = &"beatrice_rhythm"
 defense_pattern_type = &"percussive"

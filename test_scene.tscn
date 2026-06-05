@@ -1,9 +1,9 @@
 [gd_scene format=3 uid="uid://cp6fvth1pmh50"]
 
 [ext_resource type="Script" uid="uid://doiug066vs7ax" path="res://test_scene.gd" id="1"]
-[ext_resource type="Resource" path="res://characters/beatrice_profile.tres" id="2_buypi"]
+[ext_resource type="Resource" uid="uid://cb45to5plns6o" path="res://characters/beatrice_profile.tres" id="2_buypi"]
 [ext_resource type="AudioStream" uid="uid://cayshwva0vr5i" path="res://audio/fassounds-escape-your-love-upbeat-fashion-pop-dance-412230.mp3" id="2_ia1lp"]
-[ext_resource type="Resource" path="res://encounters/drum_golem.tres" id="3_buypi"]
+[ext_resource type="Resource" uid="uid://dg5jb3uwcdfhs" path="res://encounters/drum_golem.tres" id="3_buypi"]
 [ext_resource type="PackedScene" path="res://combat/combat_ui.tscn" id="3_combatui"]
 [ext_resource type="PackedScene" path="res://combat/note_lane.tscn" id="4_noteln"]
 [ext_resource type="PackedScene" path="res://combat/audio_feedback.tscn" id="5_audiofb"]
