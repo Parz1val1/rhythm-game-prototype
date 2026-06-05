@@ -64,9 +64,19 @@ func _ready() -> void:
 		encounter = pending_encounter
 		pending_encounter = null
 
-	# Resolve hero path: replay selection → Inspector default (Luthier).
-	_hero_path = pending_hero_path if pending_hero_path != "" \
-		else "res://characters/luthier_frett.tres"
+	# Resolve hero path, in priority order:
+	#   1. replay_ui selection (carried via pending_hero_path across reload)
+	#   2. active_profile Inspector export — reverse-lookup which character owns that profile
+	#   3. Luthier Frett (prototype default)
+	if pending_hero_path != "":
+		_hero_path = pending_hero_path
+	elif active_profile != null:
+		for char_path in _PROFILE_MAP:
+			if _PROFILE_MAP[char_path] == active_profile.resource_path:
+				_hero_path = char_path
+				break
+	if _hero_path == "":
+		_hero_path = "res://characters/luthier_frett.tres"
 	pending_hero_path = ""
 
 	_hero = load(_hero_path) as CharacterData
