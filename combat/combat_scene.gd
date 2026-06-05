@@ -12,6 +12,7 @@ const CharacterInputProfile = preload("res://characters/character_input_profile.
 const AttackEvaluator       = preload("res://combat/attack_evaluator.gd")
 const PassthroughEvaluator  = preload("res://combat/passthrough_evaluator.gd")
 const BeatriceEvaluator     = preload("res://combat/beatrice_evaluator.gd")
+const LuthierEvaluator      = preload("res://combat/luthier_evaluator.gd")
 
 # --- Signals ---
 # Emitted when all enemies reach 0 HP.
@@ -182,6 +183,8 @@ func _create_evaluator(name: StringName) -> AttackEvaluator:
             return PassthroughEvaluator.new()
         &"beatrice_rhythm":
             return BeatriceEvaluator.new()
+        &"luthier_pitch":
+            return LuthierEvaluator.new()
         _:
             push_warning("CombatScene: unknown evaluator '%s', using passthrough" % name)
             return PassthroughEvaluator.new()
@@ -339,9 +342,11 @@ func _on_input_scored(_direction: StringName, score: StringName, _offset_ms: flo
                 return
             # Limit break multiplier stacks on top of the evaluator's combo multiplier.
             var lb_mult: float = character.limit_break_multiplier if _limit_break_active else 1.0
-            # Push beat state to evaluators that use coherence scoring (optional protocol).
+            # Push beat state / direction to evaluators that use them (optional protocol).
             if _evaluator.has_method("set_beat_position"):
                 _evaluator.set_beat_position(BeatClock.beat_position)
+            if _evaluator.has_method("set_last_direction"):
+                _evaluator.set_last_direction(_direction)
             var base_dmg: int = _evaluator.record_hit(score, character.attack_power)
             var target = get_attack_target()
             if base_dmg > 0 and target != null:

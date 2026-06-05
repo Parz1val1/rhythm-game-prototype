@@ -21,6 +21,14 @@ const DIRECTION_INDEX := {
 ## Call once after loading the player character.
 func setup(character: CharacterData) -> void:
 	_active_character = character
+	# Route SFX to the character's instrument bus; fall back to Master if absent.
+	if character != null and character.solo_style != null:
+		var bus: String = character.solo_style.audio_bus
+		if AudioServer.get_bus_index(bus) < 0:
+			bus = "Master"
+		_perfect_player.bus = bus
+		_good_player.bus    = bus
+		_miss_player.bus    = bus
 	RhythmInput.input_scored.connect(_on_input_scored)
 
 func _exit_tree() -> void:

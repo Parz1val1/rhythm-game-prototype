@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="CharacterInputProfile" format=3 uid="uid://yp8r5yn1mab4"]
+
+[ext_resource type="Script" uid="uid://c5su0fthtrowb" path="res://characters/character_input_profile.gd" id="1_lprof"]
+
+[resource]
+script = ExtResource("1_lprof")
+input_map = {
+&"rhythm_down": &"down",
+&"rhythm_left": &"left",
+&"rhythm_right": &"right",
+&"rhythm_up": &"up"
+}
+scoring_mode = &"pitch"
+attack_evaluator = &"luthier_pitch"

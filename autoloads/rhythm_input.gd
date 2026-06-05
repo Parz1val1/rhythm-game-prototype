@@ -26,12 +26,26 @@ signal input_chord(chord_name: StringName, score: StringName)
 @export var perfect_ms: float = 50.0
 @export var good_ms: float = 120.0
 
+# --- Default input map ---
+# Used when no profile is active, or the active profile's input_map is empty.
+# Maps InputMap action names to the direction aliases used by notes, evaluators,
+# and audio. This is the single place that knows about raw action names.
+# Choice: keep a built-in default map rather than forcing a profile to always be set,
+# so that null profile (e.g. in tests, or early setup) still produces sensible output
+# without coupling callers to the profile API.
+const _DEFAULT_INPUT_MAP: Dictionary = {
+	&"rhythm_up":    &"up",
+	&"rhythm_down":  &"down",
+	&"rhythm_left":  &"left",
+	&"rhythm_right": &"right",
+}
+
 # --- Active profile ---
-# Null = no filter (default: all registered rhythm actions accepted).
+# Null = no filter; _get_direction uses _DEFAULT_INPUT_MAP.
 var _active_profile = null   # CharacterInputProfile or null
 
-# Chord detection: keys pressed within chord_window_ms accumulate here.
-# Dict of StringName → int (wall-clock ms of press). Cleared after chord check.
+# Chord detection: direction aliases pressed within chord_window_ms accumulate here.
+# Dict of StringName (alias) → int (wall-clock ms of press). Cleared after chord check.
 var _chord_buffer: Dictionary = {}
 
 # --- Active note queue ---
@@ -71,36 +85,31 @@ func clear_notes() -> void:
 # --- Profile API ---
 
 ## Set the active CharacterInputProfile. Pass null to remove the filter.
-## valid_inputs = [] means "accept all" (same as no profile).
+## When the profile's input_map is empty, _DEFAULT_INPUT_MAP is used (open fallback).
 func set_active_profile(profile) -> void:
 	_active_profile = profile
 	_chord_buffer.clear()
 
-## Remove the active profile, restoring default (all inputs accepted) behavior.
+## Remove the active profile, restoring default (built-in map) behavior.
 func clear_profile() -> void:
 	_active_profile = null
 	_chord_buffer.clear()
 
-## Returns true if the given direction is allowed by the active profile.
-## When no profile is set, or valid_inputs is empty, all directions are allowed.
+## Returns true if the given direction alias is producible by the active input map.
+## When no profile is set, or input_map is empty, all directions are allowed
+## (consistent with _get_direction returning any alias via _DEFAULT_INPUT_MAP).
 func is_input_allowed(direction: StringName) -> bool:
-	if _active_profile == null:
+	var map: Dictionary = _get_active_input_map()
+	if map.is_empty():
 		return true
-	var vi: Array = _active_profile.valid_inputs
-	if vi.is_empty():
-		return true
-	return direction in vi
+	return direction in map.values()
 
 # --- Input handling ---
 
 func _unhandled_input(event: InputEvent) -> void:
 	var direction := _get_direction(event)
 	if direction == &"":
-		return
-
-	# Profile filtering: drop inputs not in the active profile's valid_inputs.
-	if not is_input_allowed(direction):
-		return
+		return   # action not in active map; input silently ignored
 
 	get_viewport().set_input_as_handled()
 
@@ -183,18 +192,19 @@ func _process(_delta: float) -> void:
 
 # --- Helpers ---
 
+## Returns the direction alias produced by pressing the given action, or &""
+## if the action is not in the active map. Single translation path: looks up
+## event against the active input_map (from profile or built-in default).
 func _get_direction(event: InputEvent) -> StringName:
-	# When a profile is active and has valid_inputs, check only those actions.
-	# This allows arbitrary input action names (e.g. drum_left) without modifying
-	# the hardcoded default list below.
-	if _active_profile != null and not _active_profile.valid_inputs.is_empty():
-		for action in _active_profile.valid_inputs:
-			if event.is_action_pressed(action):
-				return action
-		return &""
-	# Default: standard 4-direction rhythm actions.
-	if event.is_action_pressed(&"rhythm_up"):    return &"up"
-	if event.is_action_pressed(&"rhythm_down"):  return &"down"
-	if event.is_action_pressed(&"rhythm_left"):  return &"left"
-	if event.is_action_pressed(&"rhythm_right"): return &"right"
+	var map: Dictionary = _get_active_input_map()
+	for action in map:
+		if event.is_action_pressed(action):
+			return map[action]
 	return &""
+
+## Returns the input_map to use: the active profile's map if non-empty,
+## otherwise the built-in default directional map.
+func _get_active_input_map() -> Dictionary:
+	if _active_profile != null and not _active_profile.input_map.is_empty():
+		return _active_profile.input_map
+	return _DEFAULT_INPUT_MAP

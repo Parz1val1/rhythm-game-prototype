@@ -1,6 +1,6 @@
 # test_scene.gd
 # Prototype's main scene. Exercises the full rhythm combat stack.
-# Run in Godot (F5) and press arrow keys on the beat, or F/J for Beatrice drums.
+# Arrow keys = Luthier (pitch-scored).  F/J = Beatrice (drum/rhythm-scored).
 extends Node2D
 
 const CharacterData         = preload("res://characters/character_data.gd")
@@ -11,37 +11,33 @@ const DrumFeedbackScript    = preload("res://combat/drum_feedback.gd")
 const DrumLaneScript        = preload("res://combat/drum_lane.gd")
 const DrumPatternScript     = preload("res://combat/drum_pattern_display.gd")
 
+# Profile lookup keyed by character resource path.
+# Extend this dict when adding new characters.
+const _PROFILE_MAP := {
+	"res://characters/luthier_frett.tres":  "res://characters/luthier_profile.tres",
+	"res://characters/beatrice_styx.tres":  "res://characters/beatrice_profile.tres",
+}
+
 ## Set false to test ambush (enemies attack first).
 @export var player_first: bool = true
 
-## When true, loads Beatrice Styx and applies her percussive profile.
-## When false, loads Luthier Frett with the default 4-direction profile.
-@export var use_beatrice: bool = true
-
-## Optional profile override. If null, auto-selects based on use_beatrice.
+## Optional profile override. If null, auto-selects from _PROFILE_MAP.
 @export var active_profile: CharacterInputProfile = null
 
 ## Drag an encounters/*.tres file here to select the default encounter.
-## The ReplayUI dropdown overrides this on replay — set it to whatever you
-## want to fight on a fresh F5.
 @export var encounter: EncounterDefinition
 
 @export_group("Debug Logging")
-## Master switch — all categories are silent while this is off.
 @export var log_enabled:        bool = false
-## Beat events, note pre-injection timing, press offsets, note expiry.
 @export var log_beat_timing:    bool = false
-## Phase transitions, damage dealt, HP changes, win/loss, limit break.
 @export var log_combat_events:  bool = false
-## Note visual spawning, hit-zone flashes.
 @export var log_note_visuals:   bool = false
-## Audio feedback cues (score, pitch).
 @export var log_audio_events:   bool = false
 @export_group("")
 
-## Holds the encounter chosen in the ReplayUI across reload_current_scene().
-## Static variables persist on the GDScript class between scene reloads.
+## Survives reload_current_scene() — set by replay_ui before the reload.
 static var pending_encounter: EncounterDefinition = null
+static var pending_hero_path: String = ""
 
 @onready var _audio:          AudioStreamPlayer = $AudioStreamPlayer
 @onready var _combat_ui:      Node              = $CombatUI
@@ -50,47 +46,49 @@ static var pending_encounter: EncounterDefinition = null
 @onready var _replay_ui:      Node              = $ReplayUI
 
 var _hero:          CharacterData
+var _hero_path:     String = ""
 var _combat:        Node
-# Dynamically created nodes for Beatrice-specific UI and audio.
 var _drum_feedback: Node = null
 var _drum_lane:     Node = null
 var _drum_pattern:  Node = null
 var _profile_label: Label = null
 
 func _ready() -> void:
-	# Apply debug logging toggles from the Inspector (Debug Logging group).
-	# Values are saved in test_scene.tscn so they persist between editor sessions.
 	DebugLog.enabled       = log_enabled
 	DebugLog.beat_timing   = log_beat_timing
 	DebugLog.combat_events = log_combat_events
 	DebugLog.note_visuals  = log_note_visuals
 	DebugLog.audio_events  = log_audio_events
 
-	# If a replay was requested, use the dropdown's selection instead of the
-	# Inspector default. Clear immediately so a hard F5 always uses the export.
 	if pending_encounter != null:
 		encounter = pending_encounter
 		pending_encounter = null
 
-	# Load hero. Duplicate so runtime HP mutations don't pollute the cached asset.
-	var hero_path := "res://characters/beatrice_styx.tres" if use_beatrice else "res://characters/luthier_frett.tres"
-	_hero = load(hero_path) as CharacterData
+	# Resolve hero path, in priority order:
+	#   1. replay_ui selection (carried via pending_hero_path across reload)
+	#   2. active_profile Inspector export — reverse-lookup which character owns that profile
+	#   3. Luthier Frett (prototype default)
+	if pending_hero_path != "":
+		_hero_path = pending_hero_path
+	elif active_profile != null:
+		for char_path in _PROFILE_MAP:
+			if _PROFILE_MAP[char_path] == active_profile.resource_path:
+				_hero_path = char_path
+				break
+	if _hero_path == "":
+		_hero_path = "res://characters/luthier_frett.tres"
+	pending_hero_path = ""
+
+	_hero = load(_hero_path) as CharacterData
 	if _hero == null:
-		push_error("test_scene: %s not found — using fallback hero" % hero_path)
+		push_error("test_scene: %s not found — using fallback hero" % _hero_path)
 		_hero                = CharacterData.new()
 		_hero.character_name = "Hero"
 		_hero.max_hp         = 100; _hero.hp = 100; _hero.attack_power = 12
 	else:
 		_hero = _hero.duplicate(true) as CharacterData
 
-	# Pitch-shifted SFX for Luthier (no-op for drum directions).
 	_audio_feedback.setup(_hero)
-
-	# Beatrice: add drum audio feedback (separate from pitch-shifted SFX).
-	if use_beatrice:
-		_drum_feedback = DrumFeedbackScript.new()
-		add_child(_drum_feedback)
-		_drum_feedback.setup()
 
 	BeatClock.bpm             = 130.0
 	BeatClock.intro_offset_ms = 1200.0
@@ -98,7 +96,7 @@ func _ready() -> void:
 	BeatClock.start(_audio)
 
 	if encounter == null:
-		push_error("test_scene: no encounter assigned — drag an encounters/*.tres file into the Encounter field in the Inspector")
+		push_error("test_scene: no encounter assigned")
 		return
 
 	var party: Array[CharacterData] = [_hero]
@@ -106,30 +104,31 @@ func _ready() -> void:
 	_combat.combat_won.connect(_on_combat_won)
 	_combat.combat_lost.connect(_on_combat_lost)
 
-	# Resolve profile: explicit override → auto by character → default (nil = Luthier).
+	# Resolve profile.
 	var profile: CharacterInputProfile = active_profile
-	if profile == null and use_beatrice:
-		profile = load("res://characters/beatrice_profile.tres") as CharacterInputProfile
+	if profile == null and _PROFILE_MAP.has(_hero_path):
+		profile = load(_PROFILE_MAP[_hero_path]) as CharacterInputProfile
 	if profile != null:
 		_combat.set_active_profile(profile)
 
 	_combat_ui.setup(_combat, _hero)
 
-	# Profile display label (top-left corner of the scene).
 	_profile_label = Label.new()
 	_profile_label.position = Vector2(8, 8)
 	add_child(_profile_label)
 	_update_profile_label(profile)
 
-	# Route to the lane that matches the active defense style.
-	# Percussive (Beatrice): show DrumLane (L/B/R), not the directional arrow lane.
-	# Directional (Luthier): show NoteLane (up/down/left/right arrows).
-	# Only one lane is set up so it receives note_approaching signals; the other is
-	# left disconnected and invisible. Use drum_golem encounter for Beatrice,
-	# goblin/orc/string_golem for Luthier.
 	var is_percussive := profile != null and profile.defense_pattern_type == &"percussive"
+
+	# Drum feedback audio — percussive path only.
 	if is_percussive:
-		_note_lane.visible = false   # setup() not called, so hide explicitly
+		_drum_feedback = DrumFeedbackScript.new()
+		add_child(_drum_feedback)
+		_drum_feedback.setup()
+
+	# Lane routing.
+	if is_percussive:
+		_note_lane.visible = false
 		_drum_lane = DrumLaneScript.new()
 		add_child(_drum_lane)
 		_drum_lane.position = Vector2(326, 200)
@@ -137,15 +136,15 @@ func _ready() -> void:
 	else:
 		_note_lane.setup(_combat)
 
-	# Drum pattern display (attack readout) — shown only for Beatrice.
-	if use_beatrice:
+	# Drum pattern display — percussive path only.
+	if is_percussive:
 		_drum_pattern = DrumPatternScript.new()
 		add_child(_drum_pattern)
 		_drum_pattern.position = Vector2(8, 580)
 		_drum_pattern.setup(_combat, _combat.player_phase_length)
 
-	# Pre-select the active encounter in the replay dropdown.
 	_replay_ui.set_active_encounter(encounter)
+	_replay_ui.set_active_character(_hero_path)
 	_replay_ui.replay_requested.connect(_on_replay_requested)
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -164,16 +163,16 @@ func _on_combat_lost() -> void:
 	_audio.stop()
 	_replay_ui.show_outcome(false)
 
-func _on_replay_requested(new_encounter: EncounterDefinition) -> void:
-	# Store selection so _ready() can pick it up after the scene reloads.
+func _on_replay_requested(new_encounter: EncounterDefinition, hero_path: String) -> void:
 	pending_encounter = new_encounter
+	pending_hero_path = hero_path
 	get_tree().reload_current_scene()
 
 func _update_profile_label(profile: CharacterInputProfile) -> void:
 	if _profile_label == null:
 		return
 	if profile == null:
-		_profile_label.text = "Profile: default (Luthier — 4-direction)"
+		_profile_label.text = "Profile: default (4-direction)"
 	else:
 		_profile_label.text = "Profile: %s | eval=%s | def=%s" % [
 			_hero.character_name if _hero else "?",
