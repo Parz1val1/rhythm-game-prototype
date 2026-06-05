@@ -104,10 +104,14 @@ func _ready() -> void:
 	_combat.combat_won.connect(_on_combat_won)
 	_combat.combat_lost.connect(_on_combat_lost)
 
-	# Resolve profile.
-	var profile: CharacterInputProfile = active_profile
-	if profile == null and _PROFILE_MAP.has(_hero_path):
+	# Resolve profile — hero path takes priority over the Inspector export so that
+	# switching characters via the replay dropdown always picks the correct profile,
+	# even when active_profile is set to a different character's profile in the scene.
+	var profile: CharacterInputProfile
+	if _PROFILE_MAP.has(_hero_path):
 		profile = load(_PROFILE_MAP[_hero_path]) as CharacterInputProfile
+	else:
+		profile = active_profile
 	if profile != null:
 		_combat.set_active_profile(profile)
 
