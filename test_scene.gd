@@ -22,6 +22,7 @@ const _PROFILE_MAP := {
 @export var player_first: bool = true
 
 ## Optional profile override. If null, auto-selects from _PROFILE_MAP.
+## Test-only convenience — _PROFILE_MAP is the real source of truth in normal flow.
 @export var active_profile: CharacterInputProfile = null
 
 ## Drag an encounters/*.tres file here to select the default encounter.

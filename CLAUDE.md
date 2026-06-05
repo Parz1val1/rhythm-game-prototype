@@ -16,7 +16,7 @@ foreach ($t in $tests) {
     & $godot --headless --path $proj -s $t 2>&1 | Select-String "  PASS  |  FAIL  |==="
 }
 ```
-All tests must pass (currently 126 PASS, 0 FAIL) before committing.
+All tests must pass (currently 308 PASS, 0 FAIL) before committing.
 
 ## Architecture Overview
 
@@ -124,6 +124,13 @@ Use it for data that must survive a replay (e.g., the selected encounter).
 ### Signal cleanup
 Always disconnect in `teardown()` / `_exit_tree()` and guard with `is_connected()`.
 Stale connections cause hard-to-reproduce double-fire bugs.
+
+### beat_offset arithmetic and evenly-spaced patterns (gotcha)
+Any discriminator derived from `beat_offset` arithmetic must be tested against the
+evenly-spaced whole-beat case. Example: `int(beat_offset * 2) % 2` over beats
+0,1,2,…,7 yields 0,2,4,6,8,10,12,14 — all even, so the discriminator collapses to
+a constant. Use a sequential `sequence_index` (the hit's position in the pattern array)
+instead of beat-offset math whenever you need to alternate or cycle across hits.
 
 ## Resource Loading Rule
 

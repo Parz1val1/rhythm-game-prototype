@@ -1,48 +1,39 @@
 [gd_resource type="Resource" script_class="EncounterDefinition" format=3 uid="uid://4646gqe1de2a"]
 
 [ext_resource type="Script" uid="uid://c0mi14cj67sd6" path="res://characters/enemy_data.gd" id="1_b57sq"]
-[ext_resource type="Script" path="res://rhythm_engine/neutral_hit.gd" id="2_wb05o"]
+[ext_resource type="Script" uid="uid://b2pmf6pw2vfd0" path="res://rhythm_engine/neutral_hit.gd" id="2_wb05o"]
 [ext_resource type="Script" uid="uid://b12s3kg8vvvou" path="res://encounters/encounter_definition.gd" id="3_v6fl4"]
 
 [sub_resource type="Resource" id="Hit_0"]
 script = ExtResource("2_wb05o")
-beat_offset = 0.0
-lane_count = 1
 
 [sub_resource type="Resource" id="Hit_1"]
 script = ExtResource("2_wb05o")
 beat_offset = 1.0
-lane_count = 1
 
 [sub_resource type="Resource" id="Hit_2"]
 script = ExtResource("2_wb05o")
 beat_offset = 2.0
-lane_count = 1
 
 [sub_resource type="Resource" id="Hit_3"]
 script = ExtResource("2_wb05o")
 beat_offset = 3.0
-lane_count = 1
 
 [sub_resource type="Resource" id="Hit_4"]
 script = ExtResource("2_wb05o")
 beat_offset = 4.0
-lane_count = 1
 
 [sub_resource type="Resource" id="Hit_5"]
 script = ExtResource("2_wb05o")
 beat_offset = 5.0
-lane_count = 1
 
 [sub_resource type="Resource" id="Hit_6"]
 script = ExtResource("2_wb05o")
 beat_offset = 6.0
-lane_count = 1
 
 [sub_resource type="Resource" id="Hit_7"]
 script = ExtResource("2_wb05o")
 beat_offset = 7.0
-lane_count = 1
 
 [sub_resource type="Resource" id="Enemy_golem"]
 script = ExtResource("1_b57sq")
