@@ -87,6 +87,17 @@ var _active_actor_index: int = 0
 ## Action chosen by choose_action(), pending execution on the next snap boundary.
 var _pending_action: StringName = &""
 
+## How many beats after choose_action() fires before the action executes.
+## 1 = snap to next beat (responsive). 4 = snap to next bar.
+const DECISION_SNAP: int = 1
+
+## Countdown from DECISION_SNAP down to 0; action executes when it hits 0.
+var _snap_countdown: int = 0
+
+## True when the player chose "defend" this turn: all incoming damage is halved.
+## Reset at the start of every DEFEND phase that follows.
+var _defending_stance: bool = false
+
 # --- Public API ---
 
 ## Initialize combat state and connect to global autoload signals.
@@ -164,6 +175,7 @@ func choose_action(action: StringName) -> void:
 	if _current_phase != Phase.DECISION or _combat_ended:
 		return
 	_pending_action = action
+	_snap_countdown = DECISION_SNAP
 	var actor_name: String = ""
 	if _active_actor_index < _player_party.size():
 		var a: CharacterData = _player_party[_active_actor_index] as CharacterData
@@ -258,6 +270,11 @@ func _on_beat(beat_number: int) -> void:
 				if abs(hit.beat_offset - lookahead_index) < 0.01:
 					for _approaching in NeutralPatternTranslator.resolve_notes(hit, _defense_type, _i):
 						note_approaching.emit(_approaching, beat_number + lookahead_beats)
+		Phase.DECISION:
+			if _pending_action != &"" and _snap_countdown > 0:
+				_snap_countdown -= 1
+				if _snap_countdown == 0:
+					_execute_pending_action()
 
 # --- Half-beat pre-injection ---
 
@@ -308,6 +325,25 @@ func _on_input_chord(chord_name: StringName, score: StringName) -> void:
 
 # --- Phase transitions ---
 
+## Executes the stored _pending_action and transitions out of DECISION.
+## Called by _on_beat() when _snap_countdown reaches zero.
+func _execute_pending_action() -> void:
+	var action := _pending_action
+	_pending_action = &""
+	_phase_beat_count = 0
+
+	match action:
+		&"attack":
+			_current_phase = Phase.ATTACK
+			DebugLog.combat("[PHASE  ] DECISION → ATTACK")
+			phase_changed.emit(Phase.ATTACK)
+		&"defend":
+			_defending_stance = true
+			DebugLog.combat("[PHASE  ] DECISION → DEFEND (defensive stance)")
+			_enter_defend_phase()
+		_:
+			DebugLog.combat("[DECIDE ] unknown action '%s' — staying in DECISION" % action)
+
 func _end_attack_phase() -> void:
 	# Damage is applied per-hit in _on_input_scored; nothing to apply here.
 	_phase_beat_count = 0
@@ -322,11 +358,18 @@ func _end_attack_phase() -> void:
 		DebugLog.combat("[LB     ] ended — gauge reset")
 		limit_break_ended.emit()
 
+	DebugLog.combat("[PHASE  ] ATTACK → DEFEND")
+	_enter_defend_phase()
+
+## Shared entry point for the DEFEND phase — called by _end_attack_phase()
+## and by _execute_pending_action() when the player chooses "defend" or "item".
+## Sets _defend_index, clears notes, emits phase_changed, announces early notes.
+func _enter_defend_phase() -> void:
 	_defend_index = _first_living_enemy_index()
 	RhythmInput.clear_notes()
 	_current_phase = Phase.DEFEND
 	var defending_name: String = _enemy_party[_defend_index].enemy_name if _defend_index < _enemy_party.size() else "?"
-	DebugLog.combat("[PHASE  ] ATTACK → DEFEND | defending: %s" % defending_name)
+	DebugLog.combat("[PHASE  ] → DEFEND | defending: %s" % defending_name)
 	phase_changed.emit(Phase.DEFEND)
 
 	# Announce DEFEND notes whose normal lookahead window falls before the phase start.
@@ -355,6 +398,7 @@ func _end_attack_phase() -> void:
 		combat_won.emit()
 
 func _end_defend_phase() -> void:
+	_defending_stance = false
 	RhythmInput.clear_notes()
 	_phase_beat_count = 0
 
@@ -540,9 +584,10 @@ func _apply_damage_to_character(character: CharacterData, damage: int) -> void:
 	if _combat_ended:
 		return
 	var old_hp: int = character.hp
-	character.hp = max(0, old_hp - damage)
+	var actual_damage: int = int(float(damage) * 0.5) if _defending_stance else damage
+	character.hp = max(0, old_hp - actual_damage)
 	DebugLog.combat("[DEFEND ] %s took %d dmg | hp %d → %d/%d" % [
-		character.character_name, damage, old_hp, character.hp, character.max_hp])
+		character.character_name, actual_damage, old_hp, character.hp, character.max_hp])
 	if _all_characters_dead():
 		_combat_ended = true
 		teardown()
