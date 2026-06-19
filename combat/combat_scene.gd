@@ -116,10 +116,10 @@ func setup(
 		player_names, enemy_names, player_first])
 
 	if player_first and _player_party.size() > 0:
-		var _actor: CharacterData = _player_party[_active_actor_index] as CharacterData
-		if _actor != null:
-			DebugLog.combat("[PHASE  ] starting in DECISION | actor: %s" % _actor.character_name)
-			decision_started.emit(_actor)
+		var actor: CharacterData = _player_party[_active_actor_index] as CharacterData
+		if actor != null:
+			DebugLog.combat("[PHASE  ] starting in DECISION | actor: %s" % actor.character_name)
+			decision_started.emit(actor)
 
 	# Connect to autoload signals.
 	# In Godot 4, autoloads are accessed by their registered name as globals.
@@ -166,9 +166,9 @@ func choose_action(action: StringName) -> void:
 	_pending_action = action
 	var actor_name: String = ""
 	if _active_actor_index < _player_party.size():
-		var _a: CharacterData = _player_party[_active_actor_index] as CharacterData
-		if _a != null:
-			actor_name = _a.character_name
+		var a: CharacterData = _player_party[_active_actor_index] as CharacterData
+		if a != null:
+			actor_name = a.character_name
 	DebugLog.combat("[DECIDE ] %s chose: %s" % [actor_name, action])
 
 ## Activate limit break for the active character.
@@ -368,12 +368,15 @@ func _end_defend_phase() -> void:
 		_evaluator.reset()
 		_phase_beat_count = 0
 		_current_phase = Phase.DECISION
+		# _active_actor_index is not reset here — multi-actor support (cycling
+		# through party members) is a future task; for a 1-player party it
+		# stays at 0, which is already correct.
 		DebugLog.combat("[PHASE  ] DEFEND → DECISION")
 		phase_changed.emit(Phase.DECISION)
 		if _player_party.size() > 0:
-			var _actor: CharacterData = _player_party[_active_actor_index] as CharacterData
-			if _actor != null:
-				decision_started.emit(_actor)
+			var actor: CharacterData = _player_party[_active_actor_index] as CharacterData
+			if actor != null:
+				decision_started.emit(actor)
 	else:
 		DebugLog.combat("[PHASE  ] DEFEND turn done | next: %s" % _enemy_party[_defend_index].enemy_name)
 
