@@ -45,6 +45,12 @@ signal limit_break_ended()
 ## actor is the CharacterData whose turn it is (always _player_party[_active_actor_index]).
 signal decision_started(actor: CharacterData)
 
+## Fires when a "run" action's escape roll fails, just before the forced
+## transition to DEFEND. UI/audio listen to this to show a transient
+## "couldn't escape" message — the phase transition itself is timed by
+## combat_scene (run_failed_display_seconds), not by the UI.
+signal run_failed()
+
 # --- Configuration ---
 ## How many beats the player's ATTACK phase lasts before switching to DEFEND.
 ## Exported so it can be overridden per scene in the Inspector.
@@ -103,6 +109,16 @@ var _rng := RandomNumberGenerator.new()
 ## HP restored by the "item" action (placeholder heal).
 const ITEM_HEAL_AMOUNT: int = 20
 
+## How long (real seconds, not beat-quantized — this is a narrative pause, not
+## a rhythm action) to hold on DECISION after a failed escape attempt before
+## forcing DEFEND, so the player has time to read the run_failed message.
+@export var run_failed_display_seconds: float = 2.0
+
+## True while waiting out run_failed_display_seconds after a failed escape.
+## Blocks choose_action() so a hasty click during the pause can't silently
+## get discarded when the forced DEFEND transition fires.
+var _run_failed_pending: bool = false
+
 # --- Public API ---
 
 ## Initialize combat state and connect to global autoload signals.
@@ -119,6 +135,7 @@ func setup(
 	_pending_action = &""
 	_snap_countdown = 0
 	_defending_stance = false
+	_run_failed_pending = false
 	_current_phase = Phase.DECISION if player_first else Phase.DEFEND
 	_phase_beat_count = 0
 	_defend_index     = 0
@@ -179,7 +196,7 @@ func get_phase_name() -> StringName:
 ## Execution is deferred to the next beat boundary (see DECISION_SNAP in a later task).
 ## Valid actions: &"attack", &"defend", &"item", &"run".
 func choose_action(action: StringName) -> void:
-	if _current_phase != Phase.DECISION or _combat_ended:
+	if _current_phase != Phase.DECISION or _combat_ended or _run_failed_pending:
 		return
 	_pending_action = action
 	_snap_countdown = DECISION_SNAP
@@ -367,13 +384,23 @@ func _execute_pending_action() -> void:
 				DebugLog.combat("[RUN    ] escape successful!")
 				combat_won.emit()
 			else:
-				DebugLog.combat("[RUN    ] escape failed — back to DECISION")
-				if _player_party.size() > 0:
-					var actor: CharacterData = _player_party[_active_actor_index] as CharacterData
-					if actor != null:
-						decision_started.emit(actor)
+				DebugLog.combat("[RUN    ] escape failed — DEFEND in %.1fs" % run_failed_display_seconds)
+				_run_failed_pending = true
+				run_failed.emit()
+				get_tree().create_timer(run_failed_display_seconds).timeout.connect(_on_run_failed_timeout)
 		_:
 			DebugLog.combat("[DECIDE ] unknown action '%s' — staying in DECISION" % action)
+
+## Called once run_failed_display_seconds elapses after a failed escape.
+## Forces DEFEND regardless of anything the player may have clicked during
+## the message window — choose_action() is locked out via _run_failed_pending
+## for the entire window, so there is nothing pending to discard here.
+func _on_run_failed_timeout() -> void:
+	_run_failed_pending = false
+	if _combat_ended:
+		return
+	DebugLog.combat("[RUN    ] message window elapsed — forcing DEFEND")
+	_enter_defend_phase()
 
 func _end_attack_phase() -> void:
 	# Damage is applied per-hit in _on_input_scored; nothing to apply here.

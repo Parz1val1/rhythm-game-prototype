@@ -18,6 +18,7 @@ const CharacterData = preload("res://characters/character_data.gd")
 @onready var _limit_fill:     ColorRect = $LimitBar/LimitBarBG/LimitBarFill
 @onready var _limit_ready:    Label     = $LimitBar/LimitReady
 @onready var _decision_menu:  VBoxContainer = $DecisionMenu
+@onready var _message_label:  Label         = $MessageLabel
 
 var _combat = null
 var _hero: CharacterData = null
@@ -39,6 +40,7 @@ func setup(combat: Node, hero: CharacterData) -> void:
 	combat.limit_break_ready.connect(_on_limit_break_ready)
 	combat.limit_break_ended.connect(_on_limit_break_ended)
 	combat.decision_started.connect(_on_decision_started)
+	combat.run_failed.connect(_on_run_failed)
 	$DecisionMenu/AttackButton.pressed.connect(func(): _combat.choose_action(&"attack"))
 	$DecisionMenu/DefendButton.pressed.connect(func(): _combat.choose_action(&"defend"))
 	$DecisionMenu/ItemButton.pressed.connect(func(): _combat.choose_action(&"item"))
@@ -70,6 +72,8 @@ func _exit_tree() -> void:
 			_combat.limit_break_ended.disconnect(_on_limit_break_ended)
 		if _combat.decision_started.is_connected(_on_decision_started):
 			_combat.decision_started.disconnect(_on_decision_started)
+		if _combat.run_failed.is_connected(_on_run_failed):
+			_combat.run_failed.disconnect(_on_run_failed)
 
 func _process(_delta: float) -> void:
 	if not is_instance_valid(_hero) or not is_instance_valid(_combat):
@@ -108,6 +112,10 @@ func _apply_phase_display(new_phase: int) -> void:
 		1: _phase_label.text = "DEFEND"
 		2: _phase_label.text = "DECISION"
 	_decision_menu.visible = (new_phase == 2)
+	# Any real phase display update (including the forced DEFEND that follows
+	# a failed escape) clears the run-failed message — its job is done once
+	# the phase it was stalling actually changes.
+	_message_label.visible = false
 
 func _on_phase_changed(new_phase: int) -> void:
 	_apply_phase_display(new_phase)
@@ -137,6 +145,10 @@ func hide_decision_menu() -> void:
 
 func _on_decision_started(_actor: CharacterData) -> void:
 	_decision_menu.visible = true
+
+func _on_run_failed() -> void:
+	_message_label.text = "Couldn't escape!"
+	_message_label.visible = true
 
 func _on_beat(_beat_number: int) -> void:
 	_beat_pulse.color = Color(1.0, 1.0, 0.3)

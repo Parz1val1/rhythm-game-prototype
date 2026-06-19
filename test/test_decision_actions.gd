@@ -12,7 +12,7 @@ extends SceneTree
 ## that mutates a local declared in _run() will NOT be visible back in _run()'s scope.
 ## Promoting these to fields lets the lambda mutate them via implicit `self`.
 var _won_fired: bool = false
-var _decision_refired: bool = false
+var _run_failed_fired: bool = false
 
 func _init() -> void:
 	await process_frame
@@ -91,21 +91,27 @@ func _run() -> void:
 		_won_fired, true)
 	# Don't queue_free — combat already tore down.
 
-	# Run — escape fails, returns to DECISION.
+	# Run — escape fails. Shows a message (run_failed) and stays in DECISION
+	# until the message window elapses, then forces DEFEND.
+	# (Full coverage of this flow, including the choose_action() lockout
+	# during the window, lives in test_run_failed_message.gd — this just
+	# confirms the "run" action still routes there correctly.)
 	var cf = combat_tscn.instantiate(); root.add_child(cf)
 	var hf = CharacterData.new(); hf.max_hp = 100; hf.hp = 100
 	var ef = EnemyData.new();     ef.max_hp = 50;  ef.hp = 50
 	cf.setup([hf], [ef], true)
 	cf._rng.seed = found_fail_seed
-	cf.decision_started.connect(func(_a): _decision_refired = true)
-	# Clear the initial decision_started from setup().
-	_decision_refired = false
+	_run_failed_fired = false
+	cf.run_failed.connect(func(): _run_failed_fired = true)
 	cf.choose_action(&"run")
 	cf.call("_on_beat", 1)
-	_check("[run] escape fail → stays in DECISION (seed=%d)" % found_fail_seed,
+	_check("[run] escape fail → run_failed fired (seed=%d)" % found_fail_seed,
+		_run_failed_fired, true)
+	_check("[run] escape fail → stays in DECISION during message window",
 		cf.get_phase_name() == &"DECISION", true)
-	_check("[run] escape fail → decision_started re-emitted",
-		_decision_refired, true)
+	cf.call("_on_run_failed_timeout")
+	_check("[run] escape fail → DEFEND once message window elapses",
+		cf.get_phase_name() == &"DEFEND", true)
 	cf.queue_free()
 
 	print("=== done ===")
