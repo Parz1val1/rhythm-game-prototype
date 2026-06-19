@@ -41,6 +41,10 @@ signal limit_break_started(character: CharacterData)
 ## Fires when the limit break phase ends and gauge resets.
 signal limit_break_ended()
 
+## Fires when it is the player's turn to choose an action.
+## actor is the CharacterData whose turn it is (always _player_party[_active_actor_index]).
+signal decision_started(actor: CharacterData)
+
 # --- Configuration ---
 ## How many beats the player's ATTACK phase lasts before switching to DEFEND.
 ## Exported so it can be overridden per scene in the Inspector.
@@ -53,7 +57,7 @@ signal limit_break_ended()
 # --- Phase enum ---
 # Godot enums are scoped to the class. Reference as CombatScene.Phase.ATTACK
 # or just Phase.ATTACK within this script.
-enum Phase { ATTACK, DEFEND }
+enum Phase { ATTACK, DEFEND, DECISION }
 
 # --- Party state (injected via setup()) ---
 var _player_party: Array = []
@@ -78,6 +82,11 @@ var _limit_break_active: bool = false
 var _limit_break_character = null   # CharacterData or null
 var _default_phase_length: int = 4  # saved on setup(), restored after limit break
 
+## Index of the party member currently choosing an action (always 0 for 1-player).
+var _active_actor_index: int = 0
+## Action chosen by choose_action(), pending execution on the next snap boundary.
+var _pending_action: StringName = &""
+
 # --- Public API ---
 
 ## Initialize combat state and connect to global autoload signals.
@@ -90,7 +99,9 @@ func setup(
 	_player_party = player_party
 	_enemy_party  = enemy_party
 	_player_first = player_first
-	_current_phase = Phase.ATTACK if player_first else Phase.DEFEND
+	_active_actor_index = 0
+	_pending_action = &""
+	_current_phase = Phase.DECISION if player_first else Phase.DEFEND
 	_phase_beat_count = 0
 	_defend_index     = 0
 	_evaluator.reset()
@@ -103,6 +114,12 @@ func setup(
 	var player_names := ", ".join(_player_party.map(func(c: CharacterData): return c.character_name))
 	DebugLog.combat("[SETUP  ] combat started | players: [%s] | enemies: [%s] | player_first=%s" % [
 		player_names, enemy_names, player_first])
+
+	if player_first and _player_party.size() > 0:
+		var _actor: CharacterData = _player_party[_active_actor_index] as CharacterData
+		if _actor != null:
+			DebugLog.combat("[PHASE  ] starting in DECISION | actor: %s" % _actor.character_name)
+			decision_started.emit(_actor)
 
 	# Connect to autoload signals.
 	# In Godot 4, autoloads are accessed by their registered name as globals.
@@ -132,9 +149,27 @@ func get_attack_target() -> EnemyData:
 			return e
 	return null
 
-## Returns &"ATTACK" or &"DEFEND" for UI display.
+## Returns &"ATTACK", &"DEFEND", or &"DECISION" for UI display.
 func get_phase_name() -> StringName:
-	return &"ATTACK" if _current_phase == Phase.ATTACK else &"DEFEND"
+	match _current_phase:
+		Phase.ATTACK:   return &"ATTACK"
+		Phase.DEFEND:   return &"DEFEND"
+		Phase.DECISION: return &"DECISION"
+	return &"UNKNOWN"
+
+## Store the player's chosen action during DECISION phase.
+## Execution is deferred to the next beat boundary (see DECISION_SNAP in a later task).
+## Valid actions: &"attack", &"defend", &"item", &"run".
+func choose_action(action: StringName) -> void:
+	if _current_phase != Phase.DECISION or _combat_ended:
+		return
+	_pending_action = action
+	var actor_name: String = ""
+	if _active_actor_index < _player_party.size():
+		var _a: CharacterData = _player_party[_active_actor_index] as CharacterData
+		if _a != null:
+			actor_name = _a.character_name
+	DebugLog.combat("[DECIDE ] %s chose: %s" % [actor_name, action])
 
 ## Activate limit break for the active character.
 ## Only works during ATTACK phase when the character's gauge is full.
@@ -331,9 +366,14 @@ func _end_defend_phase() -> void:
 	# All living enemies have had their turn — back to ATTACK.
 	if _defend_index >= _enemy_party.size():
 		_evaluator.reset()
-		_current_phase = Phase.ATTACK
-		DebugLog.combat("[PHASE  ] DEFEND → ATTACK")
-		phase_changed.emit(Phase.ATTACK)
+		_phase_beat_count = 0
+		_current_phase = Phase.DECISION
+		DebugLog.combat("[PHASE  ] DEFEND → DECISION")
+		phase_changed.emit(Phase.DECISION)
+		if _player_party.size() > 0:
+			var _actor: CharacterData = _player_party[_active_actor_index] as CharacterData
+			if _actor != null:
+				decision_started.emit(_actor)
 	else:
 		DebugLog.combat("[PHASE  ] DEFEND turn done | next: %s" % _enemy_party[_defend_index].enemy_name)
 
