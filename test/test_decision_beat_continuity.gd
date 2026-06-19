@@ -40,7 +40,12 @@ func _run() -> void:
 
 	# Give the enemy a simple pattern so there are notes to (not) inject.
 	var NeutralHit = load("res://rhythm_engine/neutral_hit.gd")
-	var hit = NeutralHit.new(); hit.beat_offset = 0.0; hit.lane_count = 1
+	# beat_offset=0.5 matches the half-beat check fired during the i=0 loop
+	# iteration below (half_pos = (_phase_beat_count-1)+0.5 = 0+0.5 = 0.5 after
+	# _on_beat(1) sets _phase_beat_count=1). This makes the "no injection during
+	# DECISION" assertion falsifiable: with the DECISION guard removed, this
+	# hit WOULD be injected at i=0 if the phase were DEFEND instead.
+	var hit = NeutralHit.new(); hit.beat_offset = 0.5; hit.lane_count = 1
 	enemy.neutral_pattern.append(hit)
 
 	combat.setup([hero], [enemy], true)  # starts in DECISION
