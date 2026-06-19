@@ -112,6 +112,8 @@ func setup(
 	_player_first = player_first
 	_active_actor_index = 0
 	_pending_action = &""
+	_snap_countdown = 0
+	_defending_stance = false
 	_current_phase = Phase.DECISION if player_first else Phase.DEFEND
 	_phase_beat_count = 0
 	_defend_index     = 0
