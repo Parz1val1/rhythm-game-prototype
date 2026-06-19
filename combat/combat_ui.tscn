@@ -104,3 +104,43 @@ color = Color(0.9, 0.7, 0.1, 1)
 layout_mode = 2
 text = "SPACE → LIMIT BREAK!"
 visible = false
+
+[node name="DecisionMenu" type="VBoxContainer" parent="."]
+layout_mode = 1
+offset_left = 250.0
+offset_top = 48.0
+offset_right = 450.0
+offset_bottom = 230.0
+visible = false
+
+[node name="DecisionLabel" type="Label" parent="DecisionMenu"]
+layout_mode = 2
+text = "Choose Action:"
+theme_override_font_sizes/font_size = 16
+
+[node name="AttackButton" type="Button" parent="DecisionMenu"]
+layout_mode = 2
+text = "Attack"
+
+[node name="DefendButton" type="Button" parent="DecisionMenu"]
+layout_mode = 2
+text = "Defend"
+
+[node name="ItemButton" type="Button" parent="DecisionMenu"]
+layout_mode = 2
+text = "Item"
+
+[node name="RunButton" type="Button" parent="DecisionMenu"]
+layout_mode = 2
+text = "Run"
+
+[node name="MessageLabel" type="Label" parent="."]
+layout_mode = 1
+offset_left = 10.0
+offset_top = 270.0
+offset_right = 450.0
+offset_bottom = 300.0
+visible = false
+theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(0.95, 0.3, 0.3, 1)
+text = ""

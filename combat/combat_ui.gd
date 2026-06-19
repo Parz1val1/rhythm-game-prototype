@@ -17,6 +17,8 @@ const CharacterData = preload("res://characters/character_data.gd")
 @onready var _enemy_numbers:  Label     = $EnemyBar/HPNumbers
 @onready var _limit_fill:     ColorRect = $LimitBar/LimitBarBG/LimitBarFill
 @onready var _limit_ready:    Label     = $LimitBar/LimitReady
+@onready var _decision_menu:  VBoxContainer = $DecisionMenu
+@onready var _message_label:  Label         = $MessageLabel
 
 var _combat = null
 var _hero: CharacterData = null
@@ -37,7 +39,24 @@ func setup(combat: Node, hero: CharacterData) -> void:
 	combat.combo_updated.connect(_on_combo_updated)
 	combat.limit_break_ready.connect(_on_limit_break_ready)
 	combat.limit_break_ended.connect(_on_limit_break_ended)
+	combat.decision_started.connect(_on_decision_started)
+	combat.run_failed.connect(_on_run_failed)
+	$DecisionMenu/AttackButton.pressed.connect(func(): _combat.choose_action(&"attack"))
+	$DecisionMenu/DefendButton.pressed.connect(func(): _combat.choose_action(&"defend"))
+	$DecisionMenu/ItemButton.pressed.connect(func(): _combat.choose_action(&"item"))
+	$DecisionMenu/RunButton.pressed.connect(func(): _combat.choose_action(&"run"))
 	BeatClock.beat.connect(_on_beat)
+
+	# Sync immediately to combat's current phase. setup() may run after combat
+	# already entered its starting phase and (for DECISION) already fired its
+	# one-shot decision_started signal — signals connected just above can't
+	# replay history, so without this the UI would be stuck showing the
+	# scene file's literal defaults (PhaseLabel="ATTACK", menu hidden) no
+	# matter what phase combat actually started in.
+	match combat.get_phase_name():
+		&"ATTACK":   _apply_phase_display(0)
+		&"DEFEND":   _apply_phase_display(1)
+		&"DECISION": _apply_phase_display(2)
 
 func _exit_tree() -> void:
 	if BeatClock.beat.is_connected(_on_beat):
@@ -51,6 +70,10 @@ func _exit_tree() -> void:
 			_combat.limit_break_ready.disconnect(_on_limit_break_ready)
 		if _combat.limit_break_ended.is_connected(_on_limit_break_ended):
 			_combat.limit_break_ended.disconnect(_on_limit_break_ended)
+		if _combat.decision_started.is_connected(_on_decision_started):
+			_combat.decision_started.disconnect(_on_decision_started)
+		if _combat.run_failed.is_connected(_on_run_failed):
+			_combat.run_failed.disconnect(_on_run_failed)
 
 func _process(_delta: float) -> void:
 	if not is_instance_valid(_hero) or not is_instance_valid(_combat):
@@ -80,8 +103,22 @@ func _process(_delta: float) -> void:
 	_limit_fill.size.x = _bar_max_width * lb_ratio
 	_limit_fill.color  = Color(0.9, 0.7, 0.1) if lb_ratio < 1.0 else Color(1.0, 0.95, 0.2)
 
+## Sets the phase label text and decision-menu visibility for new_phase, with
+## no visual flash — used both for live transitions (via _on_phase_changed)
+## and for the one-time sync in setup() against combat's already-current phase.
+func _apply_phase_display(new_phase: int) -> void:
+	match new_phase:
+		0: _phase_label.text = "ATTACK"
+		1: _phase_label.text = "DEFEND"
+		2: _phase_label.text = "DECISION"
+	_decision_menu.visible = (new_phase == 2)
+	# Any real phase display update (including the forced DEFEND that follows
+	# a failed escape) clears the run-failed message — its job is done once
+	# the phase it was stalling actually changes.
+	_message_label.visible = false
+
 func _on_phase_changed(new_phase: int) -> void:
-	_phase_label.text = "ATTACK" if new_phase == 0 else "DEFEND"
+	_apply_phase_display(new_phase)
 	# Brief flash on phase transition.
 	var tween := create_tween()
 	tween.tween_property(_phase_label, "modulate", Color(1.5, 1.5, 0.5), 0.0)
@@ -99,6 +136,19 @@ func _on_limit_break_ready(_char: CharacterData) -> void:
 
 func _on_limit_break_ended() -> void:
 	_limit_ready.visible = false
+
+func show_decision_menu() -> void:
+	_decision_menu.visible = true
+
+func hide_decision_menu() -> void:
+	_decision_menu.visible = false
+
+func _on_decision_started(_actor: CharacterData) -> void:
+	_decision_menu.visible = true
+
+func _on_run_failed() -> void:
+	_message_label.text = "Couldn't escape!"
+	_message_label.visible = true
 
 func _on_beat(_beat_number: int) -> void:
 	_beat_pulse.color = Color(1.0, 1.0, 0.3)
