@@ -17,6 +17,7 @@ const CharacterData = preload("res://characters/character_data.gd")
 @onready var _enemy_numbers:  Label     = $EnemyBar/HPNumbers
 @onready var _limit_fill:     ColorRect = $LimitBar/LimitBarBG/LimitBarFill
 @onready var _limit_ready:    Label     = $LimitBar/LimitReady
+@onready var _decision_menu:  VBoxContainer = $DecisionMenu
 
 var _combat = null
 var _hero: CharacterData = null
@@ -37,6 +38,11 @@ func setup(combat: Node, hero: CharacterData) -> void:
 	combat.combo_updated.connect(_on_combo_updated)
 	combat.limit_break_ready.connect(_on_limit_break_ready)
 	combat.limit_break_ended.connect(_on_limit_break_ended)
+	combat.decision_started.connect(_on_decision_started)
+	$DecisionMenu/AttackButton.pressed.connect(func(): _combat.choose_action(&"attack"))
+	$DecisionMenu/DefendButton.pressed.connect(func(): _combat.choose_action(&"defend"))
+	$DecisionMenu/ItemButton.pressed.connect(func(): _combat.choose_action(&"item"))
+	$DecisionMenu/RunButton.pressed.connect(func(): _combat.choose_action(&"run"))
 	BeatClock.beat.connect(_on_beat)
 
 func _exit_tree() -> void:
@@ -51,6 +57,8 @@ func _exit_tree() -> void:
 			_combat.limit_break_ready.disconnect(_on_limit_break_ready)
 		if _combat.limit_break_ended.is_connected(_on_limit_break_ended):
 			_combat.limit_break_ended.disconnect(_on_limit_break_ended)
+		if _combat.decision_started.is_connected(_on_decision_started):
+			_combat.decision_started.disconnect(_on_decision_started)
 
 func _process(_delta: float) -> void:
 	if not is_instance_valid(_hero) or not is_instance_valid(_combat):
@@ -81,7 +89,11 @@ func _process(_delta: float) -> void:
 	_limit_fill.color  = Color(0.9, 0.7, 0.1) if lb_ratio < 1.0 else Color(1.0, 0.95, 0.2)
 
 func _on_phase_changed(new_phase: int) -> void:
-	_phase_label.text = "ATTACK" if new_phase == 0 else "DEFEND"
+	match new_phase:
+		0: _phase_label.text = "ATTACK"
+		1: _phase_label.text = "DEFEND"
+		2: _phase_label.text = "DECISION"
+	_decision_menu.visible = (new_phase == 2)
 	# Brief flash on phase transition.
 	var tween := create_tween()
 	tween.tween_property(_phase_label, "modulate", Color(1.5, 1.5, 0.5), 0.0)
@@ -99,6 +111,15 @@ func _on_limit_break_ready(_char: CharacterData) -> void:
 
 func _on_limit_break_ended() -> void:
 	_limit_ready.visible = false
+
+func show_decision_menu() -> void:
+	_decision_menu.visible = true
+
+func hide_decision_menu() -> void:
+	_decision_menu.visible = false
+
+func _on_decision_started(_actor: CharacterData) -> void:
+	_decision_menu.visible = true
 
 func _on_beat(_beat_number: int) -> void:
 	_beat_pulse.color = Color(1.0, 1.0, 0.3)
