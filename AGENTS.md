@@ -1,4 +1,4 @@
-# Rhythm Game Prototype — Claude Code Guide
+# Rhythm Game Prototype — Codex Guide
 
 ## Godot Executable
 ```
@@ -32,8 +32,8 @@ fails with `ENOENT`. Both `godot` blocks in `~/.claude.json` need:
 ```json
 "env": { "GODOT_PATH": "C:\\Users\\Tim\\External Applications\\Godot_v4.6.3-stable_mono_win64\\Godot_v4.6.3-stable_mono_win64_console.exe" }
 ```
-Env changes take effect only on a **new Claude Code session** (the server starts
-at session launch). If unset, only `list_projects` (pure filesystem) works;
+Env changes take effect only on a **new session** (the server starts at session
+launch). If unset, only `list_projects` (pure filesystem) works;
 `get_project_info`, `get_godot_version`, `get_uid`, `run_project`, etc. all error
 out with the `ENOENT` above. **Status 2026-06-19: `GODOT_PATH` is set on both
 blocks and verified working** (`get_godot_version`, `get_project_info`, `get_uid`
@@ -50,7 +50,7 @@ all succeed). If those start failing again, this env var is the first thing to c
 The headless PowerShell test loop remains the **canonical verify path** — the MCP
 server does not replace it. Treat the server as a convenience for project
 metadata, UID wiring, and one-off scene scaffolding, not as the primary dev
-driver. Prefer the normal Read/Edit/Grep tools for all code and small `.tscn`
+driver. Prefer the normal read/edit/grep tools for all code and small `.tscn`
 edits.
 
 ## Architecture Overview
@@ -70,7 +70,7 @@ edits.
 ## Debug Logging
 
 **All new code must include `DebugLog` calls at meaningful event boundaries.**
-Logging is how we debug alongside Claude — structured logs let Claude diagnose issues
+Logging is how we debug alongside Codex — structured logs let Codex diagnose issues
 from a paste of output rather than requiring a live session.
 
 ### The four categories
