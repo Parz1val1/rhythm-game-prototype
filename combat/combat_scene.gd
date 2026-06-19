@@ -349,7 +349,9 @@ func _execute_pending_action() -> void:
 			DebugLog.combat("[PHASE  ] DECISION → DEFEND (defensive stance)")
 			_enter_defend_phase()
 		&"item":
-			var character: CharacterData = _get_active_character()
+			var character: CharacterData = null
+			if _active_actor_index < _player_party.size():
+				character = _player_party[_active_actor_index] as CharacterData
 			if character != null:
 				var old_hp: int = character.hp
 				character.hp = min(character.max_hp, character.hp + ITEM_HEAL_AMOUNT)
