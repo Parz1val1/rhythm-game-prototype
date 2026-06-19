@@ -45,6 +45,17 @@ func setup(combat: Node, hero: CharacterData) -> void:
 	$DecisionMenu/RunButton.pressed.connect(func(): _combat.choose_action(&"run"))
 	BeatClock.beat.connect(_on_beat)
 
+	# Sync immediately to combat's current phase. setup() may run after combat
+	# already entered its starting phase and (for DECISION) already fired its
+	# one-shot decision_started signal — signals connected just above can't
+	# replay history, so without this the UI would be stuck showing the
+	# scene file's literal defaults (PhaseLabel="ATTACK", menu hidden) no
+	# matter what phase combat actually started in.
+	match combat.get_phase_name():
+		&"ATTACK":   _apply_phase_display(0)
+		&"DEFEND":   _apply_phase_display(1)
+		&"DECISION": _apply_phase_display(2)
+
 func _exit_tree() -> void:
 	if BeatClock.beat.is_connected(_on_beat):
 		BeatClock.beat.disconnect(_on_beat)
@@ -88,12 +99,18 @@ func _process(_delta: float) -> void:
 	_limit_fill.size.x = _bar_max_width * lb_ratio
 	_limit_fill.color  = Color(0.9, 0.7, 0.1) if lb_ratio < 1.0 else Color(1.0, 0.95, 0.2)
 
-func _on_phase_changed(new_phase: int) -> void:
+## Sets the phase label text and decision-menu visibility for new_phase, with
+## no visual flash — used both for live transitions (via _on_phase_changed)
+## and for the one-time sync in setup() against combat's already-current phase.
+func _apply_phase_display(new_phase: int) -> void:
 	match new_phase:
 		0: _phase_label.text = "ATTACK"
 		1: _phase_label.text = "DEFEND"
 		2: _phase_label.text = "DECISION"
 	_decision_menu.visible = (new_phase == 2)
+
+func _on_phase_changed(new_phase: int) -> void:
+	_apply_phase_display(new_phase)
 	# Brief flash on phase transition.
 	var tween := create_tween()
 	tween.tween_property(_phase_label, "modulate", Color(1.5, 1.5, 0.5), 0.0)
