@@ -98,6 +98,11 @@ var _snap_countdown: int = 0
 ## Reset at the start of every DEFEND phase that follows.
 var _defending_stance: bool = false
 
+## Seeded RNG for run escape rolls. In tests, set _rng.seed before calling choose_action("run").
+var _rng := RandomNumberGenerator.new()
+## HP restored by the "item" action (placeholder heal).
+const ITEM_HEAL_AMOUNT: int = 20
+
 # --- Public API ---
 
 ## Initialize combat state and connect to global autoload signals.
@@ -343,6 +348,28 @@ func _execute_pending_action() -> void:
 			_defending_stance = true
 			DebugLog.combat("[PHASE  ] DECISION → DEFEND (defensive stance)")
 			_enter_defend_phase()
+		&"item":
+			var character: CharacterData = _get_active_character()
+			if character != null:
+				var old_hp: int = character.hp
+				character.hp = min(character.max_hp, character.hp + ITEM_HEAL_AMOUNT)
+				DebugLog.combat("[ITEM   ] %s healed %d hp | %d → %d/%d" % [
+					character.character_name, character.hp - old_hp, old_hp,
+					character.hp, character.max_hp])
+			DebugLog.combat("[PHASE  ] DECISION → DEFEND (after item)")
+			_enter_defend_phase()
+		&"run":
+			if _rng.randf() < 0.5:
+				_combat_ended = true
+				teardown()
+				DebugLog.combat("[RUN    ] escape successful!")
+				combat_won.emit()
+			else:
+				DebugLog.combat("[RUN    ] escape failed — back to DECISION")
+				if _player_party.size() > 0:
+					var actor: CharacterData = _player_party[_active_actor_index] as CharacterData
+					if actor != null:
+						decision_started.emit(actor)
 		_:
 			DebugLog.combat("[DECIDE ] unknown action '%s' — staying in DECISION" % action)
 
