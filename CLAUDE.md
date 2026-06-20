@@ -16,7 +16,7 @@ foreach ($t in $tests) {
     & $godot --headless --path $proj -s $t 2>&1 | Select-String "  PASS  |  FAIL  |==="
 }
 ```
-All tests must pass (currently 363 PASS, 0 FAIL) before committing.
+All tests must pass (currently 406 PASS, 0 FAIL) before committing.
 
 ## Godot MCP Server (`mcp__godot__*`)
 
@@ -181,5 +181,5 @@ _hero = load("res://characters/luthier_frett.tres").duplicate(true) as Character
 1. Write a failing headless test in `test/test_<feature>.gd` first.
 2. Implement the feature.
 3. Add `DebugLog` calls at every event boundary (see rules above).
-4. Run the full test suite — all 363 (+ new) tests must pass.
+4. Run the full test suite — all 406 (+ new) tests must pass.
 5. Commit with a descriptive message.
