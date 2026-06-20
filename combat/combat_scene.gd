@@ -225,6 +225,20 @@ func try_activate_limit_break() -> bool:
 	limit_break_started.emit(character)
 	return true
 
+## DEBUG/TEST-ONLY: instantly fill the active character's limit break gauge to full
+## and emit limit_break_ready, so limit-break behaviour can be exercised without
+## charging through an ATTACK phase. Nothing in normal combat flow calls this -- only
+## the prototype test scene's debug key. It must never be wired into a shipping map.
+func debug_fill_limit_gauge() -> void:
+	var character = _get_active_character()
+	if character == null:
+		return
+	var was_ready: bool = character.limit_break_gauge >= 1.0
+	character.limit_break_gauge = 1.0
+	DebugLog.combat("[LB     ] DEBUG fill | %s gauge set to full" % character.character_name)
+	if not was_ready:
+		limit_break_ready.emit(character)
+
 ## Set the active CharacterInputProfile for this combat.
 ## Configures both the attack evaluator (from profile.attack_evaluator) and
 ## the defense type seam (from profile.defense_pattern_type).

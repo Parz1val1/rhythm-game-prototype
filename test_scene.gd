@@ -157,6 +157,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.is_action_pressed(&"limit_break"):
 		_combat.try_activate_limit_break()
+	# DEBUG/TEST-ONLY: press L to instantly fill the active character's limit gauge,
+	# so limit-break solos can be tested without grinding a perfect combo. Not bound in
+	# project.godot's InputMap -- it exists only in this prototype scene and cannot leak
+	# into real gameplay.
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_L:
+		_combat.debug_fill_limit_gauge()
 
 func _on_combat_won() -> void:
 	BeatClock.stop()
