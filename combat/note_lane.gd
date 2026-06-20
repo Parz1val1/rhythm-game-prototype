@@ -110,10 +110,10 @@ func _build_hit_zones() -> void:
 # ---------------------------------------------------------------------------
 
 func _on_phase_changed(new_phase: int) -> void:
-	if new_phase == 0:
-		# Entering ATTACK: hide and clear travelling visuals.
+	if new_phase != 1:   # not DEFEND (DEFEND=1): hide on both ATTACK and DECISION
+		# DEFEND reveals lazily via _on_note_approaching, so we never auto-show here.
 		visible = false
-		DebugLog.visual("[LANE   ] visible=false (ATTACK)")
+		DebugLog.visual("[LANE   ] visible=false (phase=%d)" % new_phase)
 		for visual in _visuals.values():
 			if is_instance_valid(visual):
 				visual.queue_free()

@@ -70,7 +70,7 @@ func _build_zones() -> void:
 		_hit_zones[dir] = hz
 
 func _on_phase_changed(new_phase: int) -> void:
-	if new_phase == 0:
+	if new_phase != 1:   # not DEFEND (DEFEND=1): hide on both ATTACK and DECISION
 		visible = false
 		for entry in _visuals.values():
 			_free_entry(entry)
