@@ -286,14 +286,10 @@ func _on_beat(beat_number: int) -> void:
 			# No injection here — doing it again after a note is consumed causes
 			# a phantom re-add that expires and deals double damage.
 			var beat_index: int = _phase_beat_count - 1
-			# Pre-announce notes due LOOKAHEAD_BEATS from now for visual spawning.
-			var lookahead_index: float = float(beat_index + lookahead_beats)
-			var _defense_type := get_defense_type()
-			for _i in range(enemy.neutral_pattern.size()):
-				var hit = enemy.neutral_pattern[_i]
-				if abs(hit.beat_offset - lookahead_index) < 0.01:
-					for _approaching in NeutralPatternTranslator.resolve_notes(hit, _defense_type, _i):
-						note_approaching.emit(_approaching, beat_number + lookahead_beats)
+			# Pre-announce whole-beat notes due lookahead_beats from now (visual spawn).
+			# Sub-beat notes come from _on_half_beat / _on_quarter_beat; offsets inside the
+			# first lookahead_beats come from _announce_early_notes().
+			_announce_notes_due(float(beat_index + lookahead_beats), beat_number + lookahead_beats)
 		Phase.DECISION:
 			if _pending_action != &"" and _snap_countdown > 0:
 				_snap_countdown -= 1
@@ -326,6 +322,9 @@ func _on_half_beat(_beat_number: int) -> void:
 	var half_pos: float = float(_phase_beat_count - 1) + 0.5
 	if half_pos >= 0.0:
 		_inject_notes_due(half_pos, Time.get_ticks_msec())
+		# Sub-beat visual lookahead: announce the half-beat note due lookahead_beats
+		# ahead so it gets a visual (whole-beat notes are announced in _on_beat).
+		_announce_notes_due(half_pos + float(lookahead_beats), BeatClock.beat_number + lookahead_beats)
 
 ## Fires at beat_position 0.25 and 0.75.
 ## Injects notes whose beat_offset matches the current quarter-beat position.
@@ -338,6 +337,8 @@ func _on_quarter_beat(_beat_number: int) -> void:
 	var is_three_quarter: bool = BeatClock.beat_position >= 0.5
 	var qb_pos: float = float(beat_idx) + (0.75 if is_three_quarter else 0.25)
 	_inject_notes_due(qb_pos, Time.get_ticks_msec())
+	# Sub-beat visual lookahead for quarter-beat offsets (parity with injection).
+	_announce_notes_due(qb_pos + float(lookahead_beats), BeatClock.beat_number + lookahead_beats)
 
 ## Handles chord inputs (e.g. drum_both) in the same way as directional input_scored.
 ## Emitted by RhythmInput after chord detection; chord_name is the output action name.
@@ -435,17 +436,7 @@ func _enter_defend_phase() -> void:
 	# which is negative for the first lookahead_beats notes — so they'd never get a visual.
 	# Emit them now from the transition beat; note_lane uses target_beat for travel time
 	# so the visual duration correctly reflects how long until the note is actually due.
-	var early_enemy = _get_defending_enemy_internal()
-	if early_enemy != null:
-		var _early_defense_type := get_defense_type()
-		for _ei in range(early_enemy.neutral_pattern.size()):
-			var hit = early_enemy.neutral_pattern[_ei]
-			if hit.beat_offset < float(lookahead_beats):
-				var target_beat: int = BeatClock.beat_number + 1 + int(hit.beat_offset)
-				for _early_note in NeutralPatternTranslator.resolve_notes(hit, _early_defense_type, _ei):
-					note_approaching.emit(_early_note, target_beat)
-					DebugLog.timing("[EARLY-A] dir=%-5s  target_beat=%d  (first-beat lookahead, travel=%d beat(s))" % [
-						_early_note.direction, target_beat, hit.beat_offset + 1])
+	_announce_early_notes()
 
 	# Safety-net win check: normally triggered per-hit, but covers the edge
 	# case where the phase boundary fires before the last scored signal arrives.
@@ -481,6 +472,10 @@ func _end_defend_phase() -> void:
 				decision_started.emit(actor)
 	else:
 		DebugLog.combat("[PHASE  ] DEFEND turn done | next: %s" % _enemy_party[_defend_index].enemy_name)
+		# Re-run the early-announce for the new defender: _on_beat's lookahead cannot
+		# cover the first lookahead_beats of this enemy's pattern (negative beat_index),
+		# so otherwise the 2nd+ enemy's early notes are injected but never drawn.
+		_announce_early_notes()
 
 # --- Input handlers ---
 
@@ -587,6 +582,40 @@ func _inject_notes_due(phase_pos: float, due_time_ms: int) -> void:
 			for note in NeutralPatternTranslator.resolve_notes(hit, defense_type, _ii):
 				if RhythmInput.add_note(note, due_time_ms):
 					DebugLog.timing("[INJ    ] dir=%-5s  offset=%.2f" % [note.direction, phase_pos])
+
+## Emit note_approaching for every resolved note whose beat_offset matches
+## announce_pos, for the current defender. Mirror of _inject_notes_due so the visual
+## set stays in lockstep with the scored set — the same pattern index is passed to
+## resolve_notes so percussive hand alternation matches between visual and score.
+func _announce_notes_due(announce_pos: float, target_beat: int) -> void:
+	var enemy: EnemyData = _get_defending_enemy_internal()
+	if enemy == null:
+		return
+	var defense_type := get_defense_type()
+	for i in range(enemy.neutral_pattern.size()):
+		var hit = enemy.neutral_pattern[i]
+		if abs(hit.beat_offset - announce_pos) < 0.01:
+			for note in NeutralPatternTranslator.resolve_notes(hit, defense_type, i):
+				note_approaching.emit(note, target_beat)
+
+## Announce the current defender's notes whose beat_offset falls within the first
+## lookahead_beats of the phase. _on_beat's regular lookahead fires at
+## beat_index = offset - lookahead_beats, negative for these, so without this they
+## would never get a visual. Called at every DEFEND-turn entry: the phase start
+## (_enter_defend_phase) AND each enemy hand-off (_end_defend_phase).
+func _announce_early_notes() -> void:
+	var enemy: EnemyData = _get_defending_enemy_internal()
+	if enemy == null:
+		return
+	var defense_type := get_defense_type()
+	for i in range(enemy.neutral_pattern.size()):
+		var hit = enemy.neutral_pattern[i]
+		if hit.beat_offset < float(lookahead_beats):
+			var target_beat: int = BeatClock.beat_number + 1 + int(hit.beat_offset)
+			for note in NeutralPatternTranslator.resolve_notes(hit, defense_type, i):
+				note_approaching.emit(note, target_beat)
+				DebugLog.timing("[EARLY-A] dir=%-5s  target_beat=%d  (first-beat lookahead, travel=%d beat(s))" % [
+					note.direction, target_beat, hit.beat_offset + 1])
 
 ## DEFEND handler for defense_pattern_type == &"percussive" (Beatrice Styx).
 ## Hand-matching: note_consumed == true means the pressed button matched the active
