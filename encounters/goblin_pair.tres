@@ -22,8 +22,8 @@ lane_count = 1
 [sub_resource type="Resource" id="Enemy_goblin"]
 script = ExtResource("1_ng6m4")
 enemy_name = "Goblin"
-max_hp = 40
-hp = 40
+max_hp = 70
+hp = 70
 neutral_pattern = Array[ExtResource("2_4c427")]([SubResource("Hit_g0"), SubResource("Hit_g1"), SubResource("Hit_g2")])
 
 [sub_resource type="Resource" id="Hit_s0"]
@@ -39,8 +39,8 @@ lane_count = 1
 [sub_resource type="Resource" id="Enemy_scout"]
 script = ExtResource("1_ng6m4")
 enemy_name = "Goblin Scout"
-max_hp = 25
-hp = 25
+max_hp = 45
+hp = 45
 attack_power = 5
 neutral_pattern = Array[ExtResource("2_4c427")]([SubResource("Hit_s0"), SubResource("Hit_s1")])
 phase_length = 2

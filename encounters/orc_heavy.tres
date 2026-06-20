@@ -27,8 +27,8 @@ lane_count = 1
 [sub_resource type="Resource" id="Enemy_orc"]
 script = ExtResource("1_i65yt")
 enemy_name = "Orc"
-max_hp = 150
-hp = 150
+max_hp = 140
+hp = 140
 attack_power = 15
 neutral_pattern = Array[ExtResource("2_q6u0q")]([SubResource("Hit_0"), SubResource("Hit_1"), SubResource("Hit_2"), SubResource("Hit_3")])
 phase_length = 8

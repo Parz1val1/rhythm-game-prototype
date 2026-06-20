@@ -36,8 +36,8 @@ lane_count = 2
 [sub_resource type="Resource" id="Enemy_dgolem"]
 script = ExtResource("1_dgolem")
 enemy_name = "Drum Golem"
-max_hp = 60
-hp = 60
+max_hp = 110
+hp = 110
 attack_power = 14
 neutral_pattern = Array[ExtResource("2_dgolem")]([SubResource("Hit_0"), SubResource("Hit_1"), SubResource("Hit_2"), SubResource("Hit_3"), SubResource("Hit_4"), SubResource("Hit_5"), SubResource("Hit_6")])
 

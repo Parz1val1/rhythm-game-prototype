@@ -38,8 +38,8 @@ beat_offset = 7.0
 [sub_resource type="Resource" id="Enemy_golem"]
 script = ExtResource("1_b57sq")
 enemy_name = "String Golem"
-max_hp = 120
-hp = 120
+max_hp = 130
+hp = 130
 attack_power = 18
 neutral_pattern = Array[ExtResource("2_wb05o")]([SubResource("Hit_0"), SubResource("Hit_1"), SubResource("Hit_2"), SubResource("Hit_3"), SubResource("Hit_4"), SubResource("Hit_5"), SubResource("Hit_6"), SubResource("Hit_7")])
 phase_length = 8

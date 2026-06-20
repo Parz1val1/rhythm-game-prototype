@@ -22,8 +22,8 @@ lane_count = 1
 [sub_resource type="Resource" id="Enemy_goblin"]
 script = ExtResource("1_i30op")
 enemy_name = "Goblin"
-max_hp = 40
-hp = 40
+max_hp = 100
+hp = 100
 neutral_pattern = Array[ExtResource("2_kti04")]([SubResource("Hit_0"), SubResource("Hit_1"), SubResource("Hit_2")])
 
 [resource]

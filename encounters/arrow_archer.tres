@@ -47,8 +47,8 @@ lane_count = 1
 [sub_resource type="Resource" id="Enemy_0"]
 script = ExtResource("1_arch")
 enemy_name = "Arrow Archer"
-max_hp = 80
-hp = 80
+max_hp = 120
+hp = 120
 attack_power = 14
 neutral_pattern = Array[ExtResource("2_arch")]([SubResource("Hit_0"), SubResource("Hit_1"), SubResource("Hit_2"), SubResource("Hit_3"), SubResource("Hit_4"), SubResource("Hit_5"), SubResource("Hit_6"), SubResource("Hit_7")])
 phase_length = 8
