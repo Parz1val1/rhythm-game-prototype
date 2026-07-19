@@ -1,4 +1,4 @@
-# combat/drum_lane.gd
+# combat/beatrice_drum_lane.gd
 # Percussive DEFEND visualizer for Beatrice Styx.
 # Shows two hit zones (L / R). A drum_both note spawns visuals in BOTH lanes
 # simultaneously — the player reads it as "press both at once".

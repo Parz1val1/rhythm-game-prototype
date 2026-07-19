@@ -7,9 +7,9 @@ const CharacterData         = preload("res://characters/character_data.gd")
 const EncounterManager      = preload("res://combat/encounter_manager.gd")
 const EncounterDefinition   = preload("res://encounters/encounter_definition.gd")
 const CharacterInputProfile = preload("res://characters/character_input_profile.gd")
-const DrumFeedbackScript    = preload("res://combat/drum_feedback.gd")
-const DrumLaneScript        = preload("res://combat/drum_lane.gd")
-const DrumPatternScript     = preload("res://combat/drum_pattern_display.gd")
+const DrumFeedbackScript    = preload("res://combat/beatrice_drum_feedback.gd")
+const DrumLaneScript        = preload("res://combat/beatrice_drum_lane.gd")
+const DrumPatternScript     = preload("res://combat/beatrice_drum_pattern_display.gd")
 
 # Profile lookup keyed by character resource path.
 # Extend this dict when adding new characters.

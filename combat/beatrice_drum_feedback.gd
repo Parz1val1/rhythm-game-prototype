@@ -1,4 +1,4 @@
-# combat/drum_feedback.gd
+# combat/beatrice_drum_feedback.gd
 # Audio feedback for Beatrice's two-button drum kit.
 # Connects to RhythmInput.input_scored (drum_left / drum_right) and
 # RhythmInput.input_chord (drum_both) to play the appropriate drum sound.

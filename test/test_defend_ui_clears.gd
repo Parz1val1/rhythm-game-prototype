@@ -22,7 +22,7 @@ func _run() -> void:
 	var nd_script = load("res://rhythm_engine/note_data.gd")
 
 	_test_lane("res://combat/note_lane.tscn", "up", nd_script, "NoteLane (directional)")
-	_test_lane("res://combat/drum_lane.gd",  "drum_left", nd_script, "DrumLane (percussive)")
+	_test_lane("res://combat/beatrice_drum_lane.gd",  "drum_left", nd_script, "DrumLane (percussive)")
 
 	print("=== done ===")
 

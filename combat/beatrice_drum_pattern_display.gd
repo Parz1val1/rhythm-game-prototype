@@ -1,4 +1,4 @@
-# combat/drum_pattern_display.gd
+# combat/beatrice_drum_pattern_display.gd
 # Shows the drum pattern Beatrice is building during her ATTACK phase.
 # Displays one icon per beat slot (L / R / B / ·) in a horizontal row.
 # Clears at the start of each ATTACK phase.
