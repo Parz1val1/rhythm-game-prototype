@@ -1,6 +1,7 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
+.claude/worktrees/
 
 # Auto-generated Godot UID sidecar files (regenerated on project open)
 *.uid
