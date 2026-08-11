@@ -65,16 +65,12 @@ A valid test process must:
 The older filtered command that selects only `PASS`, `FAIL`, and `===` lines is
 not sufficient because it hides engine diagnostics.
 
-### Verified audit baseline (2026-08-10)
+### Verified green baseline (2026-08-11)
 
-- 35 discovered scripts.
-- 406 visible `PASS` lines and 0 visible `FAIL` lines.
-- 3 `SCRIPT ERROR` diagnostics, 2 `ERROR` diagnostics, and 2 missing completion
-  markers; therefore the suite is **not green**.
-- Affected scripts: `test_character_input_profile.gd`,
-  `test_defend_percussive.gd`, and `test_string_golem.gd`.
-
-Update this baseline and [ROADMAP.md](ROADMAP.md) when those tests are repaired.
+- 35 discovered scripts and 422 visible `PASS` lines.
+- 0 visible `FAIL` lines, `SCRIPT ERROR` diagnostics, or line-leading `ERROR:`
+  diagnostics.
+- Every script exited `0` and printed the exact `=== done ===` completion marker.
 
 ## Debug Logging
 

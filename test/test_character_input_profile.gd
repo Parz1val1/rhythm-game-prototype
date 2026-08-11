@@ -37,7 +37,8 @@ func _run() -> void:
 	_check("input_map rhythm_up → up",      p.input_map[&"rhythm_up"] == &"up",       true)
 
 	# chord_inputs is Array[Array]
-	p.chord_inputs = [[&"drum_left", &"drum_right"], [&"left", &"right"]]
+	p.chord_inputs.append([&"drum_left", &"drum_right"])
+	p.chord_inputs.append([&"left", &"right"])
 	_check("chord_inputs stores 2 chords",  p.chord_inputs.size() == 2,               true)
 	_check("chord[0] has 2 inputs",         p.chord_inputs[0].size() == 2,            true)
 
