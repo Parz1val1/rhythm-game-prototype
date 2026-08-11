@@ -1,8 +1,8 @@
 # Rhythm Game Prototype — Agent Router
 
 This repository is the Godot combat prototype for **Song of the Stars**, a rhythm
-RPG. Preserve the audio-aligned, deterministic combat loop while making scoped,
-testable changes.
+RPG. Use Combat System v1 as the target for combat prototyping while keeping the
+gap between that target and the current implementation explicit.
 
 ## Load Context Progressively
 
@@ -11,10 +11,45 @@ testable changes.
 3. Inspect the affected implementation and its tests.
 4. Expand into adjacent systems only when evidence requires it.
 
+## Git Work Isolation
+
+Before editing repository files, run `git status --short --branch`.
+
+For implementation work, use a dedicated `codex/` branch or isolated worktree. If
+the current branch is `main` or `master`, create and switch to
+`codex/<issue>-<slug>` before editing. Never implement directly on the default
+branch.
+
+If the working tree already contains changes whose ownership or relationship to
+the task is unclear, stop and ask before creating a branch, moving changes, or
+beginning implementation. Preserve existing changes; do not stash, reset, or
+delete them to obtain a clean tree. Creating a branch does not authorize staging,
+committing, pushing, or opening a pull request except through the issue handoff
+workflow below or when the user explicitly requests those actions.
+
+## Completion and Remote Handoff
+
+For implementation tied to a GitHub issue, completion includes a remote pull
+request unless the user requests local-only work. After required verification and
+final diff review, stage only task-scoped files, commit them, push the current
+`codex/` branch, and open a pull request targeting `main`.
+
+Open a ready-for-review pull request only when the requested scope is complete and
+required verification is green. Otherwise, open a draft and state what is failing,
+blocked, or intentionally incomplete. The pull request body must link the issue,
+use `Closes #N` only when fully complete, and report the implementation summary,
+exact verification results, documentation or guardrail changes, and deferred work.
+
+Leave the pull request unmerged for the user. Preserve unrelated working-tree
+changes, and do not force-push or rewrite shared history. If authentication or
+network access blocks the remote handoff, preserve the local branch and commit and
+report the blocker.
+
 ## Context
 
-- **Domain vocabulary or combat terminology** → [CONTEXT.md](CONTEXT.md)
-- **Product behavior, player experience, or scope** → [docs/PRODUCT.md](docs/PRODUCT.md)
+- **Combat mechanics, cadence, resources, or prototype questions** → [docs/combat/README.md](docs/combat/README.md)
+- **Domain vocabulary** → [CONTEXT.md](CONTEXT.md)
+- **Non-combat product behavior or repository scope** → [docs/PRODUCT.md](docs/PRODUCT.md)
 - **System boundaries, data flow, or extension seams** → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - **Established technical choices that a change may challenge** → [docs/DECISIONS.md](docs/DECISIONS.md)
 - **Godot setup, commands, tests, logging, or file-editing mechanics** → [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
@@ -29,11 +64,8 @@ a current document links to a specific record as design evidence.
 
 - Treat gameplay `.tres` files as templates. Deep-copy a Character, Enemy, or
   other mutable gameplay Resource before live use with `duplicate(true)`.
-- Keep enemy patterns character-neutral and deterministic. Visual announcement
-  and scoreable injection must resolve the same `NeutralHit` with the same
-  `sequence_index`; whole-beat patterns must preserve alternation.
 - Keep `BeatClock` an audio-corrected signal source. Game rules belong in combat
-  systems, and `DECISION` must not stop the backing music or clock.
+  systems, and input-free combat phases must not stop the backing music or clock.
 - In autoload scripts, preload cross-file `class_name` types and `DebugLog` because
   Godot 4.6 autoload parse order does not reliably expose global types.
 - Convert `StringName` before indexing a `String`-keyed Dictionary, and build typed
@@ -41,13 +73,19 @@ a current document links to a specific record as design evidence.
 - Disconnect autoload/combat signals during teardown with `is_connected()` guards.
 - Log meaningful timing, combat, visual, and audio handoffs through `DebugLog`;
   per-frame logging is outside the logging contract.
+- Run every Godot process outside the filesystem sandbox. Sandboxed Godot cannot
+  access `user://logs` on the primary Windows host and may crash with an OS error
+  dialog; if approval is unavailable, report verification as blocked instead of
+  launching a sandboxed probe.
 - Hand-edit small existing `.tscn`/`.tres` changes and inspect their diffs. Scene
   automation may churn formatting and UIDs.
 - A test run is green only when every script exits `0`, emits no `FAIL`, `SCRIPT
   ERROR`, or line-leading `ERROR:`, and prints `=== done ===`. PASS totals alone
   are not evidence of a green suite.
-- Preserve accepted ADRs unless the task explicitly reopens one. Update the
-  canonical document when behavior, architecture, or decisions change.
+- Treat legacy combat tests and ADRs as evidence of current behavior, not authority
+  over Combat System v1. Preserve accepted technical choices until the relevant
+  migration explicitly reopens them, and update the canonical document when a
+  choice changes.
 
 ## Workflow and Agent Skills
 

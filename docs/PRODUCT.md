@@ -1,49 +1,53 @@
 # Product
 
+The canonical target for combat behavior is
+[Combat System v1](combat/COMBAT_SPEC_V1.md). This document provides product-level
+scope; it does not restate the combat specification.
+
 ## What We Are Building
 
-**Song of the Stars** is a rhythm RPG. This repository currently contains a
-combat prototype whose purpose is to validate that beat-timed attacking,
-defending, and turn selection feel fun before a larger game is built around it.
+**Song of the Stars** is a rhythm RPG about resolving encounters through musical
+conversation. The party listens to other performers, responds to demonstrate
+understanding, makes tactical musical choices, and performs through distinct
+character-specific interaction languages. A successful encounter should evolve
+from challenge into a shared jam.
 
-The prototype combines turn-based decisions with character-specific musical
-performance. A player chooses an action, performs inputs in time with continuous
-music, reads enemy patterns during defense, and uses timing quality and musical
-coherence to affect combat outcomes.
+This repository exists to validate that combat vision before a larger game is
+built around it. The current HP-based Attack/Defend prototype is an implementation
+foundation and migration source, not the target product model.
 
 ## Audience and Problem
 
 The intended commercial audience, target age, release platforms, business model,
 and accessibility requirements are not documented yet.
 
-The validated design problem is narrower: determine whether a rhythm-driven RPG
-combat loop can feel responsive, readable, and distinct across different musical
-characters before investing in overworld, story, and production content.
+The design problem is narrower: determine whether listening, tactics, physical
+performance, and an evolving arrangement can form a satisfying RPG encounter
+before investing in overworld, story, and production content.
 
 ## Core Experiences
 
-- Choose `Attack`, `Defend`, `Item`, or `Run` while the backing music continues.
-- Attack through a character's musical vocabulary:
-  - Beatrice Styx uses two-button percussion and chords.
-  - Luthier Frett uses four-direction melodic input.
-- Defend against visible, beat-aligned enemy patterns translated into the active
-  character's input vocabulary.
-- Build timing/combo multipliers and charge a limit gauge.
-- Replay encounters with a different character or enemy group without carrying
-  mutated Resource state between fights.
+- Listen to an opponent's phrase and answer it as musical communication.
+- Make unpressured tactical choices while the arrangement continues to vamp.
+- Perform multi-bar skills through character-specific rhythm languages.
+- Build Groove toward a Jam while protecting the band's Composure.
+- Hear the arrangement develop in response to execution and tactical choices.
+- Discover opponent preferences and create useful interactions across the party.
 
 ## Product Principles
 
-- **Audio feel first.** Scoring follows perceived audio time, not accumulated frame
-  time, and future transitions are intended to respect the beat.
-- **Characters should play differently.** Input profiles, evaluators, defense
-  styles, visuals, and instrument routing create distinct musical identities.
-- **Enemies should remain character-neutral.** Encounter patterns describe timing
-  and lane count; the defending character determines the concrete inputs.
-- **Prototype before expanding.** Prove and polish combat before building the
-  planned world, dungeon, boss, and save systems.
-- **Deterministic patterns.** A given enemy pattern and character resolve the same
-  way each time so behavior can be tested and replayed.
+- **Musical conversation.** Combat expresses listening, understanding, and shared
+  creation rather than conventional violence with a musical skin.
+- **Audio feel first.** Perceived audio time governs performance, and significant
+  combat state should become audible without sacrificing visual accessibility.
+- **Characters should play differently.** Each rhythm language should ask the
+  player's hands to think differently.
+- **Listening is play.** Tactical Vamps can continue indefinitely; stopping to hear
+  the created arrangement carries no punishment.
+- **Execution enables tactics.** Progression and preferences amplify successful
+  performance rather than replacing it.
+- **Prototype before expanding.** Test the relationships and questions in Combat
+  System v1 before balancing formulas or building content breadth.
 
 ## Scope
 
@@ -51,24 +55,29 @@ characters before investing in overworld, story, and production content.
 
 - One local Godot combat scene with no network or backend.
 - Two playable characters and multiple Resource-authored encounters.
-- `DECISION`, `ATTACK`, and `DEFEND` phases.
+- A legacy `DECISION`, `ATTACK`, and `DEFEND` phase model.
 - Character-specific attack evaluation and directional/percussive defense.
-- Combo, limit gauge, combat UI, note lanes, replay selection, and debug logging.
+- HP/damage resolution, combo, limit gauge, combat UI, note lanes, replay
+  selection, and debug logging.
 - Placeholder backing audio and incomplete instrument feedback assets.
+
+See the [V1 reconciliation ledger](combat/reconciliation-v1.md) for the exact
+current/target gap and reusable foundations.
 
 ### Planned, but not implemented
 
-- A polished, demo-ready combat integration pass.
-- Character-specific limit-break sequences, calibration, controller support,
-  stronger visual/audio feedback, and real instrument samples.
+- The Combat System v1 cadence, Groove, Composure, shared Multiplier,
+  character-specific Inspiration, skills, and musical preferences.
+- Multi-character party performances, evolving arrangement feedback, calibration,
+  controller support, and real instrument samples.
 - A vertical slice with beat-locked music stems, overworld exploration, a dungeon,
   musical puzzles, a boss encounter, world state, and save/load.
 
 ### Explicitly outside the current prototype
 
 - A complete overworld, story campaign, production art/audio pass, or shipping UI.
-- Multi-character party orchestration and team-combo gameplay. The combat data
-  model has a party seam, but current play uses one active character.
+- Multi-character party orchestration in the current implementation. Combat
+  System v1 requires it eventually, but current play uses one active character.
 - Online play, accounts, authentication, telemetry, or cloud persistence.
 
 See [ROADMAP.md](ROADMAP.md) for ordering and [ARCHITECTURE.md](ARCHITECTURE.md)
