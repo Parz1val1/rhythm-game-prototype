@@ -41,10 +41,10 @@ func _run() -> void:
 	_check("beatrice_profile.tres loads",         beatrice_profile != null,            true)
 	_check("beatrice defense type is percussive",
 		beatrice_profile.defense_pattern_type == &"percussive", true)
-	_check("beatrice valid_inputs has drum_left",
-		&"drum_left" in beatrice_profile.valid_inputs, true)
-	_check("beatrice valid_inputs has drum_right",
-		&"drum_right" in beatrice_profile.valid_inputs, true)
+	_check("beatrice drum_left maps to drum_left",
+		beatrice_profile.input_map.get(&"drum_left") == &"drum_left", true)
+	_check("beatrice drum_right maps to drum_right",
+		beatrice_profile.input_map.get(&"drum_right") == &"drum_right", true)
 	_check("beatrice chord_names has drum_both",
 		beatrice_profile.chord_names.size() > 0 and beatrice_profile.chord_names[0] == &"drum_both", true)
 	_check("beatrice attack_evaluator is beatrice_rhythm",

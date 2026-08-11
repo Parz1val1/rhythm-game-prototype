@@ -1,25 +1,10 @@
 # Roadmap
 
-Last reviewed: 2026-08-10. This roadmap reflects current source, repository
+Last reviewed: 2026-08-11. This roadmap reflects current source, repository
 history, the preserved project-status snapshot, and historical plans. It tracks
 meaningful milestones rather than every source comment.
 
 ## Now
-
-### N1 — Restore trustworthy automated verification
-
-Tracking: [GitHub issue #5](https://github.com/Parz1val1/rhythm-game-prototype/issues/5)
-
-- Repair the three stale tests identified by the strict audit:
-  `test_character_input_profile.gd`, `test_defend_percussive.gd`, and
-  `test_string_golem.gd`.
-- Re-run all discovered test scripts and require clean raw diagnostics plus a
-  completion marker from every script.
-- Replace the dated audit baseline in `docs/DEVELOPMENT.md` after the suite is
-  genuinely green.
-
-This is test/interface maintenance. Current evidence does not require gameplay
-changes.
 
 ### N2 — Define the next demo-ready combat integration slice
 
@@ -69,6 +54,10 @@ The current party-shaped APIs are seams, not proof that party orchestration exis
 
 ## Completed
 
+- **N1 — Trustworthy automated verification (2026-08-11):** updated three stale
+  tests to the current typed-array, input-map, and autoload-loading contracts.
+  The strict suite is green across 35 scripts and 422 visible `PASS` results. Tracking:
+  [GitHub issue #5](https://github.com/Parz1val1/rhythm-game-prototype/issues/5).
 - **Foundation hardening:** audio-corrected beat/sub-beat clock, `ActiveNote`, note
   lookahead/pre-injection, float beat offsets, safe signal teardown, audio buses,
   and deep-copy Resource rules.

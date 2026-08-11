@@ -3,7 +3,9 @@
 # Run: godot --headless --path . -s res://test/test_string_golem.gd
 extends SceneTree
 
-const EncounterManager = preload("res://combat/encounter_manager.gd")
+# EncounterManager transitively references combat_scene.gd, so load it only after
+# the first process frame has initialized the BeatClock/RhythmInput autoloads.
+var _EncounterManager
 
 func _init() -> void:
 	await process_frame
@@ -12,8 +14,9 @@ func _init() -> void:
 
 func _run() -> void:
 	print("=== String Golem encounter tests ===")
+	_EncounterManager = load("res://combat/encounter_manager.gd")
 
-	var enemies = EncounterManager._generate_enemies(&"string_golem")
+	var enemies = _EncounterManager._generate_enemies(&"string_golem")
 	_check("returns 1 enemy",                enemies.size() == 1,             true)
 	if enemies.size() == 0:
 		print("=== done (skipped) ==="); return
