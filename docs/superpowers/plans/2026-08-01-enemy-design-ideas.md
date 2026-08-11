@@ -1,6 +1,9 @@
 # Enemy Design Ideas Catalog Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Historical record:** This plan was written for
+> `superpowers:subagent-driven-development` or `superpowers:executing-plans`;
+> that workflow is no longer active. Follow [AGENTS.md](../../../AGENTS.md) and
+> [plans/current.md](../../../plans/current.md) for current work.
 
 **Goal:** Create a lightweight, expandable catalog for enemy concepts and seed it with the Anklyosaurus idea.
 

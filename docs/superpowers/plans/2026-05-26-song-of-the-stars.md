@@ -1,6 +1,9 @@
 # Song of the Stars: Development Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Historical record:** This plan was written for
+> `superpowers:subagent-driven-development` or `superpowers:executing-plans`;
+> that workflow is no longer active. Follow [AGENTS.md](../../../AGENTS.md) and
+> [plans/current.md](../../../plans/current.md) for current work.
 
 **Goal:** Starting from a working logic prototype, build a fully playable, visually polished combat prototype with one character and one enemy, then extend to a vertical slice covering one area of the String planet (overworld movement, encounters, a mini-dungeon, and a boss fight), proving the diegetic rhythm-RPG loop is publisher-ready.
 

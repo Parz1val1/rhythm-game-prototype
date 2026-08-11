@@ -1,6 +1,9 @@
 # Rhythm Combat Prototype Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Historical record:** This plan was written for
+> `superpowers:subagent-driven-development` or `superpowers:executing-plans`;
+> that workflow is no longer active. Follow [AGENTS.md](../../../AGENTS.md) and
+> [plans/current.md](../../../plans/current.md) for current work.
 
 **Goal:** Scaffold a Godot 4.6 GDScript rhythm RPG prototype with a BeatClock autoload, RhythmInput autoload, and a CombatScene that validates the beat-timed attack/defend loop with multiple enemies.
 

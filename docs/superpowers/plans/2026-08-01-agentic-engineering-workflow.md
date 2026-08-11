@@ -1,6 +1,9 @@
 # Agentic Engineering Workflow Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Historical record:** This plan was written for
+> `superpowers:subagent-driven-development` or `superpowers:executing-plans`;
+> that workflow is no longer active. Follow [AGENTS.md](../../../AGENTS.md) and
+> [plans/current.md](../../../plans/current.md) for current work.
 
 **Goal:** Establish one executable, tool-neutral repository contract that routes a zero-context contributor from setup through strict automated verification, review, and a human-owned validation decision.
 
