@@ -51,7 +51,8 @@ func _run() -> void:
 	encounter_config.jam_threshold = 10.0
 	encounter_config.correct_groove_gain = 10.0
 	encounter_config.correct_multiplier_gain = 0.0
-	module.setup(beat_clock, rhythm_input, 2, 4, encounter_config)
+	var opponent = load("res://combat_v1/opponents/drum_golem.tres")
+	module.setup(beat_clock, rhythm_input, opponent, 1, encounter_config)
 	module.cadence_changed.connect(_on_cadence_changed)
 	module.rhythm_input_observed.connect(_on_rhythm_input_observed)
 	module.intent_rejected.connect(_on_intent_rejected)
@@ -67,15 +68,18 @@ func _run() -> void:
 	_check("CombatV1 exposes baseline shared Multiplier", module.get_state()[&"multiplier"], 1.0)
 	_check("CombatV1 exposes non-terminal outcome", module.get_state()[&"outcome"], CombatV1Script.Outcome.NONE)
 	_check("BeatClock listener connected once", _connection_count(beat_clock, &"beat", module), 1)
+	_check("half-beat phrase listener connected once", _connection_count(beat_clock, &"half_beat", module), 1)
+	_check("quarter-beat phrase listener connected once", _connection_count(beat_clock, &"quarter_beat", module), 1)
 	_check("RhythmInput listener connected once", _connection_count(rhythm_input, &"input_scored", module), 1)
 	_check("repeated start is ignored", module.start(), false)
 	_check("repeated start keeps one BeatClock listener", _connection_count(beat_clock, &"beat", module), 1)
 
 	beat_clock.beat.emit(1)
-	_check("Settle waits for configured beats", module.get_cadence() == CombatV1Script.Cadence.SETTLE, true)
-	beat_clock.beat.emit(2)
+	_check("Settle waits for configured bar", module.get_cadence() == CombatV1Script.Cadence.SETTLE, true)
+	for beat_number in range(2, 5):
+		beat_clock.beat.emit(beat_number)
 	_check("Settle transitions to Enemy Phrase", module.get_cadence() == CombatV1Script.Cadence.ENEMY_PHRASE, true)
-	for beat_number in range(3, 7):
+	for beat_number in range(5, 9):
 		beat_clock.beat.emit(beat_number)
 	_check("Enemy Phrase transitions to Response", module.get_cadence() == CombatV1Script.Cadence.RESPONSE, true)
 	_check("cadence signal carries enum values", _cadences.size() >= 3 and _cadences[0] == CombatV1Script.Cadence.SETTLE, true)
@@ -123,11 +127,14 @@ func _run() -> void:
 	module.teardown()
 	module.teardown()
 	_check("teardown removes BeatClock listener", _connection_count(beat_clock, &"beat", module), 0)
+	_check("teardown removes half-beat listener", _connection_count(beat_clock, &"half_beat", module), 0)
+	_check("teardown removes quarter-beat listener", _connection_count(beat_clock, &"quarter_beat", module), 0)
 	_check("teardown removes RhythmInput listener", _connection_count(rhythm_input, &"input_scored", module), 0)
 	_check("teardown is idempotent", module.get_state()[&"running"], false)
 	_check("module can start again without duplicate listeners", module.start(), true)
 	_check("restart has one BeatClock listener", _connection_count(beat_clock, &"beat", module), 1)
 	module.teardown()
+	_check("teardown restores RhythmInput scoring state", rhythm_input.is_scoring_enabled(), true)
 	module.queue_free()
 
 	if prototype_scene != null:
@@ -135,11 +142,13 @@ func _run() -> void:
 		root.add_child(prototype)
 		var prototype_module = prototype.get("_combat_v1")
 		_check("prototype connects cadence signal", _is_connected(prototype_module, &"cadence_changed", prototype, "_on_cadence_changed"), true)
+		_check("prototype connects phrase event signal", _is_connected(prototype_module, &"phrase_event_announced", prototype, "_on_phrase_event_announced"), true)
 		_check("prototype connects input signal", _is_connected(prototype_module, &"rhythm_input_observed", prototype, "_on_rhythm_input_observed"), true)
 		_check("prototype connects resolution signal", _is_connected(prototype_module, &"resolved", prototype, "_on_resolved"), true)
 		prototype.teardown()
 		prototype.teardown()
 		_check("prototype teardown disconnects cadence signal", _is_connected(prototype_module, &"cadence_changed", prototype, "_on_cadence_changed"), false)
+		_check("prototype teardown disconnects phrase event signal", _is_connected(prototype_module, &"phrase_event_announced", prototype, "_on_phrase_event_announced"), false)
 		_check("prototype teardown disconnects input signal", _is_connected(prototype_module, &"rhythm_input_observed", prototype, "_on_rhythm_input_observed"), false)
 		_check("prototype teardown disconnects resolution signal", _is_connected(prototype_module, &"resolved", prototype, "_on_resolved"), false)
 		prototype.free()

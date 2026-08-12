@@ -12,8 +12,9 @@ extends Node
 signal beat(beat_number: int)
 ## Fires at the midpoint of each beat (beat_position == 0.5).
 signal half_beat(beat_number: int)
-## Fires at beat_position 0.25 and 0.75.
-signal quarter_beat(beat_number: int)
+## Fires at beat_position 0.25 and 0.75. The explicit subdivision remains exact
+## even when both thresholds are recovered on one frame before beat_position updates.
+signal quarter_beat(beat_number: int, subdivision: float)
 
 # --- Public state ---
 
@@ -130,7 +131,7 @@ func _process(_delta: float) -> void:
         if _prev_beat_position < 0.5:
             half_beat.emit(beat_number)      # beat_number is still the OLD value here
         if _prev_beat_position < 0.75:
-            quarter_beat.emit(beat_number)
+            quarter_beat.emit(beat_number, 0.75)
         # Advance beat_number for each missed boundary (handles lag-spike multi-beat skips).
         while beat_number < new_beat_number:
             beat_number += 1
@@ -142,9 +143,9 @@ func _process(_delta: float) -> void:
             half_beat.emit(beat_number)
         # Quarter-beat crossings (0.25 and 0.75).
         if _prev_beat_position < 0.25 and new_beat_position >= 0.25:
-            quarter_beat.emit(beat_number)
+            quarter_beat.emit(beat_number, 0.25)
         if _prev_beat_position < 0.75 and new_beat_position >= 0.75:
-            quarter_beat.emit(beat_number)
+            quarter_beat.emit(beat_number, 0.75)
 
     _prev_beat_position = new_beat_position
     beat_position = new_beat_position

@@ -22,8 +22,10 @@ The harness injects the existing `BeatClock` and `RhythmInput` autoloads into
 `CombatV1`; it does not replace the configured `test_scene.tscn` or its legacy
 combat flow. `CombatV1` owns a deterministic `CombatV1EncounterState` and exposes
 cadence plus encounter-wide Groove, Composure, Multiplier, and terminal outcomes
-through one public seam. V1 authored resources, party ordering, timing-grade
-mapping, skills, and opponent preferences remain unimplemented.
+through one public seam. It also plays a deep-copied V1 `OpponentData` phrase from
+audio-corrected beat/sub-beat signals and emits one event seam for audio and visual
+presentation. Party ordering, timing-grade mapping, skills, and opponent
+preferences remain unimplemented.
 
 ```mermaid
 flowchart LR
@@ -42,8 +44,10 @@ flowchart LR
     NPT -->|resolved NoteData| RI
     NPT -->|same resolved notes| UI
     V1P[combat_v1_prototype.tscn<br/>separate harness] --> V1[CombatV1 module]
+    V1O[V1 Opponent .tres<br/>authored phrase + cues] --> V1
     V1 -->|injected BeatClock| BC
     V1 -->|injected RhythmInput| RI
+    V1 -->|same phrase event<br/>audio + visual cues| V1P
     V1 -->|typed performance result| V1S[CombatV1EncounterState<br/>Groove / Composure / Multiplier]
     V1S -->|state change / Jam / loss| V1
 ```
@@ -60,8 +64,10 @@ flowchart LR
 | `combat/*_evaluator.gd` | Character-specific attack damage/coherence behind `AttackEvaluator` |
 | `combat/neutral_pattern_translator.gd` | Resolves neutral enemy hits into deterministic directional or percussive notes |
 | `combat/combat_ui.gd` and lane scripts | Present state and note approaches through combat signals |
-| `combat_v1/combat_v1.gd` | Isolated Combat V1 seam; owns cadence plus `CombatV1EncounterState`, accepts typed performance results, and exposes combined state and terminal signals |
+| `combat_v1/combat_v1.gd` | Isolated Combat V1 seam; owns cadence plus `CombatV1EncounterState`, schedules an authored opponent phrase, accepts typed performance results, and exposes combined state, phrase events, and terminal signals |
 | `combat_v1/encounter_state.gd` | Deterministic Issue #10 state module; owns configurable Groove, shared Composure, shared Multiplier math, clamping, and one-shot Jam/loss resolution |
+| `combat_v1/opponent_data.gd`, `opponent_phrase.gd`, and `phrase_event.gd` | V1 authoring model for opponent identity, one-to-four-bar phrases, musical offsets, response prompts, and symbolic audio/visual cues; it has no legacy enemy statistics |
+| `combat_v1/opponents/drum_golem.tres` | One-bar prototype opponent phrase with whole-, half-, and quarter-beat events |
 | `combat_v1/combat_v1_prototype.tscn` and `combat_v1/combat_v1_prototype.gd` | Separately runnable harness for `CombatV1`; not the configured main scene |
 | `characters/*.gd/.tres` | Character stats, input behavior, and musical/visual identity |
 | `encounters/*.tres` | Editable encounter groups and neutral enemy patterns |
@@ -118,9 +124,16 @@ short real-time message pause before forced defense.
 - `EnemyData`: combat stats, phase length, and `Array[NeutralHit]`.
 - `NeutralHit`: character-independent `beat_offset` plus `lane_count`.
 - `NoteData`: resolved timing, direction alias, and scoring mode.
+- `OpponentData`: V1 opponent identity plus an authored `OpponentPhrase`; it does
+  not inherit `EnemyData`.
+- `OpponentPhrase`: fixed-four-beat-bar duration plus ordered
+  `OpponentPhraseEvent` resources.
+- `OpponentPhraseEvent`: beat offset, response prompt identity/copy, and symbolic
+  audio and visual cue identifiers.
 
 `.tres` files are templates. Live character and enemy instances must be deep-copied
-before mutation. Replay selection is passed through static variables in
+before mutation; `CombatV1.setup()` deep-copies its selected V1 opponent and nested
+phrase. Replay selection is passed through static variables in
 `test_scene.gd` across `reload_current_scene()`; it resets when the process restarts.
 There is no durable persistence.
 
@@ -141,6 +154,31 @@ There is no durable persistence.
 - `CombatV1.get_state()` exposes the owned encounter snapshot together with
   cadence. `encounter_state_changed` reports accepted atomic applications and
   `resolved` carries the typed `JAM` or `LOSS` outcome exactly once.
+- `CombatV1.setup()` accepts an authored V1 opponent and a Settle length in bars.
+  Enemy Phrase duration comes from that opponent's phrase rather than a parallel
+  timing argument.
+- `phrase_event_announced` is the single presentation seam for an authored phrase
+  event. Both audio and visual consumers receive the same live deep-copy event;
+  separate scheduling paths would break parity.
+
+## Combat V1 Opponent Phrase
+
+Settle uses configurable four-beat bars. At its final boundary, `CombatV1` enters
+the input-free Enemy Phrase and schedules the selected `OpponentPhrase` against
+the injected `BeatClock`'s `beat`, `half_beat`, and `quarter_beat` signals. The
+quarter-beat signal carries its exact `.25` or `.75` subdivision because threshold
+recovery can emit before the clock's public position updates. This preserves audio
+correction in `BeatClock`; no combat timer or wall-clock schedule is introduced.
+Whole, half, and quarter offsets are matched deterministically in authored order,
+so headless signal simulation reproduces the same event sequence.
+
+During Settle and Enemy Phrase, `CombatV1` temporarily suppresses timing-grade
+production at the shared `RhythmInput` seam. It restores the prior scoring state
+on Response, another non-listening cadence, or teardown without changing the
+active profile. Listening-phase presses therefore emit no scored input, V1 input
+observation, or encounter-state result. The prototype harness presents
+`prompt_text` and logs the event's symbolic `audio_cue` and `visual_cue`;
+production assets remain out of scope.
 
 ## Combat V1 Encounter State
 

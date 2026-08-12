@@ -342,14 +342,16 @@ func _on_half_beat(_beat_number: int) -> void:
 
 ## Fires at beat_position 0.25 and 0.75.
 ## Injects notes whose beat_offset matches the current quarter-beat position.
-func _on_quarter_beat(_beat_number: int) -> void:
+func _on_quarter_beat(_beat_number: int, subdivision: float = -1.0) -> void:
 	if _combat_ended or _current_phase != Phase.DEFEND:
 		return
 	var beat_idx: int = _phase_beat_count - 1
 	if beat_idx < 0:
 		return
-	var is_three_quarter: bool = BeatClock.beat_position >= 0.5
-	var qb_pos: float = float(beat_idx) + (0.75 if is_three_quarter else 0.25)
+	var exact_subdivision := subdivision
+	if exact_subdivision < 0.0:
+		exact_subdivision = 0.75 if BeatClock.beat_position >= 0.5 else 0.25
+	var qb_pos: float = float(beat_idx) + exact_subdivision
 	_inject_notes_due(qb_pos, Time.get_ticks_msec())
 	# Sub-beat visual lookahead for quarter-beat offsets (parity with injection).
 	_announce_notes_due(qb_pos + float(lookahead_beats), BeatClock.beat_number + lookahead_beats)
