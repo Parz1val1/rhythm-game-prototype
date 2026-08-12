@@ -51,8 +51,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			_combat_v1.player_intent(CombatV1.Intent.SELECT_PERFORMANCE)
 		CombatV1.Cadence.CHARACTER_PERFORMANCE:
 			_combat_v1.player_intent(CombatV1.Intent.COMPLETE_PERFORMANCE)
-		CombatV1.Cadence.FULL_BAND_VAMP:
-			_combat_v1.resolve(&"complete")
 		_:
 			pass
 
@@ -62,8 +60,8 @@ func _on_cadence_changed(_cadence: int) -> void:
 func _on_rhythm_input_observed(direction: StringName, score: StringName, offset_ms: float) -> void:
 	_detail_label.text = "Last rhythm input: %s / %s (%+.1f ms)" % [direction, score, offset_ms]
 
-func _on_resolved(outcome: StringName) -> void:
-	_detail_label.text = "Conversation resolved: %s" % outcome
+func _on_resolved(_outcome: CombatV1.Outcome) -> void:
+	_detail_label.text = "Conversation resolved: %s" % _combat_v1.get_state()[&"outcome_name"]
 	_hint_label.text = "V1 harness complete — reload the scene to run it again."
 
 func _update_view(state: Dictionary) -> void:
@@ -78,7 +76,7 @@ func _update_view(state: Dictionary) -> void:
 	elif state[&"cadence"] == CombatV1.Cadence.CHARACTER_PERFORMANCE:
 		_hint_label.text = "Placeholder performance: press Enter or Space when complete."
 	elif state[&"cadence"] == CombatV1.Cadence.FULL_BAND_VAMP:
-		_hint_label.text = "Full-Band Vamp: press Enter or Space to resolve."
+		_hint_label.text = "Full-Band Vamp: awaiting explicit performance results."
 	else:
 		_hint_label.text = "Listen — the next cadence advances on the BeatClock."
 

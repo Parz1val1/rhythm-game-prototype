@@ -5,7 +5,8 @@ extends SceneTree
 var _cadences: Array[int] = []
 var _observed_inputs: int = 0
 var _rejected_intents: int = 0
-var _resolved_outcome: StringName = &""
+var _resolved_outcome: int = -1
+var _encounter_state_changes: int = 0
 var _has_failures: bool = false
 
 func _init() -> void:
@@ -24,11 +25,12 @@ func _run() -> void:
 	_check("module exposes setup", module.has_method("setup"), true)
 	_check("module exposes start", module.has_method("start"), true)
 	_check("module exposes player_intent", module.has_method("player_intent"), true)
+	_check("module exposes apply_performance_result", module.has_method("apply_performance_result"), true)
 	_check("module exposes get_state", module.has_method("get_state"), true)
-	_check("module exposes resolve", module.has_method("resolve"), true)
 	_check("module exposes teardown", module.has_method("teardown"), true)
 	_check("cadence_changed signal exists", module.has_signal("cadence_changed"), true)
 	_check("intent_rejected signal exists", module.has_signal("intent_rejected"), true)
+	_check("encounter_state_changed signal exists", module.has_signal("encounter_state_changed"), true)
 	_check("resolved signal exists", module.has_signal("resolved"), true)
 	_check("module contains no legacy combat semantics", _has_no_legacy_semantics(), true)
 	var prototype_scene = load("res://combat_v1/combat_v1_prototype.tscn")
@@ -43,16 +45,27 @@ func _run() -> void:
 		print("=== done ===")
 		return
 
-	module.setup(beat_clock, rhythm_input, 2, 4)
+	var encounter_config = CombatV1Script.EncounterConfig.new()
+	encounter_config.max_groove = 10.0
+	encounter_config.max_composure = 20.0
+	encounter_config.jam_threshold = 10.0
+	encounter_config.correct_groove_gain = 10.0
+	encounter_config.correct_multiplier_gain = 0.0
+	module.setup(beat_clock, rhythm_input, 2, 4, encounter_config)
 	module.cadence_changed.connect(_on_cadence_changed)
 	module.rhythm_input_observed.connect(_on_rhythm_input_observed)
 	module.intent_rejected.connect(_on_intent_rejected)
+	module.encounter_state_changed.connect(_on_encounter_state_changed)
 	module.resolved.connect(_on_resolved)
 
 	_check("start enters Settle", module.start(), true)
 	_check("initial cadence is typed", module.get_cadence() == CombatV1Script.Cadence.SETTLE, true)
 	_check("initial state exposes typed cadence", module.get_state()[&"cadence"] == CombatV1Script.Cadence.SETTLE, true)
 	_check("initial state exposes display name separately", module.get_state()[&"cadence_name"] == &"Settle", true)
+	_check("CombatV1 exposes empty Groove", module.get_state()[&"groove"], 0.0)
+	_check("CombatV1 exposes full shared Composure", module.get_state()[&"composure"], 20.0)
+	_check("CombatV1 exposes baseline shared Multiplier", module.get_state()[&"multiplier"], 1.0)
+	_check("CombatV1 exposes non-terminal outcome", module.get_state()[&"outcome"], CombatV1Script.Outcome.NONE)
 	_check("BeatClock listener connected once", _connection_count(beat_clock, &"beat", module), 1)
 	_check("RhythmInput listener connected once", _connection_count(rhythm_input, &"input_scored", module), 1)
 	_check("repeated start is ignored", module.start(), false)
@@ -84,10 +97,28 @@ func _run() -> void:
 	_check("second performance returns to Tactical Vamp", module.player_intent(CombatV1Script.Intent.COMPLETE_PERFORMANCE), true)
 	_check("full-band boundary is explicit placeholder", module.player_intent(CombatV1Script.Intent.COMPLETE_PERFORMANCE_SEQUENCE), true)
 	_check("placeholder reaches Full-Band Vamp", module.get_cadence() == CombatV1Script.Cadence.FULL_BAND_VAMP, true)
-	_check("resolution is observable", module.resolve(&"complete"), true)
+	_check(
+		"performance result applies through CombatV1",
+		module.apply_performance_result(
+			CombatV1Script.Execution.CORRECT,
+			CombatV1Script.TacticalEffectiveness.EFFECTIVE
+		),
+		true
+	)
 	_check("resolution cadence is observable", module.get_cadence() == CombatV1Script.Cadence.RESOLUTION, true)
-	_check("resolution signal carries outcome", _resolved_outcome, &"complete")
-	_check("resolution is present in state", module.get_state()[&"resolution"], &"complete")
+	_check("resolution signal carries typed Jam outcome", _resolved_outcome, CombatV1Script.Outcome.JAM)
+	_check("terminal outcome is present in CombatV1 state", module.get_state()[&"outcome"], CombatV1Script.Outcome.JAM)
+	_check("Groove is present in CombatV1 state", module.get_state()[&"groove"], 10.0)
+	_check("state changes are observable through CombatV1", _encounter_state_changes, 1)
+	_check(
+		"post-terminal result is rejected through CombatV1",
+		module.apply_performance_result(
+			CombatV1Script.Execution.CORRECT,
+			CombatV1Script.TacticalEffectiveness.EFFECTIVE
+		),
+		false
+	)
+	_check("CombatV1 emits one terminal outcome", _resolved_outcome, CombatV1Script.Outcome.JAM)
 
 	module.teardown()
 	module.teardown()
@@ -147,7 +178,10 @@ func _on_rhythm_input_observed(_direction: StringName, _score: StringName, _offs
 func _on_intent_rejected(_intent: int) -> void:
 	_rejected_intents += 1
 
-func _on_resolved(outcome: StringName) -> void:
+func _on_encounter_state_changed(_state: Dictionary) -> void:
+	_encounter_state_changes += 1
+
+func _on_resolved(outcome: int) -> void:
 	_resolved_outcome = outcome
 
 func _check(label: String, got, expected) -> void:

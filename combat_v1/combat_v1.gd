@@ -1,10 +1,18 @@
 # combat_v1/combat_v1.gd
-# Isolated Combat System v1 conversation cadence.
-# This module owns only the cadence seam; later slices own musical resources and rules.
+# Isolated Combat System v1 cadence and encounter-wide state seam.
+# Later slices own authored performances and production of explicit state results.
 class_name CombatV1
 extends Node
 
 const DebugLog = preload("res://autoloads/debug_log.gd")
+const EncounterState = preload("res://combat_v1/encounter_state.gd")
+
+## Public aliases keep encounter commands and configuration discoverable at the
+## CombatV1 seam while EncounterState remains the single owner of their behavior.
+const EncounterConfig = EncounterState.Config
+const Execution = EncounterState.Execution
+const TacticalEffectiveness = EncounterState.TacticalEffectiveness
+const Outcome = EncounterState.Outcome
 
 ## Observable conversation cadence. The values are intentionally domain-specific and
 ## do not mirror the legacy combat phase graph.
@@ -48,8 +56,10 @@ signal player_intent_received(intent: Intent)
 signal intent_rejected(intent: Intent)
 ## Emitted when the shared timing/input seam reports a scored input.
 signal rhythm_input_observed(direction: StringName, score: StringName, offset_ms: float)
-## Emitted once the caller resolves the conversation.
-signal resolved(outcome: StringName)
+## Emitted after an accepted performance result changes encounter-wide state.
+signal encounter_state_changed(state: Dictionary)
+## Emitted exactly once when Groove or Composure makes the encounter terminal.
+signal resolved(outcome: EncounterState.Outcome)
 ## Emitted when this module begins listening to its dependencies.
 signal started()
 ## Emitted when this module stops listening to its dependencies.
@@ -65,8 +75,12 @@ var _rhythm_input: Node = null
 var _cadence: Cadence = Cadence.IDLE
 var _beats_in_cadence: int = 0
 var _running: bool = false
-var _resolution: StringName = &""
 var _last_intent: int = -1
+var _encounter_state = EncounterState.new()
+
+func _init() -> void:
+	_encounter_state.state_changed.connect(_on_encounter_state_changed)
+	_encounter_state.resolved.connect(_on_encounter_resolved)
 
 ## Bind the module to the existing timing and input infrastructure.
 ## Dependencies are injectable for headless tests; omitted dependencies resolve to
@@ -75,7 +89,8 @@ func setup(
 	beat_clock: Node = null,
 	rhythm_input: Node = null,
 	settle_length: int = 2,
-	enemy_phrase_length: int = 4
+	enemy_phrase_length: int = 4,
+	encounter_config: EncounterState.Config = null
 ) -> void:
 	if _running:
 		teardown()
@@ -85,8 +100,8 @@ func setup(
 	enemy_phrase_beats = maxi(1, enemy_phrase_length)
 	_cadence = Cadence.IDLE
 	_beats_in_cadence = 0
-	_resolution = &""
 	_last_intent = -1
+	_encounter_state.setup(encounter_config)
 
 ## Start observing the injected timing and input dependencies.
 ## Returns false when the timing dependency is unavailable or when already running.
@@ -102,8 +117,8 @@ func start() -> bool:
 		return false
 	_running = true
 	_beats_in_cadence = 0
-	_resolution = &""
 	_last_intent = -1
+	_encounter_state.reset()
 	_connect_dependencies()
 	DebugLog.combat("[V1    ] started | settle=%d  enemy_phrase=%d" % [settle_beats, enemy_phrase_beats])
 	_set_cadence(Cadence.SETTLE)
@@ -150,27 +165,27 @@ func player_intent(intent: Intent) -> bool:
 		intent_rejected.emit(intent)
 	return accepted
 
-## Resolve the current conversation from Full-Band Vamp.
-## Resolution remains an observable placeholder; later slices define its outcomes.
-func resolve(outcome: StringName = &"complete") -> bool:
-	if not _running or _cadence != Cadence.FULL_BAND_VAMP:
+## Apply one explicit performance result through the owned encounter state model.
+## Results are independent of cadence, input, timing, presentation, and legacy combat.
+func apply_performance_result(
+	execution: EncounterState.Execution,
+	effectiveness: EncounterState.TacticalEffectiveness
+) -> bool:
+	if not _running:
 		return false
-	_resolution = outcome if outcome != &"" else &"complete"
-	_set_cadence(Cadence.RESOLUTION)
-	DebugLog.combat("[V1    ] resolved | outcome=%s" % _resolution)
-	resolved.emit(_resolution)
-	return true
+	return _encounter_state.apply_performance_result(execution, effectiveness)
 
 ## Return a stable, public snapshot for UI and headless tests.
 func get_state() -> Dictionary:
-	return {
+	var state: Dictionary = _encounter_state.get_state()
+	state.merge({
 		&"cadence": _cadence,
 		&"cadence_name": get_cadence_name(),
 		&"beat_count": _beats_in_cadence,
 		&"running": _running,
-		&"resolution": _resolution,
 		&"last_intent": _last_intent,
-	}
+	})
+	return state
 
 ## Return the enum value for consumers that prefer typed branching.
 func get_cadence() -> Cadence:
@@ -214,6 +229,13 @@ func _on_input_scored(
 	if _running:
 		DebugLog.timing("[INPUT  ] v1_direction=%-5s  score=%-8s  offset=%+.1f ms" % [direction, score, offset_ms])
 		rhythm_input_observed.emit(direction, score, offset_ms)
+
+func _on_encounter_state_changed(state: Dictionary) -> void:
+	encounter_state_changed.emit(state)
+
+func _on_encounter_resolved(outcome: EncounterState.Outcome) -> void:
+	_set_cadence(Cadence.RESOLUTION)
+	resolved.emit(outcome)
 
 func _set_cadence(next_cadence: Cadence) -> void:
 	if _cadence == next_cadence:

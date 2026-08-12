@@ -16,13 +16,14 @@ There is no client/server split, database, authentication, external service,
 background worker, durable save system, export configuration, or deployment
 architecture.
 
-`combat_v1/` is an isolated Issue #9 cadence module, and
+`combat_v1/` is an isolated Combat V1 cadence and encounter-state module, and
 `combat_v1/combat_v1_prototype.tscn` is a separately runnable harness for it.
 The harness injects the existing `BeatClock` and `RhythmInput` autoloads into
 `CombatV1`; it does not replace the configured `test_scene.tscn` or its legacy
-combat flow. The module owns only the observable cadence seam. V1 resources,
-party ordering, performance rules, and resolution rules are not implemented by
-this slice.
+combat flow. `CombatV1` owns a deterministic `CombatV1EncounterState` and exposes
+cadence plus encounter-wide Groove, Composure, Multiplier, and terminal outcomes
+through one public seam. V1 authored resources, party ordering, timing-grade
+mapping, skills, and opponent preferences remain unimplemented.
 
 ```mermaid
 flowchart LR
@@ -40,9 +41,11 @@ flowchart LR
     CS --> NPT[NeutralPatternTranslator]
     NPT -->|resolved NoteData| RI
     NPT -->|same resolved notes| UI
-    V1P[combat_v1_prototype.tscn<br/>separate harness] --> V1[CombatV1 cadence module]
+    V1P[combat_v1_prototype.tscn<br/>separate harness] --> V1[CombatV1 module]
     V1 -->|injected BeatClock| BC
     V1 -->|injected RhythmInput| RI
+    V1 -->|typed performance result| V1S[CombatV1EncounterState<br/>Groove / Composure / Multiplier]
+    V1S -->|state change / Jam / loss| V1
 ```
 
 ## Major Modules
@@ -57,7 +60,8 @@ flowchart LR
 | `combat/*_evaluator.gd` | Character-specific attack damage/coherence behind `AttackEvaluator` |
 | `combat/neutral_pattern_translator.gd` | Resolves neutral enemy hits into deterministic directional or percussive notes |
 | `combat/combat_ui.gd` and lane scripts | Present state and note approaches through combat signals |
-| `combat_v1/combat_v1.gd` | Isolated Issue #9 cadence seam; observes injected `BeatClock`/`RhythmInput` and exposes the V1 conversation states without V1 resources or rules |
+| `combat_v1/combat_v1.gd` | Isolated Combat V1 seam; owns cadence plus `CombatV1EncounterState`, accepts typed performance results, and exposes combined state and terminal signals |
+| `combat_v1/encounter_state.gd` | Deterministic Issue #10 state module; owns configurable Groove, shared Composure, shared Multiplier math, clamping, and one-shot Jam/loss resolution |
 | `combat_v1/combat_v1_prototype.tscn` and `combat_v1/combat_v1_prototype.gd` | Separately runnable harness for `CombatV1`; not the configured main scene |
 | `characters/*.gd/.tres` | Character stats, input behavior, and musical/visual identity |
 | `encounters/*.tres` | Editable encounter groups and neutral enemy patterns |
@@ -131,6 +135,36 @@ There is no durable persistence.
   entry point. The hardcoded-ID path remains for backward compatibility and tests.
 - Raw InputMap action names should remain inside input profiles or
   `RhythmInput`'s default map; downstream systems use direction aliases.
+- `CombatV1.apply_performance_result(execution, effectiveness)` is the V1 state
+  seam. Its enum inputs keep execution quality distinct from tactical
+  effectiveness; callers do not calculate Multiplier-adjusted Groove.
+- `CombatV1.get_state()` exposes the owned encounter snapshot together with
+  cadence. `encounter_state_changed` reports accepted atomic applications and
+  `resolved` carries the typed `JAM` or `LOSS` outcome exactly once.
+
+## Combat V1 Encounter State
+
+`CombatV1EncounterState` is an in-process, deterministic module. It does not
+observe input, UI, audio, timing windows, legacy evaluators, or legacy HP. For an
+accepted atomic performance result it calculates Groove using the pre-result
+Multiplier, applies execution-driven Composure and Multiplier changes, clamps all
+three values, then evaluates terminal conditions. `CombatV1` owns the instance and
+transitions cadence to `RESOLUTION` when the state resolves.
+
+The current defaults are provisional tuning values, all supplied through
+`CombatV1EncounterState.Config`: Groove and Composure maxima `100`, Multiplier
+minimum/baseline/maximum `1/1/4`, Jam threshold `100`, correct Groove `10`, Near
+Miss Groove `2`, Near Miss Composure loss `5`, mistake Composure loss `15`, major
+mistake Composure loss `30`, correct Multiplier gain `0.5`, and mistake Multiplier
+loss `0.5`. Tactically ineffective play currently scales Groove to zero by
+default without changing the execution-driven effects. A major mistake removes
+Multiplier above baseline without increasing an already-below-baseline value.
+
+If one atomic result reaches both the Jam threshold and zero Composure, the
+provisional Issue #10 policy is that Jam wins. This was explicitly selected by the
+product owner during implementation; it is encoded as a named policy branch and
+covered by the focused state test. State applications and terminal resolution log
+through `DebugLog.combat` as `[STATE  ]` and `[RESULT ]` events.
 
 ## Testing Architecture
 

@@ -21,23 +21,42 @@ replaced.
 
 | V1 target | Current evidence | Classification | Migration disposition |
 |---|---|---|---|
-| Encounters are musical conversations culminating in a Jam | `CombatScene` emits victory after all enemy HP reaches zero; UI and encounter data present damage and HP | **Contradiction** | Introduce Groove/Jam as the target resolution model. Retire damage framing from player-facing combat as slices migrate. |
-| Groove begins empty and measures synchronization | No Groove state or signal exists | **Missing** | Prototype one encounter-wide Groove model before balance formulas. |
-| Shared Composure begins full and reaches zero on execution failure | Characters have individual HP; enemy attacks and missed defense notes deal damage | **Contradiction** | Prototype shared Composure independently from tactical preference. Do not rename HP while preserving damage semantics. |
-| Multiplier is shared, band-wide momentum that modifies Groove | Attack evaluators own character/phase-local combo counts and damage multipliers | **Partial** | Preserve proven streak math only if useful; move ownership and effects to the encounter model. |
+| Encounters are musical conversations culminating in a Jam | `CombatV1EncounterState` produces a typed one-shot `JAM` when configurable Groove reaches its provisional threshold; the separately configured legacy flow still resolves victory through enemy HP | **Partial** | Route later V1 performance slices through the new state seam, then retire damage framing only as those slices replace the legacy flow. The final maximum-Groove interaction remains open. |
+| Groove begins empty and measures synchronization | `CombatV1EncounterState` initializes Groove at zero, clamps it to configured bounds, and applies Multiplier-adjusted gains through one typed performance-result interface | **Partial** | Keep the formula provisional; later slices must supply authored performance and opponent-effectiveness results without moving Multiplier math into callers. |
+| Shared Composure begins full and reaches zero on execution failure | `CombatV1EncounterState` initializes one shared Composure value at its configured maximum and resolves a typed one-shot `LOSS` at zero; legacy characters still own individual HP outside V1 | **Partial** | Preserve the V1 state independently from legacy HP and connect future execution grading through the typed state seam. |
+| Multiplier is shared, band-wide momentum that modifies Groove | `CombatV1EncounterState` owns one configurable baseline/minimum/maximum Multiplier, applies it to Groove, raises it for correct execution, reduces it for mistakes, and resets excess momentum on a major mistake | **Partial** | Tune the provisional changes through playtesting; do not duplicate Multiplier math in performance callers or reuse evaluator-local damage multipliers. |
 | Each character owns persistent Inspiration used by skills | `CharacterData` owns a limit gauge charged during ATTACK; durable persistence does not exist | **Contradiction** | Design Inspiration as a new resource. Limit-style resources remain open and must not be equated with Inspiration. |
-| Correct execution can be tactically ineffective without harming Composure | Current scoring converts execution directly into dealt/blocked damage | **Missing** | Separate execution quality from musical effectiveness before adding preferences. |
+| Correct execution can be tactically ineffective without harming Composure | The Issue #10 interface accepts separate `Execution` and `TacticalEffectiveness` enums. Correct-but-ineffective play defaults to zero Groove while preserving Composure and still building shared Multiplier | **Partial** | Later opponent-preference and skill slices should produce tactical effectiveness values without coupling those rules to execution or the state model. |
+
+### Issue #10 provisional state seam
+
+`CombatV1` owns `CombatV1EncounterState` and exposes
+`apply_performance_result(execution, effectiveness)`, the merged `get_state()`
+snapshot, `encounter_state_changed`, and typed `resolved` outcomes. The state
+module is deterministic and has no input, UI, audio, timing-window, evaluator, or
+legacy Character/Enemy dependency. It applies one result atomically, uses the
+pre-result Multiplier for Groove, clamps all resources, and becomes immutable once
+terminal.
+
+The default gains, losses, bounds, threshold, and ineffective Groove scale are
+configuration, not final balance. The coarse execution values (`CORRECT`,
+`NEAR_MISS`, `MISTAKE`, `MAJOR_MISTAKE`) are an input seam for later performance
+grading; they do not define timing windows or replace the six target grades.
+
+An implementation-time product-owner decision settled the provisional competing
+terminal rule for Issue #10: if one atomic result reaches both the Jam threshold
+and zero Composure, `JAM` wins. The final maximum-Groove interaction remains open.
 
 ## Cadence and Interaction
 
 | V1 target | Current evidence | Classification | Migration disposition |
 |---|---|---|---|
-| `Approach -> Settle -> Enemy Phrase -> Response -> Tactical Vamp <-> Character Performance -> Full-Band Vamp -> Resolution` | Issue #9 `CombatV1` exposes `Settle -> Enemy Phrase -> Response -> Tactical Vamp <-> Character Performance -> Full-Band Vamp -> Resolution` and reuses injected `BeatClock`/`RhythmInput`; `combat_v1_prototype.tscn` runs it separately from the configured legacy `test_scene.tscn`. Character performance and full-band transitions are explicit placeholders; party ordering, performance rules, V1 resources, and resolution rules remain out of scope. | **Partial** | Keep `CombatV1` as the migration seam. Add authored resources, party ordering, performance systems, and resolution rules in later slices; leave the legacy `CombatScene` phase graph unchanged until a replacement is implemented. |
+| `Approach -> Settle -> Enemy Phrase -> Response -> Tactical Vamp <-> Character Performance -> Full-Band Vamp -> Resolution` | `CombatV1` exposes `Settle -> Enemy Phrase -> Response -> Tactical Vamp <-> Character Performance -> Full-Band Vamp -> Resolution`, reuses injected `BeatClock`/`RhythmInput`, and now enters `Resolution` from its owned typed Jam/loss state. `combat_v1_prototype.tscn` remains separate from configured `test_scene.tscn`; character performance and full-band transitions are placeholders. | **Partial** | Keep `CombatV1` as the migration seam. Add authored resources, party ordering, and performance-result production in later slices; leave the legacy `CombatScene` phase graph unchanged until a replacement is implemented. |
 | Enemy Phrase is primarily a listening phase followed by a distinct Response | `CombatV1` advances through a timed Enemy Phrase without required input, then accepts a separate Response intent; the phrase is still a fixed cadence placeholder, not an authored V1 resource. | **Partial** | Reuse the timing/input seam while adding authored phrase data and response rules in a later slice. |
 | Tactical Vamps continue indefinitely with no time pressure | `CombatV1` enters Tactical Vamp without a beat timeout while its injected `BeatClock` and optional `RhythmInput` listeners remain active; performance-selection and full-band commands are placeholder boundaries. | **Aligned seam** | Preserve the no-time-pressure seam, then replace placeholder commands with the selected performance and party rules. |
 | Party members select skills and perform separate multi-bar interactions | The prototype uses one active character and four generic actions: Attack, Defend, Item, Run | **Contradiction** | Introduce a skill/performance seam and party cadence before content breadth. Item existence remains open. |
 | Character rhythm languages should make the player's hands think differently | Luthier has four-direction melodic input; Beatrice has two-hand percussion, chords, alternation, and separate visuals/evaluators | **Partial** | Retain and deepen these proven character seams; add held notes, spatial targets, rolls, fills, and skill-specific variations only as tested slices. |
-| Performance grading includes six working levels and phrase-level recovery | `RhythmInput` and evaluators use `perfect`, `good`, and `miss` at note level | **Partial** | Expand the grading model only alongside Groove/Composure experiments; exact windows remain open. |
+| Performance grading includes six working levels and phrase-level recovery | `RhythmInput` and evaluators use `perfect`, `good`, and `miss` at note level. The V1 state accepts the coarser typed execution results `CORRECT`, `NEAR_MISS`, `MISTAKE`, and `MAJOR_MISTAKE` but intentionally performs no timing-grade conversion | **Partial** | Add the six-grade-to-execution mapping with an authored performance slice; keep exact windows and phrase recovery open. |
 
 ## Tactics, Content, and Progression
 
@@ -72,8 +91,10 @@ These are implementation assets, not V1 product rules:
   separation.
 - Visual announcement and scoreable-note parity tests protect player trust.
 - Continuous audio during `DECISION` demonstrates the basis of a Tactical Vamp.
-- `CombatV1` provides an isolated cadence seam that reuses `BeatClock` and
-  `RhythmInput` through injection; it does not provide V1 resources or rules.
+- `CombatV1` provides an isolated cadence and encounter-state seam that reuses
+  `BeatClock` and `RhythmInput` through injection. It owns provisional V1
+  Groove/Composure/Multiplier and terminal rules but not authored performance
+  resources or performance-result production.
 
 Preserve these only where they support the selected V1 slice. Their existing names
 and ownership do not constrain the target domain model.
