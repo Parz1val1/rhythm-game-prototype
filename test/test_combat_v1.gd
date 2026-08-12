@@ -7,6 +7,7 @@ var _observed_inputs: int = 0
 var _rejected_intents: int = 0
 var _resolved_outcome: int = -1
 var _encounter_state_changes: int = 0
+var _response_targets: Array[Dictionary] = []
 var _has_failures: bool = false
 
 func _init() -> void:
@@ -31,6 +32,7 @@ func _run() -> void:
 	_check("cadence_changed signal exists", module.has_signal("cadence_changed"), true)
 	_check("intent_rejected signal exists", module.has_signal("intent_rejected"), true)
 	_check("encounter_state_changed signal exists", module.has_signal("encounter_state_changed"), true)
+	_check("response_target_announced signal exists", module.has_signal("response_target_announced"), true)
 	_check("resolved signal exists", module.has_signal("resolved"), true)
 	_check("module contains no legacy combat semantics", _has_no_legacy_semantics(), true)
 	var prototype_scene = load("res://combat_v1/combat_v1_prototype.tscn")
@@ -49,7 +51,7 @@ func _run() -> void:
 	encounter_config.max_groove = 10.0
 	encounter_config.max_composure = 20.0
 	encounter_config.jam_threshold = 10.0
-	encounter_config.correct_groove_gain = 10.0
+	encounter_config.correct_groove_gain = 5.0
 	encounter_config.correct_multiplier_gain = 0.0
 	var opponent = load("res://combat_v1/opponents/drum_golem.tres")
 	module.setup(beat_clock, rhythm_input, opponent, 1, encounter_config)
@@ -57,6 +59,7 @@ func _run() -> void:
 	module.rhythm_input_observed.connect(_on_rhythm_input_observed)
 	module.intent_rejected.connect(_on_intent_rejected)
 	module.encounter_state_changed.connect(_on_encounter_state_changed)
+	module.response_target_announced.connect(_on_response_target_announced)
 	module.resolved.connect(_on_resolved)
 
 	_check("start enters Settle", module.start(), true)
@@ -84,13 +87,24 @@ func _run() -> void:
 	_check("Enemy Phrase transitions to Response", module.get_cadence() == CombatV1Script.Cadence.RESPONSE, true)
 	_check("cadence signal carries enum values", _cadences.size() >= 3 and _cadences[0] == CombatV1Script.Cadence.SETTLE, true)
 
-	rhythm_input.input_scored.emit(&"up", &"perfect", -4.0, false)
+	beat_clock.beat_position = 0.0
+	var first_response_action: StringName = _response_targets[0][&"action"]
+	rhythm_input.input_scored.emit(first_response_action, &"perfect", -4.0, false)
 	_check("shared input is observed through its signal", _observed_inputs, 1)
 	_check("Response rejects a command for another cadence", module.player_intent(CombatV1Script.Intent.SELECT_PERFORMANCE), false)
 	_check("known invalid command is reported", _rejected_intents, 1)
 	_check("unknown command is rejected predictably", module.player_intent(99), false)
 	_check("unknown command is reported", _rejected_intents, 2)
 	_check("Response remains until typed intent", module.get_cadence() == CombatV1Script.Cadence.RESPONSE, true)
+	beat_clock.quarter_beat.emit(8, 0.75)
+	beat_clock.beat.emit(9)
+	beat_clock.half_beat.emit(9)
+	beat_clock.beat.emit(10)
+	beat_clock.half_beat.emit(10)
+	beat_clock.beat.emit(11)
+	for target_index in range(1, _response_targets.size()):
+		var target: Dictionary = _response_targets[target_index]
+		module.submit_response_input(target[&"action"], target[&"offset"])
 	_check("typed response intent advances cadence", module.player_intent(CombatV1Script.Intent.SUBMIT_RESPONSE), true)
 	_check("Response transitions to Tactical Vamp", module.get_cadence() == CombatV1Script.Cadence.TACTICAL_VAMP, true)
 	_check("typed performance selection advances cadence", module.player_intent(CombatV1Script.Intent.SELECT_PERFORMANCE), true)
@@ -113,7 +127,7 @@ func _run() -> void:
 	_check("resolution signal carries typed Jam outcome", _resolved_outcome, CombatV1Script.Outcome.JAM)
 	_check("terminal outcome is present in CombatV1 state", module.get_state()[&"outcome"], CombatV1Script.Outcome.JAM)
 	_check("Groove is present in CombatV1 state", module.get_state()[&"groove"], 10.0)
-	_check("state changes are observable through CombatV1", _encounter_state_changes, 1)
+	_check("state changes are observable through CombatV1", _encounter_state_changes, 2)
 	_check(
 		"post-terminal result is rejected through CombatV1",
 		module.apply_performance_result(
@@ -133,6 +147,7 @@ func _run() -> void:
 	_check("teardown is idempotent", module.get_state()[&"running"], false)
 	_check("module can start again without duplicate listeners", module.start(), true)
 	_check("restart has one BeatClock listener", _connection_count(beat_clock, &"beat", module), 1)
+	_check("restart clears the previous Response summary", module.get_state()[&"response_summary"].is_empty(), true)
 	module.teardown()
 	_check("teardown restores RhythmInput scoring state", rhythm_input.is_scoring_enabled(), true)
 	module.queue_free()
@@ -143,12 +158,18 @@ func _run() -> void:
 		var prototype_module = prototype.get("_combat_v1")
 		_check("prototype connects cadence signal", _is_connected(prototype_module, &"cadence_changed", prototype, "_on_cadence_changed"), true)
 		_check("prototype connects phrase event signal", _is_connected(prototype_module, &"phrase_event_announced", prototype, "_on_phrase_event_announced"), true)
+		_check("prototype connects Response target signal", _is_connected(prototype_module, &"response_target_announced", prototype, "_on_response_target_announced"), true)
+		_check("prototype connects Response note signal", _is_connected(prototype_module, &"response_note_graded", prototype, "_on_response_note_graded"), true)
+		_check("prototype connects Response summary signal", _is_connected(prototype_module, &"response_phrase_graded", prototype, "_on_response_phrase_graded"), true)
 		_check("prototype connects input signal", _is_connected(prototype_module, &"rhythm_input_observed", prototype, "_on_rhythm_input_observed"), true)
 		_check("prototype connects resolution signal", _is_connected(prototype_module, &"resolved", prototype, "_on_resolved"), true)
 		prototype.teardown()
 		prototype.teardown()
 		_check("prototype teardown disconnects cadence signal", _is_connected(prototype_module, &"cadence_changed", prototype, "_on_cadence_changed"), false)
 		_check("prototype teardown disconnects phrase event signal", _is_connected(prototype_module, &"phrase_event_announced", prototype, "_on_phrase_event_announced"), false)
+		_check("prototype teardown disconnects Response target signal", _is_connected(prototype_module, &"response_target_announced", prototype, "_on_response_target_announced"), false)
+		_check("prototype teardown disconnects Response note signal", _is_connected(prototype_module, &"response_note_graded", prototype, "_on_response_note_graded"), false)
+		_check("prototype teardown disconnects Response summary signal", _is_connected(prototype_module, &"response_phrase_graded", prototype, "_on_response_phrase_graded"), false)
 		_check("prototype teardown disconnects input signal", _is_connected(prototype_module, &"rhythm_input_observed", prototype, "_on_rhythm_input_observed"), false)
 		_check("prototype teardown disconnects resolution signal", _is_connected(prototype_module, &"resolved", prototype, "_on_resolved"), false)
 		prototype.free()
@@ -189,6 +210,12 @@ func _on_intent_rejected(_intent: int) -> void:
 
 func _on_encounter_state_changed(_state: Dictionary) -> void:
 	_encounter_state_changes += 1
+
+func _on_response_target_announced(event, expected_action: StringName) -> void:
+	_response_targets.append({
+		&"action": expected_action,
+		&"offset": event.beat_offset,
+	})
 
 func _on_resolved(outcome: int) -> void:
 	_resolved_outcome = outcome
