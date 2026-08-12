@@ -24,7 +24,9 @@ combat flow. `CombatV1` owns a deterministic `CombatV1EncounterState` and expose
 cadence plus encounter-wide Groove, Composure, Multiplier, and terminal outcomes
 through one public seam. It also plays a deep-copied V1 `OpponentData` phrase from
 audio-corrected beat/sub-beat signals and emits one event seam for audio and visual
-presentation. Party ordering, timing-grade mapping, skills, and opponent
+presentation. After each non-terminal Response, an indefinite Tactical Vamp accepts
+one provisional Continue Round intent and begins the next Enemy Phrase on the next
+BeatClock beat without repeating Settle. Party ordering, skills, and opponent
 preferences remain unimplemented.
 
 ```mermaid
@@ -50,6 +52,7 @@ flowchart LR
     V1 -->|same phrase event<br/>audio + visual cues| V1P
     V1 -->|typed performance result| V1S[CombatV1EncounterState<br/>Groove / Composure / Multiplier]
     V1S -->|state change / Jam / loss| V1
+    V1 -->|Continue Round<br/>next beat| V1
 ```
 
 ## Major Modules
@@ -64,7 +67,7 @@ flowchart LR
 | `combat/*_evaluator.gd` | Character-specific attack damage/coherence behind `AttackEvaluator` |
 | `combat/neutral_pattern_translator.gd` | Resolves neutral enemy hits into deterministic directional or percussive notes |
 | `combat/combat_ui.gd` and lane scripts | Present state and note approaches through combat signals |
-| `combat_v1/combat_v1.gd` | Isolated Combat V1 seam; owns cadence plus `CombatV1EncounterState`, schedules an authored opponent phrase, accepts typed performance results, and exposes combined state, phrase events, and terminal signals |
+| `combat_v1/combat_v1.gd` | Isolated Combat V1 seam; owns the repeatable Settle-free conversation cadence plus `CombatV1EncounterState`, schedules an authored opponent phrase, accepts typed intents/results, and exposes combined state, phrase events, and terminal signals |
 | `combat_v1/encounter_state.gd` | Deterministic Issue #10 state module; owns configurable Groove, shared Composure, shared Multiplier math, clamping, and one-shot Jam/loss resolution |
 | `combat_v1/opponent_data.gd`, `opponent_phrase.gd`, and `phrase_event.gd` | V1 authoring model for opponent identity, one-to-four-bar phrases, musical offsets, response prompts, and symbolic audio/visual cues; it has no legacy enemy statistics |
 | `combat_v1/opponents/drum_golem.tres` | One-bar prototype opponent phrase with whole-, half-, and quarter-beat events |
@@ -148,6 +151,10 @@ There is no durable persistence.
   entry point. The hardcoded-ID path remains for backward compatibility and tests.
 - Raw InputMap action names should remain inside input profiles or
   `RhythmInput`'s default map; downstream systems use direction aliases.
+- `CombatV1.player_intent()` currently accepts `SUBMIT_RESPONSE` during Response
+  and one provisional `CONTINUE_ROUND` command during Tactical Vamp. Continue
+  Round queues exactly one transition to Enemy Phrase on the next BeatClock beat;
+  all intents are rejected after terminal Resolution.
 - `CombatV1.apply_performance_result(execution, effectiveness)` is the V1 state
   seam. Its enum inputs keep execution quality distinct from tactical
   effectiveness; callers do not calculate Multiplier-adjusted Groove.
@@ -213,6 +220,21 @@ Miss to `NEAR_MISS`, Miss to `MISTAKE`, and a broken phrase to `MAJOR_MISTAKE`.
 Response reproduction currently supplies `EFFECTIVE` tactical effectiveness;
 future preferences must change that independent input without rewriting execution
 truth or creating a Composure penalty for correct play.
+
+## Combat V1 Tactical Vamp and Repeated Rounds
+
+A non-terminal Response enters Tactical Vamp while the injected BeatClock,
+backing audio in the standalone harness, and dependency subscriptions remain
+active. Beat and subdivision signals do not drain encounter state or advance the
+cadence while the player waits. Skills do not exist yet, so `CONTINUE_ROUND` is
+the only provisional Tactical Vamp intent.
+
+An accepted Continue Round intent leaves the module in Tactical Vamp until the
+next whole-beat signal. That beat starts Enemy Phrase at phrase offset zero,
+refreshes Response targets, and skips the one-time Settle. Groove, Composure, and
+Multiplier remain encounter-wide across rounds, and the module reuses its existing
+BeatClock and RhythmInput subscriptions. A Jam or loss moves immediately to
+Resolution, after which combat intents and state results are rejected.
 
 ## Combat V1 Encounter State
 

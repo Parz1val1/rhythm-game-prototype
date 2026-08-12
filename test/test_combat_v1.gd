@@ -91,7 +91,7 @@ func _run() -> void:
 	var first_response_action: StringName = _response_targets[0][&"action"]
 	rhythm_input.input_scored.emit(first_response_action, &"perfect", -4.0, false)
 	_check("shared input is observed through its signal", _observed_inputs, 1)
-	_check("Response rejects a command for another cadence", module.player_intent(CombatV1Script.Intent.SELECT_PERFORMANCE), false)
+	_check("Response rejects a command for another cadence", module.player_intent(CombatV1Script.Intent.CONTINUE_ROUND), false)
 	_check("known invalid command is reported", _rejected_intents, 1)
 	_check("unknown command is rejected predictably", module.player_intent(99), false)
 	_check("unknown command is reported", _rejected_intents, 2)
@@ -107,14 +107,10 @@ func _run() -> void:
 		module.submit_response_input(target[&"action"], target[&"offset"])
 	_check("typed response intent advances cadence", module.player_intent(CombatV1Script.Intent.SUBMIT_RESPONSE), true)
 	_check("Response transitions to Tactical Vamp", module.get_cadence() == CombatV1Script.Cadence.TACTICAL_VAMP, true)
-	_check("typed performance selection advances cadence", module.player_intent(CombatV1Script.Intent.SELECT_PERFORMANCE), true)
-	_check("Tactical Vamp transitions to Character Performance", module.get_cadence() == CombatV1Script.Cadence.CHARACTER_PERFORMANCE, true)
-	_check("performance completion returns to Tactical Vamp", module.player_intent(CombatV1Script.Intent.COMPLETE_PERFORMANCE), true)
-	_check("Character Performance does not skip Tactical Vamp", module.get_cadence() == CombatV1Script.Cadence.TACTICAL_VAMP, true)
-	_check("performance loop can begin another character performance", module.player_intent(CombatV1Script.Intent.SELECT_PERFORMANCE), true)
-	_check("second performance returns to Tactical Vamp", module.player_intent(CombatV1Script.Intent.COMPLETE_PERFORMANCE), true)
-	_check("full-band boundary is explicit placeholder", module.player_intent(CombatV1Script.Intent.COMPLETE_PERFORMANCE_SEQUENCE), true)
-	_check("placeholder reaches Full-Band Vamp", module.get_cadence() == CombatV1Script.Cadence.FULL_BAND_VAMP, true)
+	_check("typed next-round intent is accepted", module.player_intent(CombatV1Script.Intent.CONTINUE_ROUND), true)
+	_check("next-round intent waits for a beat boundary", module.get_cadence() == CombatV1Script.Cadence.TACTICAL_VAMP, true)
+	beat_clock.beat.emit(12)
+	_check("next beat starts another Enemy Phrase", module.get_cadence() == CombatV1Script.Cadence.ENEMY_PHRASE, true)
 	_check(
 		"performance result applies through CombatV1",
 		module.apply_performance_result(
