@@ -81,7 +81,7 @@ not sufficient because it hides engine diagnostics.
 
 ### Verified green baseline (2026-08-11)
 
-- 35 discovered scripts and 422 visible `PASS` lines.
+- 39 discovered scripts and 570 visible `PASS` lines.
 - 0 visible `FAIL` lines, `SCRIPT ERROR` diagnostics, or line-leading `ERROR:`
   diagnostics.
 - Every script exited `0` and printed the exact `=== done ===` completion marker.
@@ -162,6 +162,9 @@ var actor_name: String = target.character_name if target != null else "Unknown"
 ### Timing and patterns
 
 - `beat_offset` is a float and supports sub-beat positions.
+- `BeatClock.quarter_beat` carries the exact `.25` or `.75` subdivision as its
+  second signal argument; do not infer it from `BeatClock.beat_position` inside a
+  callback because recovered thresholds emit before that property updates.
 - `RhythmInput.add_note()` returns `false` when duplicate prevention rejects an
   already-active note. Use that result for observability; never gate damage on it.
 - DEFEND injection has one path in `CombatScene._inject_notes_due()`.

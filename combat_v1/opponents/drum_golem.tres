@@ -1,0 +1,58 @@
+[gd_resource type="Resource" load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://combat_v1/opponent_data.gd" id="1_opponent"]
+[ext_resource type="Script" path="res://combat_v1/opponent_phrase.gd" id="2_phrase"]
+[ext_resource type="Script" path="res://combat_v1/phrase_event.gd" id="3_event"]
+
+[sub_resource type="Resource" id="PhraseEvent_beat_0"]
+script = ExtResource("3_event")
+beat_offset = 0.0
+prompt_id = &"drum_left"
+prompt_text = "Left pulse"
+audio_cue = &"drum_low"
+visual_cue = &"pulse_left"
+
+[sub_resource type="Resource" id="PhraseEvent_beat_0_75"]
+script = ExtResource("3_event")
+beat_offset = 0.75
+prompt_id = &"drum_right"
+prompt_text = "Right pulse"
+audio_cue = &"drum_high"
+visual_cue = &"pulse_right"
+
+[sub_resource type="Resource" id="PhraseEvent_beat_1_5"]
+script = ExtResource("3_event")
+beat_offset = 1.5
+prompt_id = &"drum_left"
+prompt_text = "Left pulse"
+audio_cue = &"drum_low"
+visual_cue = &"pulse_left"
+
+[sub_resource type="Resource" id="PhraseEvent_beat_2_5"]
+script = ExtResource("3_event")
+beat_offset = 2.5
+prompt_id = &"drum_right"
+prompt_text = "Right pulse"
+audio_cue = &"drum_high"
+visual_cue = &"pulse_right"
+
+[sub_resource type="Resource" id="PhraseEvent_beat_3"]
+script = ExtResource("3_event")
+beat_offset = 3.0
+prompt_id = &"drum_both"
+prompt_text = "Together"
+audio_cue = &"drum_both"
+visual_cue = &"pulse_both"
+
+[sub_resource type="Resource" id="OpponentPhrase_opening_call"]
+script = ExtResource("2_phrase")
+phrase_id = &"opening_call"
+display_name = "Opening Call"
+bar_count = 1
+events = Array[ExtResource("3_event")]([SubResource("PhraseEvent_beat_0"), SubResource("PhraseEvent_beat_0_75"), SubResource("PhraseEvent_beat_1_5"), SubResource("PhraseEvent_beat_2_5"), SubResource("PhraseEvent_beat_3")])
+
+[resource]
+script = ExtResource("1_opponent")
+opponent_id = &"drum_golem"
+display_name = "Drum Golem"
+phrase = SubResource("OpponentPhrase_opening_call")

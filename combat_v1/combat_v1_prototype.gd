@@ -4,9 +4,11 @@ extends Node2D
 
 const CombatV1 = preload("res://combat_v1/combat_v1.gd")
 const DebugLog = preload("res://autoloads/debug_log.gd")
+const OpponentData = preload("res://combat_v1/opponent_data.gd")
+const PhraseEvent = preload("res://combat_v1/phrase_event.gd")
 
-@export var settle_beats: int = 2
-@export var enemy_phrase_beats: int = 4
+@export_range(1, 8, 1) var settle_bars: int = 2
+@export var opponent: OpponentData = preload("res://combat_v1/opponents/drum_golem.tres")
 
 @onready var _audio: AudioStreamPlayer = $AudioStreamPlayer
 @onready var _cadence_label: Label = $CadenceLabel
@@ -28,8 +30,9 @@ func _ready() -> void:
 
 	_combat_v1 = CombatV1.new()
 	add_child(_combat_v1)
-	_combat_v1.setup(BeatClock, RhythmInput, settle_beats, enemy_phrase_beats)
+	_combat_v1.setup(BeatClock, RhythmInput, opponent, settle_bars)
 	_combat_v1.cadence_changed.connect(_on_cadence_changed)
+	_combat_v1.phrase_event_announced.connect(_on_phrase_event_announced)
 	_combat_v1.rhythm_input_observed.connect(_on_rhythm_input_observed)
 	_combat_v1.resolved.connect(_on_resolved)
 	_combat_v1.start()
@@ -56,6 +59,13 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _on_cadence_changed(_cadence: int) -> void:
 	_update_view(_combat_v1.get_state())
+
+func _on_phrase_event_announced(event: PhraseEvent) -> void:
+	_detail_label.text = "%s at beat %.2f" % [event.prompt_text, event.beat_offset]
+	DebugLog.visual("[PROMPT ] cue=%s  prompt=%s  offset=%.2f" % [
+		event.visual_cue, event.prompt_id, event.beat_offset])
+	DebugLog.audio("[PHRASE ] cue=%s  prompt=%s  offset=%.2f" % [
+		event.audio_cue, event.prompt_id, event.beat_offset])
 
 func _on_rhythm_input_observed(direction: StringName, score: StringName, offset_ms: float) -> void:
 	_detail_label.text = "Last rhythm input: %s / %s (%+.1f ms)" % [direction, score, offset_ms]
@@ -85,6 +95,8 @@ func teardown() -> void:
 	if _combat_v1 != null:
 		if _combat_v1.cadence_changed.is_connected(_on_cadence_changed):
 			_combat_v1.cadence_changed.disconnect(_on_cadence_changed)
+		if _combat_v1.phrase_event_announced.is_connected(_on_phrase_event_announced):
+			_combat_v1.phrase_event_announced.disconnect(_on_phrase_event_announced)
 		if _combat_v1.rhythm_input_observed.is_connected(_on_rhythm_input_observed):
 			_combat_v1.rhythm_input_observed.disconnect(_on_rhythm_input_observed)
 		if _combat_v1.resolved.is_connected(_on_resolved):

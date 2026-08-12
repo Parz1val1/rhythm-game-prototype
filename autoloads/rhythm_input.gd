@@ -44,6 +44,10 @@ const _DEFAULT_INPUT_MAP: Dictionary = {
 # Null = no filter; _get_direction uses _DEFAULT_INPUT_MAP.
 var _active_profile = null   # CharacterInputProfile or null
 
+# Listening phases can suppress scoring at the input seam while preserving the
+# active profile and every consumer connection.
+var _scoring_enabled: bool = true
+
 # Chord detection: direction aliases pressed within chord_window_ms accumulate here.
 # Dict of StringName (alias) → int (wall-clock ms of press). Cleared after chord check.
 var _chord_buffer: Dictionary = {}
@@ -85,6 +89,16 @@ func clear_notes() -> void:
 		DebugLog.timing("[CLEAR  ] flushed %d active note(s)" % _active.size())
 	_active.clear()
 
+## Enable or suppress timing-grade production without changing the active profile.
+## Suppressed input is left unhandled for non-rhythm consumers.
+func set_scoring_enabled(enabled: bool) -> void:
+	_scoring_enabled = enabled
+	if not enabled:
+		_chord_buffer.clear()
+
+func is_scoring_enabled() -> bool:
+	return _scoring_enabled
+
 # --- Profile API ---
 
 ## Set the active CharacterInputProfile. Pass null to remove the filter.
@@ -110,6 +124,8 @@ func is_input_allowed(direction: StringName) -> bool:
 # --- Input handling ---
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not _scoring_enabled:
+		return
 	var direction := _get_direction(event)
 	if direction == &"":
 		return   # action not in active map; input silently ignored
