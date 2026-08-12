@@ -54,9 +54,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		CombatV1.Cadence.RESPONSE:
 			_combat_v1.player_intent(CombatV1.Intent.SUBMIT_RESPONSE)
 		CombatV1.Cadence.TACTICAL_VAMP:
-			_combat_v1.player_intent(CombatV1.Intent.SELECT_PERFORMANCE)
-		CombatV1.Cadence.CHARACTER_PERFORMANCE:
-			_combat_v1.player_intent(CombatV1.Intent.COMPLETE_PERFORMANCE)
+			_combat_v1.player_intent(CombatV1.Intent.CONTINUE_ROUND)
 		_:
 			pass
 
@@ -101,11 +99,7 @@ func _update_view(state: Dictionary) -> void:
 	elif state[&"cadence"] == CombatV1.Cadence.RESPONSE:
 		_hint_label.text = "Play the four-direction targets, then press Enter or Space to submit."
 	elif state[&"cadence"] == CombatV1.Cadence.TACTICAL_VAMP:
-		_hint_label.text = "Tactical Vamp: press Enter or Space to choose a performance."
-	elif state[&"cadence"] == CombatV1.Cadence.CHARACTER_PERFORMANCE:
-		_hint_label.text = "Placeholder performance: press Enter or Space when complete."
-	elif state[&"cadence"] == CombatV1.Cadence.FULL_BAND_VAMP:
-		_hint_label.text = "Full-Band Vamp: awaiting explicit performance results."
+		_hint_label.text = "Tactical Vamp: listen freely, then press Enter or Space to continue on the next beat."
 	else:
 		_hint_label.text = "Listen — the next cadence advances on the BeatClock."
 

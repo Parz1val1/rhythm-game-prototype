@@ -36,13 +36,11 @@ enum Cadence {
 	RESOLUTION,
 }
 
-## Typed commands accepted by player_intent(). The final performance-sequence
-## boundary is an inert Issue #9 placeholder for later party/performance slices.
+## Typed commands accepted by player_intent(). Continue Round is the provisional
+## Tactical Vamp choice until skills and party performances exist.
 enum Intent {
 	SUBMIT_RESPONSE,
-	SELECT_PERFORMANCE,
-	COMPLETE_PERFORMANCE,
-	COMPLETE_PERFORMANCE_SEQUENCE,
+	CONTINUE_ROUND,
 }
 
 const _CADENCE_NAMES: Array[StringName] = [
@@ -96,6 +94,7 @@ var _cadence: Cadence = Cadence.IDLE
 var _beats_in_cadence: int = 0
 var _running: bool = false
 var _last_intent: int = -1
+var _next_round_pending: bool = false
 var _scoring_suppressed: bool = false
 var _previous_scoring_enabled: bool = true
 var _encounter_state = EncounterState.new()
@@ -132,6 +131,7 @@ func setup(
 	_cadence = Cadence.IDLE
 	_beats_in_cadence = 0
 	_last_intent = -1
+	_next_round_pending = false
 	_encounter_state.setup(encounter_config)
 
 ## Start observing the injected timing and input dependencies.
@@ -152,6 +152,7 @@ func start() -> bool:
 	_running = true
 	_beats_in_cadence = 0
 	_last_intent = -1
+	_next_round_pending = false
 	_encounter_state.reset()
 	_prepare_response_targets()
 	_last_response_summary.clear()
@@ -167,7 +168,7 @@ func start() -> bool:
 func player_intent(intent: Intent) -> bool:
 	if not _running:
 		return false
-	if intent < Intent.SUBMIT_RESPONSE or intent > Intent.COMPLETE_PERFORMANCE_SEQUENCE:
+	if intent < Intent.SUBMIT_RESPONSE or intent > Intent.CONTINUE_ROUND:
 		DebugLog.combat("[V1    ] intent=rejected  reason=unknown  value=%d" % intent)
 		intent_rejected.emit(intent)
 		return false
@@ -181,17 +182,9 @@ func player_intent(intent: Intent) -> bool:
 					_set_cadence(Cadence.TACTICAL_VAMP)
 				accepted = true
 		Cadence.TACTICAL_VAMP:
-			if intent == Intent.SELECT_PERFORMANCE:
-				_set_cadence(Cadence.CHARACTER_PERFORMANCE)
-				accepted = true
-			elif intent == Intent.COMPLETE_PERFORMANCE_SEQUENCE:
-				# Later issues own party ordering; this explicit command is the only
-				# Issue #9 placeholder boundary into Full-Band Vamp.
-				_set_cadence(Cadence.FULL_BAND_VAMP)
-				accepted = true
-		Cadence.CHARACTER_PERFORMANCE:
-			if intent == Intent.COMPLETE_PERFORMANCE:
-				_set_cadence(Cadence.TACTICAL_VAMP)
+			if intent == Intent.CONTINUE_ROUND and not _next_round_pending:
+				_next_round_pending = true
+				DebugLog.combat("[V1    ] next_round=pending  transition=next_beat")
 				accepted = true
 		_:
 			pass
@@ -305,6 +298,13 @@ func teardown() -> void:
 
 func _on_beat(_beat_number: int) -> void:
 	if not _running:
+		return
+	if _cadence == Cadence.TACTICAL_VAMP:
+		if _next_round_pending:
+			_next_round_pending = false
+			_prepare_response_targets()
+			_set_cadence(Cadence.ENEMY_PHRASE)
+			_announce_phrase_events_at(0.0)
 		return
 	if _cadence != Cadence.SETTLE and _cadence != Cadence.ENEMY_PHRASE \
 		and _cadence != Cadence.RESPONSE:
