@@ -47,4 +47,4 @@ offset_top = 350.0
 offset_right = 1100.0
 offset_bottom = 430.0
 theme_override_font_sizes/font_size = 18
-text = "This isolated V1 seam plays the authored Drum Golem phrase without legacy enemy stats.\nListening-phase scoring is suppressed; phrase prompts share one audio/visual event handoff."
+text = "This isolated V1 seam plays the authored Drum Golem phrase without legacy enemy stats.\nListen first, then reproduce its timing through Luthier's four-input language for a six-level phrase grade."

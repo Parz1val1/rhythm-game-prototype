@@ -160,6 +160,13 @@ There is no durable persistence.
 - `phrase_event_announced` is the single presentation seam for an authored phrase
   event. Both audio and visual consumers receive the same live deep-copy event;
   separate scheduling paths would break parity.
+- `CombatV1ResponseGrader` is the deterministic Response execution seam. A copied
+  `Config` defines the five timing boundaries and phrase thresholds; `grade_note()`
+  returns one of six typed grades and `summarize()` returns an ordered, immutable-
+  by-convention phrase result with per-grade counts.
+- `response_target_announced`, `response_note_graded`, and
+  `response_phrase_graded` expose Response presentation and execution without
+  making the diagnostic harness an owner of grading rules.
 
 ## Combat V1 Opponent Phrase
 
@@ -179,6 +186,33 @@ active profile. Listening-phase presses therefore emit no scored input, V1 input
 observation, or encounter-state result. The prototype harness presents
 `prompt_text` and logs the event's symbolic `audio_cue` and `visual_cue`;
 production assets remain out of scope.
+
+## Combat V1 Response Grading
+
+When Enemy Phrase reaches its authored duration, `CombatV1` enters Response and
+replays the same beat offsets through `response_target_announced`. Each phrase
+event is mapped cyclically across the unique direction aliases in the injected
+`CharacterInputProfile`; the isolated harness defaults to Luthier's existing
+four-direction language. This mapping is a first reproduction exercise, not a
+new opponent-preference or multiple-answer model.
+
+`submit_response_input(action, phrase_position_beats)` is the deterministic input
+interface. The live `RhythmInput` adapter calls it with the audio-corrected clock's
+current absolute position within Response; headless tests call the same method
+directly. `CombatV1ResponseGrader` converts the signed distance from the closest
+ungraded target into configurable `perfect`, `great`, `good`, `near_miss`, `miss`,
+or `major_mistake` results. A wrong action is at least a Miss, and a target still
+unplayed when Response is submitted becomes a Major Mistake.
+
+Phrase grading uses configurable score thresholds rather than the single worst
+note, so later strong notes can recover the summary after an individual mistake.
+A separately configurable count of Major Mistakes marks a broken phrase. The
+ordered summary is retained in `CombatV1.get_state()`, emitted for presentation,
+and mapped to the Issue #10 execution seam: Perfect/Great/Good to `CORRECT`, Near
+Miss to `NEAR_MISS`, Miss to `MISTAKE`, and a broken phrase to `MAJOR_MISTAKE`.
+Response reproduction currently supplies `EFFECTIVE` tactical effectiveness;
+future preferences must change that independent input without rewriting execution
+truth or creating a Composure penalty for correct play.
 
 ## Combat V1 Encounter State
 

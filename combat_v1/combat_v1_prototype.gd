@@ -33,6 +33,9 @@ func _ready() -> void:
 	_combat_v1.setup(BeatClock, RhythmInput, opponent, settle_bars)
 	_combat_v1.cadence_changed.connect(_on_cadence_changed)
 	_combat_v1.phrase_event_announced.connect(_on_phrase_event_announced)
+	_combat_v1.response_target_announced.connect(_on_response_target_announced)
+	_combat_v1.response_note_graded.connect(_on_response_note_graded)
+	_combat_v1.response_phrase_graded.connect(_on_response_phrase_graded)
 	_combat_v1.rhythm_input_observed.connect(_on_rhythm_input_observed)
 	_combat_v1.resolved.connect(_on_resolved)
 	_combat_v1.start()
@@ -67,7 +70,23 @@ func _on_phrase_event_announced(event: PhraseEvent) -> void:
 	DebugLog.audio("[PHRASE ] cue=%s  prompt=%s  offset=%.2f" % [
 		event.audio_cue, event.prompt_id, event.beat_offset])
 
+func _on_response_target_announced(event: PhraseEvent, expected_action: StringName) -> void:
+	_detail_label.text = "Respond with %s at beat %.2f" % [expected_action, event.beat_offset]
+	DebugLog.visual("[TARGET ] action=%s  offset=%.2f  source=%s" % [
+		expected_action, event.beat_offset, event.prompt_id])
+
+func _on_response_note_graded(result: Dictionary) -> void:
+	_detail_label.text = "Response note: %s (%+.1f ms)" % [
+		result[&"grade_name"], result[&"offset_ms"]]
+
+func _on_response_phrase_graded(summary: Dictionary) -> void:
+	_detail_label.text = "Response phrase: %s" % summary[&"grade_name"]
+	DebugLog.combat("[SUMMARY] grade=%s  average=%.2f  broken=%s" % [
+		summary[&"grade_name"], summary[&"average_score"], summary[&"broken"]])
+
 func _on_rhythm_input_observed(direction: StringName, score: StringName, offset_ms: float) -> void:
+	if _combat_v1.get_cadence() == CombatV1.Cadence.RESPONSE:
+		return
 	_detail_label.text = "Last rhythm input: %s / %s (%+.1f ms)" % [direction, score, offset_ms]
 
 func _on_resolved(_outcome: CombatV1.Outcome) -> void:
@@ -80,7 +99,7 @@ func _update_view(state: Dictionary) -> void:
 	if state[&"cadence"] == CombatV1.Cadence.RESOLUTION:
 		_hint_label.text = "Conversation resolved."
 	elif state[&"cadence"] == CombatV1.Cadence.RESPONSE:
-		_hint_label.text = "Press Enter or Space to submit the response."
+		_hint_label.text = "Play the four-direction targets, then press Enter or Space to submit."
 	elif state[&"cadence"] == CombatV1.Cadence.TACTICAL_VAMP:
 		_hint_label.text = "Tactical Vamp: press Enter or Space to choose a performance."
 	elif state[&"cadence"] == CombatV1.Cadence.CHARACTER_PERFORMANCE:
@@ -97,6 +116,12 @@ func teardown() -> void:
 			_combat_v1.cadence_changed.disconnect(_on_cadence_changed)
 		if _combat_v1.phrase_event_announced.is_connected(_on_phrase_event_announced):
 			_combat_v1.phrase_event_announced.disconnect(_on_phrase_event_announced)
+		if _combat_v1.response_target_announced.is_connected(_on_response_target_announced):
+			_combat_v1.response_target_announced.disconnect(_on_response_target_announced)
+		if _combat_v1.response_note_graded.is_connected(_on_response_note_graded):
+			_combat_v1.response_note_graded.disconnect(_on_response_note_graded)
+		if _combat_v1.response_phrase_graded.is_connected(_on_response_phrase_graded):
+			_combat_v1.response_phrase_graded.disconnect(_on_response_phrase_graded)
 		if _combat_v1.rhythm_input_observed.is_connected(_on_rhythm_input_observed):
 			_combat_v1.rhythm_input_observed.disconnect(_on_rhythm_input_observed)
 		if _combat_v1.resolved.is_connected(_on_resolved):

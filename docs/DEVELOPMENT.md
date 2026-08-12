@@ -81,7 +81,7 @@ not sufficient because it hides engine diagnostics.
 
 ### Verified green baseline (2026-08-11)
 
-- 39 discovered scripts and 570 visible `PASS` lines.
+- 41 discovered scripts and 617 visible `PASS` lines.
 - 0 visible `FAIL` lines, `SCRIPT ERROR` diagnostics, or line-leading `ERROR:`
   diagnostics.
 - Every script exited `0` and printed the exact `=== done ===` completion marker.
