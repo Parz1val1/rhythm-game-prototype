@@ -24,8 +24,10 @@ combat flow. `CombatV1` owns a deterministic `CombatV1EncounterState` and expose
 cadence plus encounter-wide Groove, Composure, Multiplier, and terminal outcomes
 through one public seam. It also plays a deep-copied V1 `OpponentData` phrase from
 audio-corrected beat/sub-beat signals and emits one event seam for audio and visual
-presentation. After each non-terminal Response, an indefinite Tactical Vamp accepts
-one provisional Continue Round intent and begins the next Enemy Phrase on the next
+presentation. A separate diagnostic `CombatV1HUD` consumes only that public state
+and signal surface, including snapshot-first setup for signals emitted before it
+connects. After each non-terminal Response, an indefinite Tactical Vamp accepts one
+provisional Continue Round intent and begins the next Enemy Phrase on the next
 BeatClock beat without repeating Settle. Party ordering, skills, and opponent
 preferences remain unimplemented.
 
@@ -71,7 +73,8 @@ flowchart LR
 | `combat_v1/encounter_state.gd` | Deterministic Issue #10 state module; owns configurable Groove, shared Composure, shared Multiplier math, clamping, and one-shot Jam/loss resolution |
 | `combat_v1/opponent_data.gd`, `opponent_phrase.gd`, and `phrase_event.gd` | V1 authoring model for opponent identity, one-to-four-bar phrases, musical offsets, response prompts, and symbolic audio/visual cues; it has no legacy enemy statistics |
 | `combat_v1/opponents/drum_golem.tres` | One-bar prototype opponent phrase with whole-, half-, and quarter-beat events |
-| `combat_v1/combat_v1_prototype.tscn` and `combat_v1/combat_v1_prototype.gd` | Separately runnable harness for `CombatV1`; not the configured main scene |
+| `combat_v1/combat_v1_hud.tscn` and `combat_v1/combat_v1_hud.gd` | Diagnostic V1 presentation for cadence, Groove, Composure, Multiplier, phrase cues, six-grade note/phrase feedback, and nonviolent outcomes; observes only the public `CombatV1` seam |
+| `combat_v1/combat_v1_prototype.tscn` and `combat_v1/combat_v1_prototype.gd` | Separately runnable harness that injects dependencies, owns placeholder audio/log handoffs, and hosts `CombatV1HUD`; not the configured main scene |
 | `characters/*.gd/.tres` | Character stats, input behavior, and musical/visual identity |
 | `encounters/*.tres` | Editable encounter groups and neutral enemy patterns |
 | `rhythm_engine/` | `NoteData`, `NeutralHit`, and queued `ActiveNote` domain types |
@@ -174,6 +177,22 @@ There is no durable persistence.
 - `response_target_announced`, `response_note_graded`, and
   `response_phrase_graded` expose Response presentation and execution without
   making the diagnostic harness an owner of grading rules.
+- `CombatV1HUD.setup(combat_v1)` connects presentation signals and immediately
+  reads `get_state()`. This reconstructs cadence, all three meters, the latest
+  phrase summary, and a terminal Jam/loss even when their signals preceded UI
+  setup. `teardown()` guard-disconnects every signal the HUD owns.
+
+## Combat V1 Diagnostic HUD
+
+The standalone harness instances `CombatV1HUD` instead of adapting legacy HP or
+limit-bar nodes. Enemy Phrase and Settle use a listening-only label and color;
+Response uses a distinct active treatment. The HUD displays Groove, shared
+Composure, and shared Multiplier with their public bounds, translates all six
+note and phrase grades into readable feedback, and turns each symbolic phrase
+`visual_cue` into an on-screen cue alongside the placeholder audio handoff.
+
+Terminal copy frames `JAM` as musical connection and `LOSS` as the band losing
+the groove. Player-facing V1 labels intentionally avoid legacy damage semantics.
 
 ## Combat V1 Opponent Phrase
 

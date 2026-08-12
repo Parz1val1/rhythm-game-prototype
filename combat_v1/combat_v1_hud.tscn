@@ -1,0 +1,348 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://combat_v1/combat_v1_hud.gd" id="1_hud"]
+
+[sub_resource type="StyleBoxFlat" id="StyleCadence"]
+bg_color = Color(0.035, 0.055, 0.11, 0.94)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.2, 0.75, 0.95, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleMeters"]
+bg_color = Color(0.035, 0.055, 0.11, 0.94)
+content_margin_left = 20.0
+content_margin_top = 16.0
+content_margin_right = 20.0
+content_margin_bottom = 16.0
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.25, 0.32, 0.48, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleGroove"]
+bg_color = Color(0.12, 0.72, 0.76, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleComposure"]
+bg_color = Color(0.47, 0.7, 1, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleMultiplier"]
+bg_color = Color(0.96, 0.65, 0.19, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBarBackground"]
+bg_color = Color(0.1, 0.13, 0.2, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleFeedback"]
+bg_color = Color(0.035, 0.055, 0.11, 0.94)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.25, 0.32, 0.48, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleOutcome"]
+bg_color = Color(0.04, 0.025, 0.1, 0.98)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.78, 0.61, 1, 1)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+
+[node name="CombatV1HUD" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_hud")
+
+[node name="CadencePanel" type="Panel" parent="."]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 28.0
+offset_right = 420.0
+offset_bottom = 132.0
+theme_override_styles/panel = SubResource("StyleCadence")
+
+[node name="EyebrowLabel" type="Label" parent="CadencePanel"]
+layout_mode = 0
+offset_left = 18.0
+offset_top = 12.0
+offset_right = 370.0
+offset_bottom = 32.0
+theme_override_colors/font_color = Color(0.55, 0.68, 0.82, 1)
+theme_override_font_sizes/font_size = 13
+text = "CURRENT CADENCE"
+
+[node name="CadenceLabel" type="Label" parent="CadencePanel"]
+layout_mode = 0
+offset_left = 18.0
+offset_top = 31.0
+offset_right = 370.0
+offset_bottom = 68.0
+theme_override_colors/font_color = Color(0.93, 0.98, 1, 1)
+theme_override_font_sizes/font_size = 26
+text = "Idle"
+
+[node name="ModeLabel" type="Label" parent="CadencePanel"]
+layout_mode = 0
+offset_left = 18.0
+offset_top = 72.0
+offset_right = 370.0
+offset_bottom = 94.0
+theme_override_colors/font_color = Color(0.25, 0.82, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "WAITING"
+
+[node name="MeterPanel" type="PanelContainer" parent="."]
+layout_mode = 0
+offset_left = 700.0
+offset_top = 28.0
+offset_right = 1120.0
+offset_bottom = 272.0
+theme_override_styles/panel = SubResource("StyleMeters")
+
+[node name="Meters" type="VBoxContainer" parent="MeterPanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Header" type="Label" parent="MeterPanel/Meters"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.68, 0.82, 1)
+theme_override_font_sizes/font_size = 13
+text = "SHARED PERFORMANCE STATE"
+
+[node name="Groove" type="VBoxContainer" parent="MeterPanel/Meters"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="GrooveValue" type="Label" parent="MeterPanel/Meters/Groove"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.35, 0.92, 0.94, 1)
+text = "GROOVE  0 / 100"
+
+[node name="GrooveBar" type="ProgressBar" parent="MeterPanel/Meters/Groove"]
+custom_minimum_size = Vector2(0, 14)
+layout_mode = 2
+show_percentage = false
+theme_override_styles/background = SubResource("StyleBarBackground")
+theme_override_styles/fill = SubResource("StyleGroove")
+
+[node name="Composure" type="VBoxContainer" parent="MeterPanel/Meters"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="ComposureValue" type="Label" parent="MeterPanel/Meters/Composure"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.57, 0.76, 1, 1)
+text = "COMPOSURE  100 / 100"
+
+[node name="ComposureBar" type="ProgressBar" parent="MeterPanel/Meters/Composure"]
+custom_minimum_size = Vector2(0, 14)
+layout_mode = 2
+value = 100.0
+show_percentage = false
+theme_override_styles/background = SubResource("StyleBarBackground")
+theme_override_styles/fill = SubResource("StyleComposure")
+
+[node name="Multiplier" type="VBoxContainer" parent="MeterPanel/Meters"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="MultiplierValue" type="Label" parent="MeterPanel/Meters/Multiplier"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.72, 0.3, 1)
+text = "MULTIPLIER  1x"
+
+[node name="MultiplierBar" type="ProgressBar" parent="MeterPanel/Meters/Multiplier"]
+custom_minimum_size = Vector2(0, 14)
+layout_mode = 2
+min_value = 1.0
+max_value = 4.0
+value = 1.0
+show_percentage = false
+theme_override_styles/background = SubResource("StyleBarBackground")
+theme_override_styles/fill = SubResource("StyleMultiplier")
+
+[node name="CuePanel" type="Panel" parent="."]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 154.0
+offset_right = 620.0
+offset_bottom = 272.0
+theme_override_styles/panel = SubResource("StyleFeedback")
+
+[node name="CueModeLabel" type="Label" parent="CuePanel"]
+layout_mode = 0
+offset_left = 18.0
+offset_top = 12.0
+offset_right = 560.0
+offset_bottom = 32.0
+theme_override_colors/font_color = Color(0.55, 0.68, 0.82, 1)
+theme_override_font_sizes/font_size = 13
+text = "PHRASE CUE"
+
+[node name="CueLabel" type="Label" parent="CuePanel"]
+layout_mode = 0
+offset_left = 18.0
+offset_top = 34.0
+offset_right = 560.0
+offset_bottom = 68.0
+theme_override_colors/font_color = Color(0.93, 0.98, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "WAITING FOR PHRASE"
+
+[node name="CueDetailLabel" type="Label" parent="CuePanel"]
+layout_mode = 0
+offset_left = 18.0
+offset_top = 78.0
+offset_right = 560.0
+offset_bottom = 100.0
+theme_override_colors/font_color = Color(0.55, 0.68, 0.82, 1)
+theme_override_font_sizes/font_size = 14
+text = "VISUAL CUES MIRROR THE PLACEHOLDER AUDIO"
+
+[node name="FeedbackPanel" type="Panel" parent="."]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 300.0
+offset_right = 620.0
+offset_bottom = 440.0
+theme_override_styles/panel = SubResource("StyleFeedback")
+
+[node name="Header" type="Label" parent="FeedbackPanel"]
+layout_mode = 0
+offset_left = 18.0
+offset_top = 14.0
+offset_right = 560.0
+offset_bottom = 34.0
+theme_override_colors/font_color = Color(0.55, 0.68, 0.82, 1)
+theme_override_font_sizes/font_size = 13
+text = "PERFORMANCE FEEDBACK"
+
+[node name="NoteFeedbackLabel" type="Label" parent="FeedbackPanel"]
+layout_mode = 0
+offset_left = 18.0
+offset_top = 48.0
+offset_right = 560.0
+offset_bottom = 82.0
+theme_override_colors/font_color = Color(0.55, 0.68, 0.82, 1)
+theme_override_font_sizes/font_size = 21
+text = "NOTE  WAITING"
+
+[node name="PhraseFeedbackLabel" type="Label" parent="FeedbackPanel"]
+layout_mode = 0
+offset_left = 18.0
+offset_top = 88.0
+offset_right = 560.0
+offset_bottom = 122.0
+theme_override_colors/font_color = Color(0.55, 0.68, 0.82, 1)
+theme_override_font_sizes/font_size = 21
+text = "PHRASE  WAITING"
+
+[node name="OutcomePanel" type="Panel" parent="."]
+visible = false
+layout_mode = 0
+offset_left = 244.0
+offset_top = 188.0
+offset_right = 908.0
+offset_bottom = 408.0
+theme_override_styles/panel = SubResource("StyleOutcome")
+
+[node name="OutcomeEyebrow" type="Label" parent="OutcomePanel"]
+layout_mode = 0
+offset_left = 28.0
+offset_top = 24.0
+offset_right = 636.0
+offset_bottom = 48.0
+theme_override_colors/font_color = Color(0.69, 0.58, 0.87, 1)
+theme_override_font_sizes/font_size = 14
+text = "CONVERSATION RESULT"
+horizontal_alignment = 1
+
+[node name="OutcomeTitle" type="Label" parent="OutcomePanel"]
+layout_mode = 0
+offset_left = 28.0
+offset_top = 58.0
+offset_right = 636.0
+offset_bottom = 104.0
+theme_override_colors/font_color = Color(0.92, 0.86, 1, 1)
+theme_override_font_sizes/font_size = 30
+text = "JAM REACHED"
+horizontal_alignment = 1
+
+[node name="OutcomeBody" type="Label" parent="OutcomePanel"]
+layout_mode = 0
+offset_left = 28.0
+offset_top = 126.0
+offset_right = 636.0
+offset_bottom = 178.0
+theme_override_colors/font_color = Color(0.78, 0.82, 0.92, 1)
+theme_override_font_sizes/font_size = 18
+text = "The musical conversation found its groove."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="InstructionPanel" type="Panel" parent="."]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 476.0
+offset_right = 1120.0
+offset_bottom = 562.0
+theme_override_styles/panel = SubResource("StyleFeedback")
+
+[node name="InstructionHeader" type="Label" parent="InstructionPanel"]
+layout_mode = 0
+offset_left = 18.0
+offset_top = 12.0
+offset_right = 1060.0
+offset_bottom = 32.0
+theme_override_colors/font_color = Color(0.55, 0.68, 0.82, 1)
+theme_override_font_sizes/font_size = 13
+text = "PLAYTEST CONTROL"
+
+[node name="InstructionLabel" type="Label" parent="InstructionPanel"]
+layout_mode = 0
+offset_left = 18.0
+offset_top = 38.0
+offset_right = 1060.0
+offset_bottom = 70.0
+theme_override_colors/font_color = Color(0.88, 0.92, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "Waiting for the conversation to begin."
