@@ -1,70 +1,92 @@
 # Domain Context
 
-Use these canonical terms in product discussion, plans, tests, and code names. This
-is a glossary only; product rules and implementation belong in the documents routed
-from `AGENTS.md`.
+Use these canonical terms in product discussion, plans, tests, and new code. This
+is a glossary only; combat rules belong in
+[Combat System v1](docs/combat/COMBAT_SPEC_V1.md), while implementation details
+belong in the documents routed from `AGENTS.md`.
 
-## Rhythm Language
+## Musical Time and Performance
 
 **Beat** — The primary musical pulse used to schedule combat events.
 
 **Sub-beat** — A fractional position between beats, such as a half beat or quarter
 beat.
 
-**Beat offset** — A hit's beat or sub-beat position within a repeating pattern. It
-is musical position, not elapsed wall-clock time or position in a list.
+**Beat offset** — A musical position within a phrase or pattern. It is not elapsed
+wall-clock time or position in a list.
 
-**Timing grade** — `perfect`, `good`, or `miss`, describing how close a player's
-input was to its intended musical time.
+**Phrase** — A bounded musical statement performed by an opponent or party member.
 
-**Chord** — Two character inputs performed closely enough together to count as one
-combined musical action.
+**Performance grade** — One of `perfect`, `great`, `good`, `near miss`, `miss`, or
+`major mistake / broken phrase`, describing note- or phrase-level execution. Exact
+timing windows remain a prototype variable.
 
-## Pattern and Input Language
+**Rhythm language** — A character's instrument-specific physical interaction
+vocabulary. Luthier uses a four-input melodic/string language; Beatrice uses a
+two-input percussive language.
 
-**Enemy pattern** — The repeating sequence an enemy performs during its turn.
+## Encounter Cadence
 
-**Neutral hit** — One character-independent event in an enemy pattern. It says
-when the event occurs and whether it requires one or two simultaneous lanes, but
-does not name a key, arrow, or hand.
+**Opponent** — The creature, musician, boss, or other performer engaging the party
+in a musical encounter.
 
-**Lane** — One simultaneous input requirement within a neutral hit. A two-lane hit
-becomes a combined percussive action or a pair of directional actions according to
-the defending character's vocabulary.
+**Settle** — The input-free opening bars that establish the tempo, beat,
+arrangement, opponent, and active party.
 
-**Input vocabulary** — The musical actions a character can perform. Raw controller
-or keyboard bindings are controls for a vocabulary; they are not the vocabulary
-itself.
+**Enemy Phrase** — The cadence phase in which the opponent performs the musical
+challenge and the player primarily listens.
 
-**Directional vocabulary** — Luthier Frett's four-direction melodic vocabulary:
-up, right, down, and left.
+**Response** — The party's answer to an Enemy Phrase. It demonstrates musical
+comprehension through reproduction, interpretation, harmonization, or another
+context-appropriate response.
 
-**Percussive vocabulary** — Beatrice Styx's two-hand drum vocabulary: left, right,
-and both hands together.
+**Character Performance** — A party member's multi-bar, skill-driven musical
+expression using that character's rhythm language.
 
-**Pattern translation** — The deterministic conversion of neutral hits into the
-active defender's input vocabulary. The same enemy pattern and defender must
-produce the same result on replay.
+**Tactical Vamp** — An indefinitely repeating, no-pressure musical passage during
+which the player listens, reviews state, and chooses the next action.
 
-## Combat Language
+## Combat State
 
-**DECISION** — The menu phase. The player selects Attack, Defend, Item, or Run while
-the music and musical clock continue.
+**Groove** — Encounter-wide progress toward musical connection and synchronization
+with the opponent. Groove is not enemy health or damage.
 
-**ATTACK** — The player's performance phase. Timing and character-specific musical
-quality determine damage, combo progress, and limit charge.
+**Jam** — The successful resolution reached when Groove is full. Its exact final
+interaction remains unresolved.
 
-**DEFEND** — One living enemy's pattern phase. The player performs translated
-inputs to block, reduce, or counter incoming damage.
+**Composure** — The band's shared ability to maintain confidence, timing, and
+cohesion. Execution mistakes reduce it; reaching zero loses the exchange.
 
-**Defensive stance** — The temporary damage-reduction state created by choosing
-Defend before entering DEFEND. It is a stance, not another phase.
+**Multiplier** — Shared band-wide momentum created by sustained execution quality.
+It amplifies Groove and can be manipulated or risked by skills.
 
-**Combo** — Consecutive successful ATTACK inputs that increase the current damage
-multiplier; misses break the streak.
+**Inspiration** — A persistent, per-character resource generated through
+performance and spent on stronger skills. It should circulate rather than be
+hoarded, with exact values still unresolved.
 
-**Limit gauge** — A character's charge toward a limit break. It belongs to the
-current live combat state.
+**Skill** — A selected character action that defines both a musical effect and a
+rhythm-game interaction.
 
-**Limit break** — A player-triggered extended ATTACK performance with a damage
-multiplier, available when the active character's limit gauge is full.
+**Musical contribution** — A skill's musical role, using the working categories
+`Rhythm`, `Melody`, and `Harmony`. Whether those categories are complete remains
+unresolved.
+
+**Musical preference** — An opponent's affinity for a musical contribution. It
+modifies Groove effectiveness without penalizing correctly executed performance.
+
+**Skill loadout** — The subset of a character's learned skills equipped before an
+encounter.
+
+## Advanced Performance
+
+**Improvisation** — Advanced, character-specific musical expression with fewer
+authored constraints. It is not a baseline combat requirement.
+
+**Technique** — An individual character skill powered by Inspiration in the
+working advanced-performance hierarchy.
+
+**Duet / Ensemble** — A planned performance combining multiple characters' rhythm
+languages. Its final interaction model remains unresolved.
+
+**Finale / Limit Performance** — A planned rare character-defining or full-party
+performance. Its resource model and relationship to Inspiration remain unresolved.

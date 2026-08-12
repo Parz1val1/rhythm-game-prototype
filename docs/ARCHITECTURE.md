@@ -1,5 +1,10 @@
 # Architecture
 
+This document describes the **current implementation**, including the legacy
+HP/damage and `ATTACK`/`DEFEND`/`DECISION` model. It is not the target combat
+design. Use [Combat System v1](combat/COMBAT_SPEC_V1.md) for intended behavior and
+the [reconciliation ledger](combat/reconciliation-v1.md) for migration status.
+
 ## Current Architecture
 
 The repository is a single local Godot 4.6 project. `test_scene.tscn` is both the
@@ -10,6 +15,14 @@ selects the active input profile, and wires the UI/feedback scenes.
 There is no client/server split, database, authentication, external service,
 background worker, durable save system, export configuration, or deployment
 architecture.
+
+`combat_v1/` is an isolated Issue #9 cadence module, and
+`combat_v1/combat_v1_prototype.tscn` is a separately runnable harness for it.
+The harness injects the existing `BeatClock` and `RhythmInput` autoloads into
+`CombatV1`; it does not replace the configured `test_scene.tscn` or its legacy
+combat flow. The module owns only the observable cadence seam. V1 resources,
+party ordering, performance rules, and resolution rules are not implemented by
+this slice.
 
 ```mermaid
 flowchart LR
@@ -27,6 +40,9 @@ flowchart LR
     CS --> NPT[NeutralPatternTranslator]
     NPT -->|resolved NoteData| RI
     NPT -->|same resolved notes| UI
+    V1P[combat_v1_prototype.tscn<br/>separate harness] --> V1[CombatV1 cadence module]
+    V1 -->|injected BeatClock| BC
+    V1 -->|injected RhythmInput| RI
 ```
 
 ## Major Modules
@@ -41,6 +57,8 @@ flowchart LR
 | `combat/*_evaluator.gd` | Character-specific attack damage/coherence behind `AttackEvaluator` |
 | `combat/neutral_pattern_translator.gd` | Resolves neutral enemy hits into deterministic directional or percussive notes |
 | `combat/combat_ui.gd` and lane scripts | Present state and note approaches through combat signals |
+| `combat_v1/combat_v1.gd` | Isolated Issue #9 cadence seam; observes injected `BeatClock`/`RhythmInput` and exposes the V1 conversation states without V1 resources or rules |
+| `combat_v1/combat_v1_prototype.tscn` and `combat_v1/combat_v1_prototype.gd` | Separately runnable harness for `CombatV1`; not the configured main scene |
 | `characters/*.gd/.tres` | Character stats, input behavior, and musical/visual identity |
 | `encounters/*.tres` | Editable encounter groups and neutral enemy patterns |
 | `rhythm_engine/` | `NoteData`, `NeutralHit`, and queued `ActiveNote` domain types |
@@ -123,6 +141,10 @@ verification must also reject engine diagnostics and missing completion markers.
 See [DEVELOPMENT.md](DEVELOPMENT.md) and [AGENTS.md](../AGENTS.md).
 
 ## Planned Architecture
+
+No target architecture has been accepted for Combat System v1. Design it through
+scoped prototype slices rather than projecting the current phase graph and damage
+model forward.
 
 Historical planning documents propose the following after combat is validated:
 

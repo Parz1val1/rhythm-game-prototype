@@ -4,6 +4,12 @@ These entries record decisions supported by the current implementation and its
 historical design documents. Reconsider them only with explicit scope and update
 this file when a decision changes.
 
+[Combat System v1](combat/COMBAT_SPEC_V1.md) is authoritative for target combat
+behavior, while these ADRs record technical choices. An ADR tied to the legacy
+HP/damage or `ATTACK`/`DEFEND`/`DECISION` model remains evidence for current code,
+not a reason to dilute the target. Reopen it when a concrete migration slice
+requires a replacement; see the [reconciliation ledger](combat/reconciliation-v1.md).
+
 ## ADR-001 — Use Godot 4.6 and GDScript for the prototype
 
 **Status:** Accepted

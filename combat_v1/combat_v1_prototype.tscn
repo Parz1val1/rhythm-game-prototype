@@ -1,0 +1,50 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://combat_v1/combat_v1_prototype.gd" id="1_v1"]
+[ext_resource type="AudioStream" path="res://audio/fassounds-escape-your-love-upbeat-fashion-pop-dance-412230.mp3" id="2_audio"]
+
+[node name="CombatV1Prototype" type="Node2D"]
+script = ExtResource("1_v1")
+
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("2_audio")
+
+[node name="TitleLabel" type="Label" parent="."]
+offset_left = 48.0
+offset_top = 40.0
+offset_right = 900.0
+offset_bottom = 88.0
+theme_override_font_sizes/font_size = 32
+text = "Combat System v1 — Conversation Harness"
+
+[node name="CadenceLabel" type="Label" parent="."]
+offset_left = 48.0
+offset_top = 132.0
+offset_right = 900.0
+offset_bottom = 180.0
+theme_override_font_sizes/font_size = 28
+text = "Cadence: Idle"
+
+[node name="DetailLabel" type="Label" parent="."]
+offset_left = 48.0
+offset_top = 190.0
+offset_right = 900.0
+offset_bottom = 226.0
+theme_override_font_sizes/font_size = 20
+text = "Beat count: 0"
+
+[node name="HintLabel" type="Label" parent="."]
+offset_left = 48.0
+offset_top = 250.0
+offset_right = 1100.0
+offset_bottom = 300.0
+theme_override_font_sizes/font_size = 20
+text = "Listen — the next cadence advances on the BeatClock."
+
+[node name="ScopeLabel" type="Label" parent="."]
+offset_left = 48.0
+offset_top = 350.0
+offset_right = 1100.0
+offset_bottom = 430.0
+theme_override_font_sizes/font_size = 18
+text = "This is an isolated V1 seam. No legacy combat state is used here.\nArrow/F/J input remains available through the shared RhythmInput autoload."

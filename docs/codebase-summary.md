@@ -7,6 +7,7 @@ It remains as a stable target for old links.
 Use the current sources instead:
 
 - Agent entry point → [../AGENTS.md](../AGENTS.md)
+- Target combat design → [combat/README.md](combat/README.md)
 - Current architecture → [ARCHITECTURE.md](ARCHITECTURE.md)
 - Development conventions → [DEVELOPMENT.md](DEVELOPMENT.md)
 - Current priorities → [ROADMAP.md](ROADMAP.md)

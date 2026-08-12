@@ -3,6 +3,11 @@
 `AGENTS.md` is the canonical repository contract. This file keeps the operational
 Godot details that are useful but too specialized for the entry point.
 
+Rules naming `ATTACK`, `DEFEND`, HP, damage, neutral hits, or the current note
+injection path protect the legacy implementation while it exists. They are not
+target combat behavior; use [Combat System v1](combat/COMBAT_SPEC_V1.md) and its
+[reconciliation ledger](combat/reconciliation-v1.md) when migrating those systems.
+
 ## Local Setup
 
 The project has no package-manager dependencies. It requires Godot
@@ -14,6 +19,15 @@ $env:GODOT_PATH = "C:\Users\Tim\External Applications\Godot_v4.6.3-stable_mono_w
 ```
 
 Expected version prefix: `4.6.3.stable.mono`.
+
+### Agent sandbox execution
+
+On the primary Windows host, launch every Godot process outside the filesystem
+sandbox, including version checks, imports, focused tests, and the full suite.
+Sandboxed Godot 4.6.3 cannot open its `user://logs` path and may crash with signal
+11 plus a Windows application-error dialog. Request scoped unsandboxed execution
+before the first Godot command. If approval is unavailable, report Godot
+verification as blocked; do not run a sandboxed probe.
 
 Open the editor or run the configured main scene:
 
