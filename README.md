@@ -8,8 +8,10 @@ different characters.
 
 The prototype has two playable input styles:
 
-- **Beatrice Styx:** two-button percussion (`F`, `J`, and their chord).
-- **Luthier Frett:** four-direction melodic input using the arrow keys.
+- **Beatrice Styx:** two-hand percussion using `F` / `J` or the left / right
+  controller triggers; both inputs together form her chord.
+- **Luthier Frett:** four-direction melodic input using the arrow keys, D-pad, or
+  positionally matching face buttons (top/up, bottom/down, left/left, right/right).
 
 The current entry point is `test_scene.tscn`. Product scope and future work are
 tracked in [PRODUCT.md](docs/PRODUCT.md) and [ROADMAP.md](docs/ROADMAP.md).
@@ -38,6 +40,10 @@ Run the configured main scene directly:
 The prototype also maps `Space` to limit-break activation. In the test scene only,
 `L` fills the current limit gauge for debugging. Character and encounter selectors
 appear on the replay overlay.
+
+In the standalone Combat V1 playtest harness, press `Enter`, `Space`, or controller
+Start to submit a Response or leave a Tactical Vamp. Use `1`–`3` or the controller
+shoulder buttons to compare the temporary backing loops.
 
 ## Verification
 

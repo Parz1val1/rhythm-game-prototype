@@ -80,27 +80,51 @@ func _ready() -> void:
 	_hud.setup(_combat_v1)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not event is InputEventKey:
+	if event is InputEventKey:
+		var key_event := event as InputEventKey
+		if not key_event.pressed or key_event.echo:
+			return
+		match key_event.keycode:
+			KEY_1:
+				select_playtest_track(0)
+				get_viewport().set_input_as_handled()
+				return
+			KEY_2:
+				select_playtest_track(1)
+				get_viewport().set_input_as_handled()
+				return
+			KEY_3:
+				select_playtest_track(2)
+				get_viewport().set_input_as_handled()
+				return
+	elif event is InputEventJoypadButton and not (event as InputEventJoypadButton).pressed:
 		return
-	var key_event := event as InputEventKey
-	if not key_event.pressed or key_event.echo:
+
+	if event.is_action_pressed(&"playtest_audio_previous"):
+		select_playtest_track(wrapi(
+			_selected_playtest_track_index - 1,
+			0,
+			PLAYTEST_TRACKS.size()
+		))
+		get_viewport().set_input_as_handled()
 		return
-	match key_event.keycode:
-		KEY_1:
-			select_playtest_track(0)
-			get_viewport().set_input_as_handled()
-			return
-		KEY_2:
-			select_playtest_track(1)
-			get_viewport().set_input_as_handled()
-			return
-		KEY_3:
-			select_playtest_track(2)
-			get_viewport().set_input_as_handled()
-			return
+	if event.is_action_pressed(&"playtest_audio_next"):
+		select_playtest_track(wrapi(
+			_selected_playtest_track_index + 1,
+			0,
+			PLAYTEST_TRACKS.size()
+		))
+		get_viewport().set_input_as_handled()
+		return
 	if _combat_v1 == null:
 		return
-	if key_event.keycode != KEY_ENTER and key_event.keycode != KEY_SPACE:
+	var should_advance := event.is_action_pressed(&"playtest_advance")
+	if event is InputEventKey:
+		var key_event := event as InputEventKey
+		should_advance = should_advance \
+			or key_event.keycode == KEY_ENTER \
+			or key_event.keycode == KEY_SPACE
+	if not should_advance:
 		return
 
 	match _combat_v1.get_cadence():

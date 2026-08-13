@@ -30,7 +30,7 @@ func show_playtest_track(index: int, track_name: String, option_count: int) -> v
 	var option_labels: Array[String] = []
 	for option in range(1, option_count + 1):
 		option_labels.append(str(option))
-	_audio_track_label.text = "AUDIO  %d  %s  |  SWITCH WITH %s" % [
+	_audio_track_label.text = "AUDIO  %d  %s  |  %s OR SHOULDERS" % [
 		index + 1,
 		track_name.to_upper(),
 		" / ".join(option_labels),
@@ -177,9 +177,9 @@ func _get_instruction_text(cadence: CombatV1.Cadence) -> String:
 		CombatV1.Cadence.ENEMY_PHRASE:
 			return "Listen to the phrase and watch each visual cue."
 		CombatV1.Cadence.RESPONSE:
-			return "Play the shown directions, then press Enter or Space to submit the phrase."
+			return "Use arrows, D-pad, or matching face buttons. Press Enter, Space, or Start to submit."
 		CombatV1.Cadence.TACTICAL_VAMP:
-			return "Listen without pressure. Press Enter or Space when you are ready for the next round."
+			return "Listen without pressure. Press Enter, Space, or Start when you are ready."
 		CombatV1.Cadence.RESOLUTION:
 			return "Conversation complete. Reload the harness to play again."
 		_:

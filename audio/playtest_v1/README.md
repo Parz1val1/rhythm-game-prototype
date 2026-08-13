@@ -20,8 +20,9 @@ All three files use the same musical timeline:
 3. **Starcurrent** — an airy sustained texture with occasional bright plucks and
    the lightest rhythmic footprint.
 
-Press `1`, `2`, or `3` in the Combat V1 harness to switch without resetting the
-combat clock. The current option is shown in the playtest control panel.
+Press `1`, `2`, or `3`, or use the controller shoulder buttons, in the Combat V1
+harness to switch without resetting the combat clock. The current option is shown
+in the playtest control panel.
 
 Open `playtest_audio_comparison.rpp` in Reaper to audition or process the three
 files together. Campfire Strings starts unmuted; the other two tracks start muted

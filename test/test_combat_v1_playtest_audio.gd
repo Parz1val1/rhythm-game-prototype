@@ -51,7 +51,7 @@ func _run() -> void:
 	_check(
 		"playtester can see the selected track and comparison controls",
 		prototype.get_node("CombatV1HUD/InstructionPanel/AudioTrackLabel").text,
-		"AUDIO  3  STARCURRENT  |  SWITCH WITH 1 / 2 / 3"
+		"AUDIO  3  STARCURRENT  |  1 / 2 / 3 OR SHOULDERS"
 	)
 
 	prototype.teardown()

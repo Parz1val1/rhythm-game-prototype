@@ -69,7 +69,7 @@ func _run() -> void:
 		_check(
 			"Response guidance explains submission",
 			instruction_label.text,
-			"Play the shown directions, then press Enter or Space to submit the phrase."
+			"Use arrows, D-pad, or matching face buttons. Press Enter, Space, or Start to submit."
 		)
 	_check(
 		"Response uses a distinct visual treatment from listening",
@@ -237,7 +237,7 @@ func _run() -> void:
 			_check(
 				"Tactical Vamp guidance preserves no-pressure listening",
 				instruction_label.text,
-				"Listen without pressure. Press Enter or Space when you are ready for the next round."
+				"Listen without pressure. Press Enter, Space, or Start when you are ready."
 			)
 		hud.teardown()
 		summary_module.teardown()

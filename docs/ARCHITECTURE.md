@@ -74,7 +74,7 @@ flowchart LR
 | `combat_v1/opponent_data.gd`, `opponent_phrase.gd`, and `phrase_event.gd` | V1 authoring model for opponent identity, one-to-four-bar phrases, musical offsets, response prompts, and symbolic audio/visual cues; it has no legacy enemy statistics |
 | `combat_v1/opponents/drum_golem.tres` | One-bar prototype opponent phrase with whole-, half-, and quarter-beat events |
 | `combat_v1/combat_v1_hud.tscn` and `combat_v1/combat_v1_hud.gd` | Diagnostic V1 presentation for cadence, Groove, Composure, Multiplier, phrase cues, six-grade note/phrase feedback, nonviolent outcomes, and the active playtest backing track; observes only the public `CombatV1` seam |
-| `combat_v1/combat_v1_prototype.tscn` and `combat_v1/combat_v1_prototype.gd` | Separately runnable harness that injects dependencies, owns symbolic phrase-audio/log handoffs, and hosts `CombatV1HUD`; offers three same-length procedural backing loops switchable with keys 1–3 without restarting the clock, and is not the configured main scene |
+| `combat_v1/combat_v1_prototype.tscn` and `combat_v1/combat_v1_prototype.gd` | Separately runnable harness that injects dependencies, owns symbolic phrase-audio/log handoffs, and hosts `CombatV1HUD`; offers three same-length procedural backing loops switchable with keys 1–3 or controller shoulders without restarting the clock, accepts controller Start for its provisional cadence intents, and is not the configured main scene |
 | `characters/*.gd/.tres` | Character stats, input behavior, and musical/visual identity |
 | `encounters/*.tres` | Editable encounter groups and neutral enemy patterns |
 | `rhythm_engine/` | `NoteData`, `NeutralHit`, and queued `ActiveNote` domain types |
@@ -152,8 +152,11 @@ There is no durable persistence.
   compatibility seam.
 - `EncounterManager.start_combat_from_definition()` is the preferred encounter
   entry point. The hardcoded-ID path remains for backward compatibility and tests.
-- Raw InputMap action names should remain inside input profiles or
-  `RhythmInput`'s default map; downstream systems use direction aliases.
+- Raw rhythm InputMap action names should remain inside input profiles or
+  `RhythmInput`'s default map; downstream systems use direction aliases. The
+  project InputMap maps Luthier's directions to arrows, D-pad, and positionally
+  matching face buttons, and Beatrice's two drum actions to F/J and left/right
+  triggers. Harness-only Start and shoulder actions remain in the harness adapter.
 - `CombatV1.player_intent()` currently accepts `SUBMIT_RESPONSE` during Response
   and one provisional `CONTINUE_ROUND` command during Tactical Vamp. Continue
   Round queues exactly one transition to Enemy Phrase on the next BeatClock beat;
