@@ -59,7 +59,11 @@ before investing in overworld, story, and production content.
 - Character-specific attack evaluation and directional/percussive defense.
 - HP/damage resolution, combo, limit gauge, combat UI, note lanes, replay
   selection, and debug logging.
-- Placeholder backing audio and incomplete instrument feedback assets.
+- Temporary procedural playtest loops and incomplete instrument feedback assets;
+  no production soundtrack or dynamic arrangement exists yet.
+- Initial standardized controller bindings: Luthier supports D-pad and positional
+  face-button directions, while Beatrice supports left/right triggers. Remapping,
+  glyph adaptation, and calibration are not implemented.
 
 See the [V1 reconciliation ledger](combat/reconciliation-v1.md) for the exact
 current/target gap and reusable foundations.
@@ -68,8 +72,9 @@ current/target gap and reusable foundations.
 
 - The Combat System v1 cadence, Groove, Composure, shared Multiplier,
   character-specific Inspiration, skills, and musical preferences.
-- Multi-character party performances, evolving arrangement feedback, calibration,
-  controller support, and real instrument samples.
+- Multi-character party performances, evolving arrangement feedback, input/audio
+  calibration, controller remapping and glyph adaptation, and real instrument
+  samples.
 - A vertical slice with beat-locked music stems, overworld exploration, a dungeon,
   musical puzzles, a boss encounter, world state, and save/load.
 

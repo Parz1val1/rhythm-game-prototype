@@ -81,7 +81,7 @@ not sufficient because it hides engine diagnostics.
 
 ### Verified green baseline (2026-08-12)
 
-- 44 discovered scripts and 704 visible `PASS` lines.
+- 46 discovered scripts and 729 visible `PASS` lines.
 - 0 visible `FAIL` lines, `SCRIPT ERROR` diagnostics, or line-leading `ERROR:`
   diagnostics.
 - Every script exited `0` and printed the exact `=== done ===` completion marker.
@@ -179,6 +179,18 @@ var actor_name: String = target.character_name if target != null else "Unknown"
 Disconnect autoload and combat signals in `teardown()` / `_exit_tree()`, guarded by
 `is_connected()`. Static variables survive `reload_current_scene()` but reset on a
 new process; the replay selector intentionally uses that behavior.
+
+### Controller mappings
+
+Controller inputs use Godot's standardized joypad positions rather than
+platform-specific glyph names. Luthier maps D-pad and face-button top/bottom/left/
+right to the matching rhythm directions. Beatrice maps the positive left/right
+trigger axes to her left/right drum actions with the InputMap's `0.5` deadzone.
+`RhythmInput` edge-gates analog actions by controller and action so progressive
+axis updates produce one scored input per pull; a release re-arms the action.
+The V1 harness reserves Start for submit/continue and the shoulder buttons for
+temporary backing-track comparison; character profiles still own which rhythm
+actions are valid for a performance.
 
 ### Scene and Resource editing
 

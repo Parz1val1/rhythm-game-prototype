@@ -52,6 +52,10 @@ var _scoring_enabled: bool = true
 # Dict of StringName (alias) → int (wall-clock ms of press). Cleared after chord check.
 var _chord_buffer: Dictionary = {}
 
+# Joypad trigger axes emit multiple motion events during one physical pull. Track
+# threshold crossings by device/action so one pull produces one rhythm input.
+var _held_analog_actions: Dictionary = {}
+
 # --- Active note queue ---
 # Array[ActiveNote] — typed as Array (untyped) due to preload workaround in autoloads.
 var _active: Array = []
@@ -95,6 +99,7 @@ func set_scoring_enabled(enabled: bool) -> void:
 	_scoring_enabled = enabled
 	if not enabled:
 		_chord_buffer.clear()
+		_held_analog_actions.clear()
 
 func is_scoring_enabled() -> bool:
 	return _scoring_enabled
@@ -106,11 +111,13 @@ func is_scoring_enabled() -> bool:
 func set_active_profile(profile) -> void:
 	_active_profile = profile
 	_chord_buffer.clear()
+	_held_analog_actions.clear()
 
 ## Remove the active profile, restoring default (built-in map) behavior.
 func clear_profile() -> void:
 	_active_profile = null
 	_chord_buffer.clear()
+	_held_analog_actions.clear()
 
 ## Returns true if the given direction alias is producible by the active input map.
 ## When no profile is set, or input_map is empty, all directions are allowed
@@ -127,6 +134,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not _scoring_enabled:
 		return
 	var direction := _get_direction(event)
+	if event is InputEventJoypadMotion:
+		var analog_action := _get_mapped_action(event)
+		if analog_action == &"":
+			return
+		var gate_key := "%d:%s" % [event.device, analog_action]
+		if direction == &"":
+			_held_analog_actions.erase(gate_key)
+			return
+		if bool(_held_analog_actions.get(gate_key, false)):
+			return
+		_held_analog_actions[gate_key] = true
 	if direction == &"":
 		return   # action not in active map; input silently ignored
 
@@ -219,6 +237,13 @@ func _get_direction(event: InputEvent) -> StringName:
 	for action in map:
 		if event.is_action_pressed(action):
 			return map[action]
+	return &""
+
+func _get_mapped_action(event: InputEvent) -> StringName:
+	var map: Dictionary = _get_active_input_map()
+	for action in map:
+		if event.is_action(action):
+			return action
 	return &""
 
 ## Returns the input_map to use: the active profile's map if non-empty,

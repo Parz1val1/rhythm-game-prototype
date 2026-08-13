@@ -324,7 +324,7 @@ layout_mode = 0
 offset_left = 32.0
 offset_top = 476.0
 offset_right = 1120.0
-offset_bottom = 562.0
+offset_bottom = 632.0
 theme_override_styles/panel = SubResource("StyleFeedback")
 
 [node name="InstructionHeader" type="Label" parent="InstructionPanel"]
@@ -346,3 +346,13 @@ offset_bottom = 70.0
 theme_override_colors/font_color = Color(0.88, 0.92, 1, 1)
 theme_override_font_sizes/font_size = 18
 text = "Waiting for the conversation to begin."
+
+[node name="AudioTrackLabel" type="Label" parent="InstructionPanel"]
+layout_mode = 0
+offset_left = 18.0
+offset_top = 104.0
+offset_right = 1060.0
+offset_bottom = 130.0
+theme_override_colors/font_color = Color(0.56, 0.78, 0.92, 1)
+theme_override_font_sizes/font_size = 14
+text = "AUDIO  1  CAMPFIRE STRINGS  |  1 / 2 / 3 OR SHOULDERS"
