@@ -42,6 +42,23 @@ func _run() -> void:
 	var hud = load(hud_path).instantiate()
 	root.add_child(hud)
 	hud.setup(module)
+	var response_highway = hud.get_node_or_null("ResponseNoteHighway")
+	_check("the diagnostic HUD includes the Response note highway", response_highway != null, true)
+	if response_highway != null:
+		var highway_rect: Rect2 = response_highway.get_global_rect()
+		for panel_path in [
+			"CadencePanel",
+			"MeterPanel",
+			"CuePanel",
+			"FeedbackPanel",
+			"InstructionPanel",
+		]:
+			var panel: Control = hud.get_node(panel_path)
+			_check(
+				"the Response board does not overlap %s" % panel_path,
+				highway_rect.intersects(panel.get_global_rect()),
+				false
+			)
 	_check("late setup reflects the current cadence", hud.get_node("CadencePanel/CadenceLabel").text, "Settle")
 	_check("Settle is visibly identified as listening-only", hud.get_node("CadencePanel/ModeLabel").text, "LISTEN - NO INPUT")
 	var instruction_label: Label = hud.get_node_or_null("InstructionPanel/InstructionLabel")
@@ -65,6 +82,10 @@ func _run() -> void:
 	for beat_number in range(5, 9):
 		root.get_node("BeatClock").beat.emit(beat_number)
 	_check("Response is visibly identified as active", hud.get_node("CadencePanel/ModeLabel").text, "RESPOND - INPUT ACTIVE")
+	if response_highway != null:
+		var highway_snapshot: Dictionary = response_highway.get_presentation_snapshot()
+		_check("the integrated highway is active before the first due target", highway_snapshot[&"active"], true)
+		_check("the integrated highway receives the complete Response schedule", highway_snapshot[&"targets"].size(), 5)
 	if instruction_label != null:
 		_check(
 			"Response guidance explains submission",
@@ -199,16 +220,8 @@ func _run() -> void:
 		_check("late setup reconstructs the Jam result", hud.get_node("OutcomePanel/OutcomeTitle").text, "JAM REACHED")
 		hud.teardown()
 
-		var summary_targets: Array[Dictionary] = []
 		var summary_module = CombatV1Script.new()
 		root.add_child(summary_module)
-		summary_module.response_target_announced.connect(
-			func(event, expected_action: StringName) -> void:
-				summary_targets.append({
-					&"action": expected_action,
-					&"offset": event.beat_offset,
-				})
-		)
 		summary_module.setup(
 			root.get_node("BeatClock"),
 			root.get_node("RhythmInput"),
@@ -218,14 +231,9 @@ func _run() -> void:
 		summary_module.start()
 		for beat_number in range(1, 9):
 			root.get_node("BeatClock").beat.emit(beat_number)
-		root.get_node("BeatClock").quarter_beat.emit(8, 0.75)
-		root.get_node("BeatClock").beat.emit(9)
-		root.get_node("BeatClock").half_beat.emit(9)
-		root.get_node("BeatClock").beat.emit(10)
-		root.get_node("BeatClock").half_beat.emit(10)
-		root.get_node("BeatClock").beat.emit(11)
-		for target in summary_targets:
-			summary_module.submit_response_input(target[&"action"], target[&"offset"])
+		var summary_presentation: Dictionary = summary_module.get_response_presentation()
+		for target in summary_presentation[&"targets"]:
+			summary_module.submit_response_input(target[&"expected_action"], target[&"due_beat"])
 		summary_module.player_intent(CombatV1Script.Intent.SUBMIT_RESPONSE)
 		hud.setup(summary_module)
 		_check(

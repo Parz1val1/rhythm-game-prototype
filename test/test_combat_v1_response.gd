@@ -1,8 +1,6 @@
 # Verifies Response presentation, execution, and state integration through CombatV1.
 extends SceneTree
 
-const PhraseEvent = preload("res://combat_v1/phrase_event.gd")
-
 var _response_targets: Array[Dictionary] = []
 var _note_results: Array[Dictionary] = []
 var _phrase_summaries: Array[Dictionary] = []
@@ -39,7 +37,6 @@ func _run() -> void:
 		print("=== done ===")
 		return
 
-	module.response_target_announced.connect(_on_response_target_announced)
 	module.response_note_graded.connect(_on_response_note_graded)
 	module.response_phrase_graded.connect(_on_response_phrase_graded)
 	module.setup(beat_clock, rhythm_input, opponent, 1, null, response_profile)
@@ -51,22 +48,19 @@ func _run() -> void:
 	)
 	for beat_number in range(1, 8):
 		beat_clock.beat.emit(beat_number)
-	_check("no Response target is exposed while the player is listening", _response_targets.size(), 0)
+	_check("no Response schedule is exposed while the player is listening", module.get_response_presentation()[&"targets"].size(), 0)
 	beat_clock.beat.emit(8)
-	_check("the first Response target appears only when Response begins", _response_targets.size(), 1)
+	_response_targets = _targets_from_presentation(module.get_response_presentation())
+	_check("the complete Response schedule appears when Response begins", _response_targets.size(), 5)
 	var first_action: StringName = _response_targets[0][&"action"]
-	_check("Response accepts a performed target action", module.submit_response_input(first_action, 0.0), true)
+	_check("Response accepts a performed target action", module.submit_response_input(first_action, _response_targets[0][&"due"]), true)
 	_check("Response exposes its note grade", _note_results[0][&"grade_name"], &"perfect")
-	beat_clock.quarter_beat.emit(8, 0.75)
+	beat_clock.beat.emit(9)
+	beat_clock.beat.emit(10)
 	beat_clock.beat_position = 0.75
 	var second_action: StringName = _response_targets[1][&"action"]
 	rhythm_input.input_scored.emit(second_action, &"miss", 999.0, false)
 	_check("the shared input seam feeds Response grading", _note_results.size(), 2)
-	beat_clock.beat.emit(9)
-	beat_clock.half_beat.emit(9)
-	beat_clock.beat.emit(10)
-	beat_clock.half_beat.emit(10)
-	beat_clock.beat.emit(11)
 	var response_offsets: Array[float] = []
 	for target in _response_targets:
 		response_offsets.append(target[&"offset"])
@@ -112,7 +106,6 @@ func _run() -> void:
 	near_response_config.miss_ms = 230.0
 	var near_module = CombatV1Script.new()
 	root.add_child(near_module)
-	near_module.response_target_announced.connect(_on_response_target_announced)
 	near_module.response_note_graded.connect(_on_response_note_graded)
 	near_module.response_phrase_graded.connect(_on_response_phrase_graded)
 	near_module.setup(
@@ -127,14 +120,9 @@ func _run() -> void:
 	near_module.start()
 	for beat_number in range(1, 9):
 		beat_clock.beat.emit(beat_number)
-	beat_clock.quarter_beat.emit(8, 0.75)
-	beat_clock.beat.emit(9)
-	beat_clock.half_beat.emit(9)
-	beat_clock.beat.emit(10)
-	beat_clock.half_beat.emit(10)
-	beat_clock.beat.emit(11)
+	_response_targets = _targets_from_presentation(near_module.get_response_presentation())
 	for target in _response_targets:
-		var near_position: float = float(target[&"offset"]) + (130.0 / 600.0)
+		var near_position: float = float(target[&"due"]) + (130.0 / 600.0)
 		near_module.submit_response_input(target[&"action"], near_position)
 	near_module.player_intent(CombatV1Script.Intent.SUBMIT_RESPONSE)
 	_check("a uniformly shaky Response receives Near Miss", _phrase_summaries[0][&"grade_name"], &"near_miss")
@@ -150,7 +138,6 @@ func _run() -> void:
 	recovery_state_config.correct_groove_gain = 10.0
 	var recovery_module = CombatV1Script.new()
 	root.add_child(recovery_module)
-	recovery_module.response_target_announced.connect(_on_response_target_announced)
 	recovery_module.response_note_graded.connect(_on_response_note_graded)
 	recovery_module.response_phrase_graded.connect(_on_response_phrase_graded)
 	recovery_module.setup(
@@ -164,12 +151,7 @@ func _run() -> void:
 	recovery_module.start()
 	for beat_number in range(1, 9):
 		beat_clock.beat.emit(beat_number)
-	beat_clock.quarter_beat.emit(8, 0.75)
-	beat_clock.beat.emit(9)
-	beat_clock.half_beat.emit(9)
-	beat_clock.beat.emit(10)
-	beat_clock.half_beat.emit(10)
-	beat_clock.beat.emit(11)
+	_response_targets = _targets_from_presentation(recovery_module.get_response_presentation())
 	for target_index in range(_response_targets.size()):
 		var recovery_target: Dictionary = _response_targets[target_index]
 		var performed_action: StringName = recovery_target[&"action"]
@@ -177,7 +159,7 @@ func _run() -> void:
 			performed_action = _response_targets[0][&"action"]
 		recovery_module.submit_response_input(
 			performed_action,
-			float(recovery_target[&"offset"])
+			float(recovery_target[&"due"])
 		)
 	recovery_module.player_intent(CombatV1Script.Intent.SUBMIT_RESPONSE)
 	_check("later notes recover an integrated Response after one Miss", _phrase_summaries[0][&"grade_name"], &"great")
@@ -188,11 +170,15 @@ func _run() -> void:
 	recovery_module.free()
 	print("=== done ===")
 
-func _on_response_target_announced(event: PhraseEvent, expected_action: StringName) -> void:
-	_response_targets.append({
-		&"offset": event.beat_offset,
-		&"action": expected_action,
-	})
+func _targets_from_presentation(presentation: Dictionary) -> Array[Dictionary]:
+	var targets: Array[Dictionary] = []
+	for scheduled_target in presentation[&"targets"]:
+		targets.append({
+			&"offset": scheduled_target[&"beat_offset"],
+			&"due": scheduled_target[&"due_beat"],
+			&"action": scheduled_target[&"expected_action"],
+		})
+	return targets
 
 func _on_response_note_graded(result: Dictionary) -> void:
 	_note_results.append(result)

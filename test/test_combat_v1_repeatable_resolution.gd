@@ -1,9 +1,6 @@
 # Verifies deterministic terminal outcomes across the repeatable Combat V1 cadence.
 extends SceneTree
 
-const PhraseEvent = preload("res://combat_v1/phrase_event.gd")
-
-var _response_targets: Array[Dictionary] = []
 var _resolved_outcomes: Array[int] = []
 var _has_failures: bool = false
 
@@ -25,7 +22,6 @@ func _run() -> void:
 	config.correct_multiplier_gain = 0.0
 	var module = CombatV1Script.new()
 	root.add_child(module)
-	module.response_target_announced.connect(_on_response_target_announced)
 	module.resolved.connect(_on_resolved)
 	module.setup(beat_clock, rhythm_input, opponent, 1, config)
 	module.start()
@@ -36,7 +32,6 @@ func _run() -> void:
 	_check("the first correct Response remains non-terminal", module.get_cadence(), CombatV1Script.Cadence.TACTICAL_VAMP)
 	_check("the first correct Response builds partial Groove", module.get_state()[&"groove"], 5.0)
 
-	_response_targets.clear()
 	module.player_intent(CombatV1Script.Intent.CONTINUE_ROUND)
 	beat_clock.beat.emit(20)
 	_advance_round_to_response(beat_clock)
@@ -62,14 +57,12 @@ func _run() -> void:
 	module.teardown()
 	module.free()
 
-	_response_targets.clear()
 	_resolved_outcomes.clear()
 	var loss_config = CombatV1Script.EncounterConfig.new()
 	loss_config.max_composure = 30.0
 	loss_config.major_mistake_composure_loss = 30.0
 	var loss_module = CombatV1Script.new()
 	root.add_child(loss_module)
-	loss_module.response_target_announced.connect(_on_response_target_announced)
 	loss_module.resolved.connect(_on_resolved)
 	loss_module.setup(beat_clock, rhythm_input, opponent, 1, loss_config)
 	loss_module.start()
@@ -89,37 +82,14 @@ func _run() -> void:
 func _advance_initial_to_response(beat_clock: Node) -> void:
 	for beat_number in range(1, 9):
 		beat_clock.beat.emit(beat_number)
-	beat_clock.quarter_beat.emit(8, 0.75)
-	beat_clock.beat.emit(9)
-	beat_clock.half_beat.emit(9)
-	beat_clock.beat.emit(10)
-	beat_clock.half_beat.emit(10)
-	beat_clock.beat.emit(11)
 
 func _advance_round_to_response(beat_clock: Node) -> void:
-	beat_clock.quarter_beat.emit(20, 0.75)
-	beat_clock.beat.emit(21)
-	beat_clock.half_beat.emit(21)
-	beat_clock.beat.emit(22)
-	beat_clock.half_beat.emit(22)
-	beat_clock.beat.emit(23)
-	beat_clock.beat.emit(24)
-	beat_clock.quarter_beat.emit(24, 0.75)
-	beat_clock.beat.emit(25)
-	beat_clock.half_beat.emit(25)
-	beat_clock.beat.emit(26)
-	beat_clock.half_beat.emit(26)
-	beat_clock.beat.emit(27)
+	for beat_number in range(21, 25):
+		beat_clock.beat.emit(beat_number)
 
 func _perform_perfect_response(module: Node) -> void:
-	for target in _response_targets:
-		module.submit_response_input(target[&"action"], target[&"offset"])
-
-func _on_response_target_announced(event: PhraseEvent, expected_action: StringName) -> void:
-	_response_targets.append({
-		&"offset": event.beat_offset,
-		&"action": expected_action,
-	})
+	for target in module.get_response_presentation()[&"targets"]:
+		module.submit_response_input(target[&"expected_action"], target[&"due_beat"])
 
 func _on_resolved(outcome: int) -> void:
 	_resolved_outcomes.append(outcome)

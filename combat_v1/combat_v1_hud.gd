@@ -4,6 +4,7 @@ extends Control
 
 const CombatV1 = preload("res://combat_v1/combat_v1.gd")
 const PhraseEvent = preload("res://combat_v1/phrase_event.gd")
+const ResponseNoteHighway = preload("res://combat_v1/response_note_highway.gd")
 
 @onready var _cadence_label: Label = $CadencePanel/CadenceLabel
 @onready var _mode_label: Label = $CadencePanel/ModeLabel
@@ -23,6 +24,7 @@ const PhraseEvent = preload("res://combat_v1/phrase_event.gd")
 @onready var _outcome_body: Label = $OutcomePanel/OutcomeBody
 @onready var _instruction_label: Label = $InstructionPanel/InstructionLabel
 @onready var _audio_track_label: Label = $InstructionPanel/AudioTrackLabel
+@onready var _response_note_highway: ResponseNoteHighway = $ResponseNoteHighway
 
 var _combat_v1: CombatV1 = null
 
@@ -64,6 +66,7 @@ func setup(combat_v1: CombatV1) -> void:
 	_cue_label.text = "WAITING FOR PHRASE"
 	_cue_detail_label.text = "VISUAL CUES MIRROR THE PLACEHOLDER AUDIO"
 	_sync_from_module()
+	_response_note_highway.setup(_combat_v1)
 
 func _on_cadence_changed(_cadence: CombatV1.Cadence) -> void:
 	_sync_from_module()
@@ -227,6 +230,8 @@ func _format_number(value: Variant) -> String:
 
 ## Disconnect every signal this HUD owns. Safe to call repeatedly.
 func teardown() -> void:
+	if is_instance_valid(_response_note_highway):
+		_response_note_highway.teardown()
 	if _combat_v1 == null:
 		return
 	if _combat_v1.cadence_changed.is_connected(_on_cadence_changed):
