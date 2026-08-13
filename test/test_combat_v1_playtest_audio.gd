@@ -13,8 +13,18 @@ func _init() -> void:
 
 func _run() -> void:
 	print("=== Combat V1 playtest audio tests ===")
+	var debug_log = load("res://autoloads/debug_log.gd")
+	_disable_debug_logging(debug_log)
 	var prototype = load("res://combat_v1/combat_v1_prototype.tscn").instantiate()
+	var has_debug_toggle := _has_property(prototype, &"enable_debug_logging")
+	if has_debug_toggle:
+		prototype.set(&"enable_debug_logging", true)
 	root.add_child(prototype)
+	_check(
+		"playtester can enable all debug logging from the Inspector",
+		has_debug_toggle and _all_debug_logging_enabled(debug_log),
+		true
+	)
 
 	_check(
 		"playtester can compare three named backing tracks",
@@ -56,7 +66,28 @@ func _run() -> void:
 
 	prototype.teardown()
 	prototype.free()
+	_disable_debug_logging(debug_log)
 	print("=== done ===")
+
+func _has_property(target: Object, property_name: StringName) -> bool:
+	for property in target.get_property_list():
+		if property[&"name"] == property_name:
+			return true
+	return false
+
+func _all_debug_logging_enabled(debug_log) -> bool:
+	return debug_log.enabled \
+		and debug_log.beat_timing \
+		and debug_log.combat_events \
+		and debug_log.note_visuals \
+		and debug_log.audio_events
+
+func _disable_debug_logging(debug_log) -> void:
+	debug_log.enabled = false
+	debug_log.beat_timing = false
+	debug_log.combat_events = false
+	debug_log.note_visuals = false
+	debug_log.audio_events = false
 
 func _check(label: String, got, expected) -> void:
 	if got == expected:
