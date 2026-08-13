@@ -8,20 +8,63 @@ const OpponentData = preload("res://combat_v1/opponent_data.gd")
 const PhraseEvent = preload("res://combat_v1/phrase_event.gd")
 const CombatV1HUD = preload("res://combat_v1/combat_v1_hud.gd")
 
+const PLAYTEST_TRACK_NAMES: Array[String] = [
+	"Campfire Strings",
+	"Stonebeat",
+	"Starcurrent",
+]
+const PLAYTEST_TRACKS: Array[AudioStream] = [
+	preload("res://audio/playtest_v1/campfire_strings.wav"),
+	preload("res://audio/playtest_v1/stonebeat.wav"),
+	preload("res://audio/playtest_v1/starcurrent.wav"),
+]
+
 @export_range(1, 8, 1) var settle_bars: int = 2
 @export var opponent: OpponentData = preload("res://combat_v1/opponents/drum_golem.tres")
+@export_range(0, 2, 1) var default_playtest_track: int = 0
 
 @onready var _audio: AudioStreamPlayer = $AudioStreamPlayer
 @onready var _hud: CombatV1HUD = $CombatV1HUD
 
 var _combat_v1: CombatV1
 var _resources_started: bool = false
+var _selected_playtest_track_index: int = -1
+
+## Player-facing backing-track choices available in the comparison harness.
+func get_playtest_track_options() -> Array[String]:
+	return PLAYTEST_TRACK_NAMES.duplicate()
+
+func get_selected_playtest_track_name() -> String:
+	if _selected_playtest_track_index < 0:
+		return ""
+	return PLAYTEST_TRACK_NAMES[_selected_playtest_track_index]
+
+## Change backing tracks without restarting CombatV1 or its BeatClock timeline.
+func select_playtest_track(index: int) -> bool:
+	if index < 0 or index >= PLAYTEST_TRACKS.size():
+		return false
+	var was_playing := _audio.playing
+	var playback_position := _audio.get_playback_position() if was_playing else 0.0
+	_audio.stream = PLAYTEST_TRACKS[index]
+	_configure_loop(_audio.stream)
+	_selected_playtest_track_index = index
+	if was_playing:
+		var loop_length := _audio.stream.get_length()
+		_audio.play(fmod(playback_position, loop_length) if loop_length > 0.0 else 0.0)
+	_hud.show_playtest_track(index, get_selected_playtest_track_name(), PLAYTEST_TRACKS.size())
+	DebugLog.audio("[AUDIO  ] playtest_track=%d  name=%s  position_s=%.3f" % [
+		index + 1,
+		get_selected_playtest_track_name(),
+		playback_position,
+	])
+	return true
 
 func _ready() -> void:
 	BeatClock.bpm = 130.0
 	BeatClock.intro_offset_ms = 1200.0
+	select_playtest_track(default_playtest_track)
 	_audio.play()
-	DebugLog.audio("[AUDIO  ] v1=started")
+	DebugLog.audio("[AUDIO  ] v1=started  track=%s" % get_selected_playtest_track_name())
 	BeatClock.start(_audio)
 	DebugLog.timing("[TIMING ] v1_clock=started  bpm=%.1f  intro_offset_ms=%.1f" % [
 		BeatClock.bpm, BeatClock.intro_offset_ms])
@@ -37,10 +80,25 @@ func _ready() -> void:
 	_hud.setup(_combat_v1)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _combat_v1 == null or not event is InputEventKey:
+	if not event is InputEventKey:
 		return
 	var key_event := event as InputEventKey
 	if not key_event.pressed or key_event.echo:
+		return
+	match key_event.keycode:
+		KEY_1:
+			select_playtest_track(0)
+			get_viewport().set_input_as_handled()
+			return
+		KEY_2:
+			select_playtest_track(1)
+			get_viewport().set_input_as_handled()
+			return
+		KEY_3:
+			select_playtest_track(2)
+			get_viewport().set_input_as_handled()
+			return
+	if _combat_v1 == null:
 		return
 	if key_event.keycode != KEY_ENTER and key_event.keycode != KEY_SPACE:
 		return
@@ -62,6 +120,14 @@ func _on_phrase_event_announced(event: PhraseEvent) -> void:
 func _on_response_phrase_graded(summary: Dictionary) -> void:
 	DebugLog.combat("[SUMMARY] grade=%s  average=%.2f  broken=%s" % [
 		summary[&"grade_name"], summary[&"average_score"], summary[&"broken"]])
+
+func _configure_loop(stream: AudioStream) -> void:
+	if not stream is AudioStreamWAV:
+		return
+	var wave := stream as AudioStreamWAV
+	wave.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	wave.loop_begin = 0
+	wave.loop_end = int(round(wave.get_length() * wave.mix_rate))
 
 ## Stop the harness and disconnect every local module signal. Safe to repeat.
 func teardown() -> void:

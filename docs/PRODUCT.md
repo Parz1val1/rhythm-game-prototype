@@ -59,7 +59,8 @@ before investing in overworld, story, and production content.
 - Character-specific attack evaluation and directional/percussive defense.
 - HP/damage resolution, combo, limit gauge, combat UI, note lanes, replay
   selection, and debug logging.
-- Placeholder backing audio and incomplete instrument feedback assets.
+- Temporary procedural playtest loops and incomplete instrument feedback assets;
+  no production soundtrack or dynamic arrangement exists yet.
 
 See the [V1 reconciliation ledger](combat/reconciliation-v1.md) for the exact
 current/target gap and reusable foundations.

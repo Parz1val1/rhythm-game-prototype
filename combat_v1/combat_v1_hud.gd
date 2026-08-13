@@ -22,8 +22,19 @@ const PhraseEvent = preload("res://combat_v1/phrase_event.gd")
 @onready var _outcome_title: Label = $OutcomePanel/OutcomeTitle
 @onready var _outcome_body: Label = $OutcomePanel/OutcomeBody
 @onready var _instruction_label: Label = $InstructionPanel/InstructionLabel
+@onready var _audio_track_label: Label = $InstructionPanel/AudioTrackLabel
 
 var _combat_v1: CombatV1 = null
+
+func show_playtest_track(index: int, track_name: String, option_count: int) -> void:
+	var option_labels: Array[String] = []
+	for option in range(1, option_count + 1):
+		option_labels.append(str(option))
+	_audio_track_label.text = "AUDIO  %d  %s  |  SWITCH WITH %s" % [
+		index + 1,
+		track_name.to_upper(),
+		" / ".join(option_labels),
+	]
 
 ## Observe one CombatV1 instance and immediately reflect its current snapshot.
 ## This does not depend on setup-time signals still being available.
