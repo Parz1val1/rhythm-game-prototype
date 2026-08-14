@@ -96,10 +96,16 @@ func _on_phrase_event_announced(event: PhraseEvent) -> void:
 		event.beat_offset,
 	]
 
-func _on_response_target_announced(event: PhraseEvent, expected_action: StringName) -> void:
+func _on_response_target_announced(
+	event: PhraseEvent,
+	expected_actions: Array[StringName]
+) -> void:
 	_cue_mode_label.text = "RESPONSE TARGET"
 	_cue_mode_label.add_theme_color_override("font_color", _get_mode_color(CombatV1.Cadence.RESPONSE))
-	_cue_label.text = "PLAY  %s" % String(expected_action).replace("_", " ").to_upper()
+	var action_labels := PackedStringArray()
+	for expected_action in expected_actions:
+		action_labels.append(String(expected_action).replace("_", " ").to_upper())
+	_cue_label.text = "PLAY  %s" % " + ".join(action_labels)
 	_cue_detail_label.text = "SOURCE  %s  |  BEAT %.2f" % [event.prompt_text, event.beat_offset]
 
 func _on_resolved(outcome: CombatV1.Outcome) -> void:

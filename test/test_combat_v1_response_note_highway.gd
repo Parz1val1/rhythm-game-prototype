@@ -48,15 +48,16 @@ func _run() -> void:
 		beat_clock.beat.emit(beat_number)
 	await process_frame
 	var response_snapshot: Dictionary = highway.get_presentation_snapshot()
-	_check("the complete schedule appears when Response begins", response_snapshot[&"targets"].size(), 5)
+	_check("the complete schedule includes both lanes of the final chord", response_snapshot[&"targets"].size(), 6)
 	_check("the note highway is active before the first target is due", response_snapshot[&"active"], true)
 	var target_lanes: Array[StringName] = []
 	var lane_indices: Array[int] = []
 	for target in response_snapshot[&"targets"]:
 		target_lanes.append(target[&"lane"])
 		lane_indices.append(target[&"lane_index"])
-	_check("every expected action uses its matching stable lane", target_lanes, [&"up", &"right", &"down", &"left", &"up"])
-	_check("stable lane placement is left/down/up/right", lane_indices, [2, 3, 1, 0, 2])
+	_check("every expected action uses its matching stable lane", target_lanes, [&"up", &"right", &"down", &"left", &"up", &"right"])
+	_check("stable lane placement is left/down/up/right", lane_indices, [2, 3, 1, 0, 2, 3])
+	_check("the final chord shares one scoreable time", response_snapshot[&"targets"][4][&"due_beat"], response_snapshot[&"targets"][5][&"due_beat"])
 	_check("the first target starts at the configured lead distance", response_snapshot[&"targets"][0][&"progress"], 0.0)
 	_check("later targets remain hidden until their own lead window", response_snapshot[&"targets"][1][&"visible"], false)
 
@@ -104,7 +105,7 @@ func _run() -> void:
 	var repeated_ids: Array[StringName] = []
 	for target in repeated_snapshot[&"targets"]:
 		repeated_ids.append(target[&"target_id"])
-	_check("a repeated round owns exactly one fresh visual schedule", repeated_snapshot[&"targets"].size(), 5)
+	_check("a repeated round owns exactly one fresh visual schedule", repeated_snapshot[&"targets"].size(), 6)
 	_check("a repeated round retains no stale target identities", _arrays_overlap(first_round_ids, repeated_ids), false)
 	_check("a repeated round starts with cleared feedback", repeated_snapshot[&"lane_feedback"].is_empty(), true)
 	_check(
@@ -144,6 +145,39 @@ func _run() -> void:
 	module.teardown()
 	module.free()
 	highway.free()
+
+	var four_lane_opponent = load("res://combat_v1/opponents/drum_golem.tres").duplicate(true)
+	four_lane_opponent.phrase.events[-1].lane_count = 4
+	var four_lane_module = CombatV1Script.new()
+	root.add_child(four_lane_module)
+	four_lane_module.setup(
+		beat_clock,
+		root.get_node("RhythmInput"),
+		four_lane_opponent,
+		1
+	)
+	four_lane_module.start()
+	var four_lane_highway = load(highway_path).instantiate()
+	root.add_child(four_lane_highway)
+	four_lane_highway.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	four_lane_highway.size = Vector2(640.0, 300.0)
+	four_lane_highway.setup(four_lane_module)
+	for beat_number in range(20, 28):
+		beat_clock.beat.emit(beat_number)
+	await process_frame
+	var simultaneous_lanes: Array[StringName] = []
+	for target in four_lane_highway.get_presentation_snapshot()[&"targets"]:
+		if is_equal_approx(float(target[&"beat_offset"]), 3.0):
+			simultaneous_lanes.append(target[&"lane"])
+	_check(
+		"one cue can render all four track inputs at the same time",
+		simultaneous_lanes,
+		[&"up", &"right", &"down", &"left"]
+	)
+	four_lane_highway.teardown()
+	four_lane_module.teardown()
+	four_lane_highway.free()
+	four_lane_module.free()
 	print("=== done ===")
 
 func _check(label: String, got, expected) -> void:

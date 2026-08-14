@@ -85,7 +85,7 @@ func _run() -> void:
 	if response_highway != null:
 		var highway_snapshot: Dictionary = response_highway.get_presentation_snapshot()
 		_check("the integrated highway is active before the first due target", highway_snapshot[&"active"], true)
-		_check("the integrated highway receives the complete Response schedule", highway_snapshot[&"targets"].size(), 5)
+		_check("the integrated highway receives the complete Response schedule", highway_snapshot[&"targets"].size(), 6)
 	if instruction_label != null:
 		_check(
 			"Response guidance explains submission",
@@ -168,9 +168,16 @@ func _run() -> void:
 		_check("listening cue identifies what the player hears", hud.get_node("CuePanel/CueModeLabel").text, "LISTENING CUE")
 		_check("listening cue shows authored prompt text", cue_label.text, "HEAR  Left pulse")
 		_check("placeholder audio has a readable visual equivalent", hud.get_node("CuePanel/CueDetailLabel").text, "VISUAL  PULSE LEFT  |  BEAT 0.00")
-		module.response_target_announced.emit(cue_event, &"up")
+		var single_response_actions: Array[StringName] = []
+		single_response_actions.append(&"up")
+		module.response_target_announced.emit(cue_event, single_response_actions)
 		_check("Response cue is explicitly active", hud.get_node("CuePanel/CueModeLabel").text, "RESPONSE TARGET")
 		_check("Response cue shows the expected action", cue_label.text, "PLAY  UP")
+		var chord_response_actions: Array[StringName] = []
+		chord_response_actions.append(&"up")
+		chord_response_actions.append(&"right")
+		module.response_target_announced.emit(cue_event, chord_response_actions)
+		_check("Response cue shows simultaneous actions together", cue_label.text, "PLAY  UP + RIGHT")
 	var outcome_panel: Control = hud.get_node_or_null("OutcomePanel")
 	_check("HUD exposes provisional conversation outcomes", outcome_panel != null, true)
 	if outcome_panel != null:

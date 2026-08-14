@@ -4,6 +4,7 @@
 extends SceneTree
 
 var _emitted_beats: Array[int] = []
+var _positions_at_emission: Array[float] = []
 var _has_failures: bool = false
 
 func _init() -> void:
@@ -49,6 +50,11 @@ func _run() -> void:
 		wrapped and beats_after_wrap > 0 and _is_strictly_increasing(_emitted_beats),
 		true
 	)
+	_check(
+		"whole-beat callbacks observe one current atomic musical position",
+		_positions_cover_emitted_beats() and _is_non_decreasing(_positions_at_emission),
+		true
+	)
 
 	clock.stop()
 	if clock.beat.is_connected(_on_beat):
@@ -59,10 +65,25 @@ func _run() -> void:
 
 func _on_beat(beat_number: int) -> void:
 	_emitted_beats.append(beat_number)
+	_positions_at_emission.append(root.get_node("BeatClock").get_musical_position_beats())
 
 func _is_strictly_increasing(values: Array[int]) -> bool:
 	for index in range(1, values.size()):
 		if values[index] <= values[index - 1]:
+			return false
+	return true
+
+func _positions_cover_emitted_beats() -> bool:
+	if _positions_at_emission.size() != _emitted_beats.size():
+		return false
+	for index in range(_emitted_beats.size()):
+		if _positions_at_emission[index] + 0.0001 < float(_emitted_beats[index]):
+			return false
+	return true
+
+func _is_non_decreasing(values: Array[float]) -> bool:
+	for index in range(1, values.size()):
+		if values[index] < values[index - 1]:
 			return false
 	return true
 

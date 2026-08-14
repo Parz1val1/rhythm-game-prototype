@@ -16,3 +16,7 @@ extends Resource
 ## Symbolic handoffs for production audio and visual consumers.
 @export var audio_cue: StringName = &""
 @export var visual_cue: StringName = &""
+
+## Number of distinct Response inputs performed together for this cue. The active
+## character profile supplies the concrete actions; four is the highway maximum.
+@export_range(1, 4, 1) var lane_count: int = 1

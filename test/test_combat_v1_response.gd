@@ -51,7 +51,7 @@ func _run() -> void:
 	_check("no Response schedule is exposed while the player is listening", module.get_response_presentation()[&"targets"].size(), 0)
 	beat_clock.beat.emit(8)
 	_response_targets = _targets_from_presentation(module.get_response_presentation())
-	_check("the complete Response schedule appears when Response begins", _response_targets.size(), 5)
+	_check("the complete Response schedule appears when Response begins", _response_targets.size(), 6)
 	var first_action: StringName = _response_targets[0][&"action"]
 	_check("Response accepts a performed target action", module.submit_response_input(first_action, _response_targets[0][&"due"]), true)
 	_check("Response exposes its note grade", _note_results[0][&"grade_name"], &"perfect")
@@ -67,7 +67,7 @@ func _run() -> void:
 	_check(
 		"Response replays every heard phrase offset",
 		response_offsets,
-		[0.0, 0.75, 1.5, 2.5, 3.0]
+		[0.0, 0.75, 1.5, 2.5, 3.0, 3.0]
 	)
 	var response_actions: Array[StringName] = []
 	for target in _response_targets:
@@ -81,7 +81,7 @@ func _run() -> void:
 		true
 	)
 	_check("Response emits one phrase summary", _phrase_summaries.size(), 1)
-	_check("the phrase summary includes every target note", _phrase_summaries[0][&"total_notes"], 5)
+	_check("the phrase summary includes every target note", _phrase_summaries[0][&"total_notes"], 6)
 	_check(
 		"CombatV1 state exposes the latest phrase grade",
 		module.get_state()[&"response_summary"][&"grade_name"],

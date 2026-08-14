@@ -79,9 +79,9 @@ A valid test process must:
 The older filtered command that selects only `PASS`, `FAIL`, and `===` lines is
 not sufficient because it hides engine diagnostics.
 
-### Verified green baseline (2026-08-13)
+### Verified green baseline (2026-08-14)
 
-- 49 discovered scripts and 796 visible `PASS` lines.
+- 49 discovered scripts and 805 visible `PASS` lines.
 - 0 visible `FAIL` lines, `SCRIPT ERROR` diagnostics, or line-leading `ERROR:`
   diagnostics.
 - Every script exited `0` and printed the exact `=== done ===` completion marker.
@@ -165,6 +165,9 @@ var actor_name: String = target.character_name if target != null else "Unknown"
 - `BeatClock.quarter_beat` carries the exact `.25` or `.75` subdivision as its
   second signal argument; do not infer it from `BeatClock.beat_position` inside a
   callback because recovered thresholds emit before that property updates.
+- Continuous presentation and scoring timelines read BeatClock's atomic
+  `get_musical_position_beats()` snapshot. Do not compose `beat_number` and
+  `beat_position` inside boundary callbacks.
 - `RhythmInput.add_note()` returns `false` when duplicate prevention rejects an
   already-active note. Use that result for observability; never gate damage on it.
 - DEFEND injection has one path in `CombatScene._inject_notes_due()`.

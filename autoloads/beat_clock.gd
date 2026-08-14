@@ -34,6 +34,11 @@ var beat_number: int = 0
 ## Fractional position within the current beat: 0.0 (on the beat) → 1.0 (next beat).
 var beat_position: float = 0.0
 
+## Audio-corrected musical position since start(), published as one atomic value.
+## Consumers that need a continuous timeline should use this instead of combining
+## beat_number with beat_position while BeatClock is emitting boundary signals.
+var musical_position_beats: float = 0.0
+
 # --- Private state ---
 
 var _stream_player: AudioStreamPlayer = null
@@ -57,6 +62,7 @@ func start(stream_player: AudioStreamPlayer) -> void:
     _running = true
     beat_number = 0
     beat_position = 0.0
+    musical_position_beats = 0.0
     _prev_beat_position = 0.0
     _start_ticks_ms = Time.get_ticks_msec()
     _completed_stream_time_s = 0.0
@@ -67,6 +73,14 @@ func start(stream_player: AudioStreamPlayer) -> void:
 func stop() -> void:
     _running = false
     _stream_player = null
+
+## Returns whether the clock is actively publishing audio-corrected positions.
+func is_running() -> bool:
+    return _running
+
+## Return the latest indivisible musical-position snapshot.
+func get_musical_position_beats() -> float:
+    return musical_position_beats
 
 ## Returns how far (in milliseconds) the current moment is from the nearest beat.
 ## Negative  = player pressed early (before the beat).
@@ -136,6 +150,11 @@ func _process(_delta: float) -> void:
     var total_beats: float = audio_time / _seconds_per_beat
     var new_beat_number: int = int(total_beats)
     var new_beat_position: float = fmod(total_beats, 1.0)
+
+    # Publish the indivisible timeline before signals. Signal consumers therefore
+    # observe this frame's complete position even while the legacy whole/fraction
+    # fields below are being advanced in their established order.
+    musical_position_beats = total_beats
 
     # Beat/sub-beat detection.
     # The two branches are mutually exclusive to prevent double-emission:
