@@ -55,8 +55,8 @@ func _run() -> void:
 	var first_action: StringName = _response_targets[0][&"action"]
 	_check("Response accepts a performed target action", module.submit_response_input(first_action, _response_targets[0][&"due"]), true)
 	_check("Response exposes its note grade", _note_results[0][&"grade_name"], &"perfect")
-	beat_clock.beat.emit(9)
-	beat_clock.beat.emit(10)
+	for beat_number in range(9, 15):
+		beat_clock.beat.emit(beat_number)
 	beat_clock.beat_position = 0.75
 	var second_action: StringName = _response_targets[1][&"action"]
 	rhythm_input.input_scored.emit(second_action, &"miss", 999.0, false)

@@ -67,6 +67,8 @@ func _run() -> void:
 	loss_module.setup(beat_clock, rhythm_input, opponent, 1, loss_config)
 	loss_module.start()
 	_advance_initial_to_response(beat_clock)
+	for beat_number in range(9, 13):
+		beat_clock.beat.emit(beat_number)
 	_check(
 		"an unplayed Response is accepted as a broken phrase",
 		loss_module.player_intent(CombatV1Script.Intent.SUBMIT_RESPONSE),

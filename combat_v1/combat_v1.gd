@@ -92,6 +92,9 @@ signal stopped()
 ## Provisional amount of readable highway travel before the first Response target.
 ## This is playtest tuning, not a canonical phrase-duration rule.
 @export_range(0.25, 8.0, 0.25) var response_visual_lead_beats: float = 2.0
+## Provisional input-free rest between Enemy Phrase and visible Response notation.
+## The fixed four-beat default is playtest tuning, not a final cadence rule.
+@export_range(0.0, 16.0, 0.25) var response_handoff_beats: float = 4.0
 
 var _beat_clock: Node = null
 var _rhythm_input: Node = null
@@ -100,7 +103,9 @@ var _response_actions: Array[StringName] = []
 var _response_targets: Array[Dictionary] = []
 var _response_round_id: int = 0
 var _response_schedule_lead_beats: float = 2.0
+var _response_schedule_handoff_beats: float = 4.0
 var _response_timeline_origin_beats: float = 0.0
+var _response_handoff_complete: bool = true
 var _response_grader = ResponseGrader.new()
 var _last_response_summary: Dictionary = {}
 var _cadence: Cadence = Cadence.IDLE
@@ -183,6 +188,8 @@ func start() -> bool:
 func player_intent(intent: Intent) -> bool:
 	if not _running:
 		return false
+	if _cadence == Cadence.RESPONSE:
+		_update_response_handoff_boundary()
 	if intent < Intent.SUBMIT_RESPONSE or intent > Intent.CONTINUE_ROUND:
 		DebugLog.combat("[V1    ] intent=rejected  reason=unknown  value=%d" % intent)
 		intent_rejected.emit(intent)
@@ -191,7 +198,7 @@ func player_intent(intent: Intent) -> bool:
 	var accepted := false
 	match _cadence:
 		Cadence.RESPONSE:
-			if intent == Intent.SUBMIT_RESPONSE:
+			if intent == Intent.SUBMIT_RESPONSE and _response_handoff_complete:
 				_complete_response()
 				if not bool(_encounter_state.get_state()[&"terminal"]):
 					_set_cadence(Cadence.TACTICAL_VAMP)
@@ -217,6 +224,9 @@ func player_intent(intent: Intent) -> bool:
 func submit_response_input(action: StringName, phrase_position_beats: float) -> bool:
 	if not _running or _cadence != Cadence.RESPONSE:
 		return false
+	if phrase_position_beats < _response_schedule_handoff_beats:
+		return false
+	_complete_response_handoff(phrase_position_beats)
 	var target_index := _find_closest_ungraded_response_target(action, phrase_position_beats)
 	if target_index < 0:
 		return false
@@ -305,13 +315,19 @@ func get_response_presentation() -> Dictionary:
 	var phrase_duration_beats := 0.0
 	if _opponent != null and _opponent.phrase != null:
 		phrase_duration_beats = float(_opponent.phrase.get_duration_beats())
+	var timeline_position_beats := _get_response_timeline_position()
+	var handoff_active := _running and _cadence == Cadence.RESPONSE \
+		and not _response_handoff_complete
 	return {
 		&"active": _running and _cadence == Cadence.RESPONSE,
 		&"timeline_source": &"BeatClock",
-		&"timeline_position_beats": _get_response_timeline_position(),
+		&"timeline_position_beats": timeline_position_beats,
+		&"handoff_beats": _response_schedule_handoff_beats,
+		&"handoff_active": handoff_active,
 		&"visual_lead_beats": _response_schedule_lead_beats,
 		&"phrase_duration_beats": phrase_duration_beats,
-		&"timeline_duration_beats": _response_schedule_lead_beats + phrase_duration_beats,
+		&"timeline_duration_beats": _response_schedule_handoff_beats \
+			+ _response_schedule_lead_beats + phrase_duration_beats,
 		&"round_id": _response_round_id,
 		&"targets": presentation_targets,
 	}
@@ -355,6 +371,7 @@ func _on_beat(_beat_number: int) -> void:
 		return
 	_beats_in_cadence += 1
 	if _cadence == Cadence.RESPONSE:
+		_update_response_handoff_boundary()
 		_announce_response_targets_at(float(_beats_in_cadence))
 		return
 	if _cadence == Cadence.SETTLE \
@@ -373,6 +390,7 @@ func _on_half_beat(_beat_number: int) -> void:
 	if _cadence == Cadence.ENEMY_PHRASE:
 		_announce_phrase_events_at(float(_beats_in_cadence) + 0.5)
 	elif _cadence == Cadence.RESPONSE:
+		_update_response_handoff_boundary()
 		_announce_response_targets_at(float(_beats_in_cadence) + 0.5)
 
 func _on_quarter_beat(_beat_number: int, subdivision: float = -1.0) -> void:
@@ -387,6 +405,7 @@ func _on_quarter_beat(_beat_number: int, subdivision: float = -1.0) -> void:
 	if _cadence == Cadence.ENEMY_PHRASE:
 		_announce_phrase_events_at(float(_beats_in_cadence) + exact_subdivision)
 	else:
+		_update_response_handoff_boundary()
 		_announce_response_targets_at(float(_beats_in_cadence) + exact_subdivision)
 
 func _announce_phrase_events_at(phrase_position: float) -> void:
@@ -429,6 +448,8 @@ func _prepare_response_targets() -> void:
 		return
 	_response_round_id += 1
 	_response_schedule_lead_beats = maxf(0.25, response_visual_lead_beats)
+	_response_schedule_handoff_beats = maxf(0.0, response_handoff_beats)
+	_response_handoff_complete = _response_schedule_handoff_beats <= 0.0
 	if _response_actions.is_empty():
 		return
 	for event_index in range(_opponent.phrase.events.size()):
@@ -446,7 +467,8 @@ func _prepare_response_targets() -> void:
 				&"event_index": event_index,
 				&"chord_lane_index": chord_lane_index,
 				&"beat_offset": event.beat_offset,
-				&"due_beat": _response_schedule_lead_beats + event.beat_offset,
+				&"due_beat": _response_schedule_handoff_beats \
+					+ _response_schedule_lead_beats + event.beat_offset,
 				&"expected_action": _response_actions[
 					(event_index + chord_lane_index) % _response_actions.size()
 				],
@@ -615,18 +637,39 @@ func _set_cadence(
 			if response_origin_beats >= 0.0 else maxf(0.0, atomic_position)
 	if _cadence == Cadence.SETTLE or _cadence == Cadence.ENEMY_PHRASE:
 		_suppress_scoring_for_listening()
-	else:
+	elif _cadence != Cadence.RESPONSE or _response_schedule_handoff_beats <= 0.0:
 		_restore_scoring_state()
 	DebugLog.combat("[V1    ] cadence=%s" % get_cadence_name())
 	cadence_changed.emit(_cadence)
 	if _cadence == Cadence.RESPONSE:
-		DebugLog.timing("[SCHEDULE] phrase=%s  round=%d  targets=%d  lead=%.2f beats" % [
+		DebugLog.timing("[SCHEDULE] phrase=%s  round=%d  targets=%d  handoff=%.2f beats  lead=%.2f beats" % [
 			_opponent.phrase.phrase_id,
 			_response_round_id,
 			_response_targets.size(),
+			_response_schedule_handoff_beats,
 			_response_schedule_lead_beats,
 		])
+		_update_response_handoff_boundary()
 		_announce_response_targets_at(0.0)
+
+func _update_response_handoff_boundary() -> void:
+	if _cadence != Cadence.RESPONSE or _response_handoff_complete:
+		return
+	var timeline_position := _get_response_timeline_position()
+	if timeline_position + 0.0001 < _response_schedule_handoff_beats:
+		return
+	_complete_response_handoff(timeline_position)
+
+func _complete_response_handoff(timeline_position: float) -> void:
+	if _response_handoff_complete:
+		return
+	_response_handoff_complete = true
+	_restore_scoring_state()
+	DebugLog.timing("[HANDOFF] response=ready  round=%d  boundary=%.2f  position=%.2f" % [
+		_response_round_id,
+		_response_schedule_handoff_beats,
+		timeline_position,
+	])
 
 func _suppress_scoring_for_listening() -> void:
 	if _scoring_suppressed or _rhythm_input == null \

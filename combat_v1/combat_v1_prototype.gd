@@ -20,6 +20,7 @@ const PLAYTEST_TRACKS: Array[AudioStream] = [
 ]
 
 @export_range(1, 8, 1) var settle_bars: int = 2
+@export_range(0.0, 16.0, 0.25) var response_handoff_beats: float = 4.0
 @export_range(0.25, 8.0, 0.25) var response_visual_lead_beats: float = 2.0
 @export var opponent: OpponentData = preload("res://combat_v1/opponents/drum_golem.tres")
 @export_range(0, 2, 1) var default_playtest_track: int = 0
@@ -77,6 +78,7 @@ func _ready() -> void:
 
 	_combat_v1 = CombatV1.new()
 	add_child(_combat_v1)
+	_combat_v1.response_handoff_beats = response_handoff_beats
 	_combat_v1.response_visual_lead_beats = response_visual_lead_beats
 	_combat_v1.setup(BeatClock, RhythmInput, opponent, settle_bars)
 	_combat_v1.phrase_event_announced.connect(_on_phrase_event_announced)

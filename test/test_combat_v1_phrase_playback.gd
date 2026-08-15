@@ -80,7 +80,11 @@ func _run() -> void:
 
 	beat_clock.beat.emit(12)
 	_check("authored one-bar phrase transitions to Response", module.get_cadence(), CombatV1Script.Cadence.RESPONSE)
-	_check("Response restores the prior scoring state", rhythm_input.is_scoring_enabled(), true)
+	_check("Response handoff remains input-free", rhythm_input.is_scoring_enabled(), false)
+	beat_clock.beat_position = 0.0
+	for beat_number in range(13, 17):
+		beat_clock.beat.emit(beat_number)
+	_check("Response restores the prior scoring state after its handoff", rhythm_input.is_scoring_enabled(), true)
 	module.teardown()
 	if rhythm_input.input_scored.is_connected(_on_raw_input_scored):
 		rhythm_input.input_scored.disconnect(_on_raw_input_scored)
