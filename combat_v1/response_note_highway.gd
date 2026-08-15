@@ -24,6 +24,7 @@ const GRID_COLOR := Color("385b84")
 const HIT_LINE_COLOR := Color("8ffcff")
 const LABEL_COLOR := Color("dcecff")
 const NOTE_COLOR := Color("f6c85f")
+const CHORD_COLOR := Color("c69cff")
 const PREVIEW_COLOR := Color("8ffcff80")
 const HIT_LINE_RATIO := 0.78
 const APPROACH_START_RATIO := 0.16
@@ -37,7 +38,9 @@ var _round_id: int = -1
 var _timeline_position_beats: float = 0.0
 var _visual_lead_beats: float = 2.0
 var _targets: Array[Dictionary] = []
+var _chord_groups: Array[Dictionary] = []
 var _lane_feedback: Dictionary = {}
+var _target_feedback: Dictionary = {}
 var _preview: Dictionary = {}
 var _preview_elapsed_seconds: float = 0.0
 
@@ -66,6 +69,8 @@ func get_presentation_snapshot() -> Dictionary:
 		visible_targets.append({
 			&"target_id": target[&"target_id"],
 			&"expected_action": target[&"expected_action"],
+			&"group_id": target[&"group_id"],
+			&"group_size": target[&"group_size"],
 			&"beat_offset": target[&"beat_offset"],
 			&"due_beat": target[&"due_beat"],
 			&"lane": target[&"lane"],
@@ -83,7 +88,9 @@ func get_presentation_snapshot() -> Dictionary:
 		&"timeline_position_beats": _timeline_position_beats,
 		&"visual_lead_beats": _visual_lead_beats,
 		&"targets": visible_targets,
+		&"chord_groups": _chord_groups.duplicate(true),
 		&"lane_feedback": _lane_feedback.duplicate(true),
+		&"target_feedback": _target_feedback.duplicate(true),
 		&"preview": _preview.duplicate(true),
 		&"approach_start_y": size.y * APPROACH_START_RATIO,
 		&"hit_line_y": size.y * HIT_LINE_RATIO,
@@ -162,10 +169,20 @@ func _on_response_note_graded(result: Dictionary) -> void:
 		target[&"visible"] = false
 		_targets[target_index] = target
 		var lane: StringName = target[&"lane"]
-		_lane_feedback[lane] = {
+		var target_result := {
 			&"target_id": target_id,
+			&"expected_action": result.get(&"expected_action", &""),
+			&"actual_action": result.get(&"actual_action", &""),
+			&"offset_ms": result.get(&"offset_ms", 0.0),
+			&"lane": lane,
+			&"group_id": result.get(&"group_id", &""),
+			&"group_size": result.get(&"group_size", 1),
 			&"grade_name": grade_name,
+			&"visual_cue": _get_result_visual_cue(grade_name),
+			&"color": _get_grade_color(grade_name),
 		}
+		_target_feedback[target_id] = target_result
+		_lane_feedback[lane] = target_result.duplicate(true)
 		DebugLog.visual("[RESULT ] target=%s  lane=%s  grade=%s" % [
 			target_id,
 			lane,
@@ -200,6 +217,8 @@ func _load_schedule(presentation: Dictionary) -> void:
 		_targets.append({
 			&"target_id": scheduled_target[&"target_id"],
 			&"expected_action": action,
+			&"group_id": scheduled_target[&"group_id"],
+			&"group_size": scheduled_target[&"group_size"],
 			&"beat_offset": scheduled_target[&"beat_offset"],
 			&"due_beat": scheduled_target[&"due_beat"],
 			&"lane": action,
@@ -211,6 +230,35 @@ func _load_schedule(presentation: Dictionary) -> void:
 			&"y": 0.0,
 			&"grade_name": &"",
 		})
+	_build_chord_groups()
+
+func _build_chord_groups() -> void:
+	_chord_groups.clear()
+	var groups_by_id: Dictionary = {}
+	for target in _targets:
+		if int(target[&"group_size"]) <= 1:
+			continue
+		var group_id: StringName = target[&"group_id"]
+		if not groups_by_id.has(group_id):
+			var target_ids: Array[StringName] = []
+			var lanes: Array[StringName] = []
+			groups_by_id[group_id] = {
+				&"group_id": group_id,
+				&"target_ids": target_ids,
+				&"lanes": lanes,
+				&"treatment": &"connector_pulse",
+				&"color": CHORD_COLOR,
+			}
+		var group: Dictionary = groups_by_id[group_id]
+		var group_target_ids: Array[StringName] = group[&"target_ids"]
+		var group_lanes: Array[StringName] = group[&"lanes"]
+		group_target_ids.append(target[&"target_id"])
+		group_lanes.append(target[&"lane"])
+		group[&"target_ids"] = group_target_ids
+		group[&"lanes"] = group_lanes
+		groups_by_id[group_id] = group
+	for group_id in groups_by_id:
+		_chord_groups.append(groups_by_id[group_id])
 
 func _update_positions(presentation: Dictionary) -> void:
 	_timeline_position_beats = float(presentation[&"timeline_position_beats"])
@@ -242,14 +290,17 @@ func _update_positions(presentation: Dictionary) -> void:
 		_targets[target_index] = target
 
 func _clear_response_presentation() -> void:
-	var had_presentation := _active or not _targets.is_empty() or not _lane_feedback.is_empty()
+	var had_presentation := _active or not _targets.is_empty() \
+		or not _lane_feedback.is_empty() or not _target_feedback.is_empty()
 	if had_presentation:
 		DebugLog.visual("[CLEAR  ] response_highway=true  round=%d" % _round_id)
 	_active = false
 	_round_id = -1
 	_timeline_position_beats = 0.0
 	_targets.clear()
+	_chord_groups.clear()
 	_lane_feedback.clear()
+	_target_feedback.clear()
 	if had_presentation:
 		queue_redraw()
 
@@ -302,11 +353,24 @@ func _draw() -> void:
 			var preview_position := Vector2((float(lane_index) + 0.5) * lane_width, preview_y)
 			draw_circle(preview_position, 21.0, PREVIEW_COLOR)
 			draw_arc(preview_position, 25.0, 0.0, TAU, 32, PREVIEW_COLOR, 2.0)
+	for chord_group in _chord_groups:
+		var group_positions: Array[Vector2] = []
+		for target in _targets:
+			if target[&"group_id"] == chord_group[&"group_id"] and bool(target[&"visible"]):
+				group_positions.append(Vector2(float(target[&"x"]), float(target[&"y"])))
+		if group_positions.size() < 2:
+			continue
+		group_positions.sort_custom(func(first: Vector2, second: Vector2) -> bool: return first.x < second.x)
+		var pulse_radius := 24.0 + sin(_timeline_position_beats * TAU) * 2.0
+		draw_line(group_positions[0], group_positions[-1], CHORD_COLOR, 5.0)
+		for group_position in group_positions:
+			draw_arc(group_position, pulse_radius, 0.0, TAU, 32, CHORD_COLOR, 3.0)
 	for target in _targets:
 		if not bool(target[&"visible"]):
 			continue
 		var note_position := Vector2(float(target[&"x"]), float(target[&"y"]))
-		draw_circle(note_position, 18.0, NOTE_COLOR)
+		var note_color := CHORD_COLOR if int(target[&"group_size"]) > 1 else NOTE_COLOR
+		draw_circle(note_position, 18.0, note_color)
 		var action: StringName = target[&"expected_action"]
 		draw_string(
 			ThemeDB.fallback_font,
@@ -323,6 +387,11 @@ func _draw() -> void:
 			continue
 		var feedback: Dictionary = _lane_feedback[lane]
 		var grade_name: StringName = feedback[&"grade_name"]
+		_draw_result_cue(
+			Vector2((float(lane_index) + 0.5) * lane_width, hit_line_y),
+			feedback[&"visual_cue"],
+			feedback[&"color"]
+		)
 		draw_string(
 			ThemeDB.fallback_font,
 			Vector2(float(lane_index) * lane_width + 8.0, hit_line_y + 30.0),
@@ -333,6 +402,29 @@ func _draw() -> void:
 			_get_grade_color(grade_name)
 		)
 	draw_rect(board_rect, GRID_COLOR, false, 2.0)
+
+func _draw_result_cue(position: Vector2, visual_cue: StringName, color: Color) -> void:
+	match visual_cue:
+		&"strong_burst":
+			draw_circle(position, 14.0, Color(color, 0.6))
+			draw_arc(position, 22.0, 0.0, TAU, 32, color, 4.0)
+			draw_arc(position, 29.0, 0.0, TAU, 32, Color(color, 0.7), 2.0)
+		&"shaky_double_ring":
+			draw_arc(position, 18.0, 0.0, TAU, 32, color, 4.0)
+			draw_arc(position, 25.0, 0.0, TAU, 32, Color(color, 0.65), 2.0)
+		_:
+			draw_arc(position, 19.0, 0.0, TAU, 32, color, 4.0)
+			draw_line(position + Vector2(-8.0, -8.0), position + Vector2(8.0, 8.0), color, 3.0)
+			draw_line(position + Vector2(-8.0, 8.0), position + Vector2(8.0, -8.0), color, 3.0)
+
+func _get_result_visual_cue(grade_name: StringName) -> StringName:
+	match grade_name:
+		&"perfect", &"great", &"good":
+			return &"strong_burst"
+		&"near_miss":
+			return &"shaky_double_ring"
+		_:
+			return &"miss_ring"
 
 func _get_grade_color(grade_name: StringName) -> Color:
 	match grade_name:

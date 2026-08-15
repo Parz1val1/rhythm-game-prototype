@@ -58,6 +58,27 @@ func _run() -> void:
 	_check("every expected action uses its matching stable lane", target_lanes, [&"up", &"right", &"down", &"left", &"up", &"right"])
 	_check("stable lane placement is left/down/up/right", lane_indices, [2, 3, 1, 0, 2, 3])
 	_check("the final chord shares one scoreable time", response_snapshot[&"targets"][4][&"due_beat"], response_snapshot[&"targets"][5][&"due_beat"])
+	var chord_groups: Array = response_snapshot.get(&"chord_groups", [])
+	var final_chord: Dictionary = chord_groups[0] if not chord_groups.is_empty() else {}
+	_check(
+		"simultaneous targets expose one shared connector-and-pulse treatment",
+		{
+			&"group_count": chord_groups.size(),
+			&"group_id": final_chord.get(&"group_id", &""),
+			&"target_ids": final_chord.get(&"target_ids", []),
+			&"lanes": final_chord.get(&"lanes", []),
+			&"treatment": final_chord.get(&"treatment", &""),
+			&"shared_color": final_chord.get(&"color", Color.TRANSPARENT),
+		},
+		{
+			&"group_count": 1,
+			&"group_id": &"opening_call:1:group:4",
+			&"target_ids": [&"opening_call:1:4", &"opening_call:1:5"],
+			&"lanes": [&"up", &"right"],
+			&"treatment": &"connector_pulse",
+			&"shared_color": Color("c69cff"),
+		}
+	)
 	_check("the first target is hidden throughout the handoff", response_snapshot[&"targets"][0][&"visible"], false)
 	_check("later targets remain hidden until their own lead window", response_snapshot[&"targets"][1][&"visible"], false)
 	for beat_number in range(9, 13):
@@ -92,13 +113,70 @@ func _run() -> void:
 	_check("note feedback shows the matching grade", graded_snapshot[&"lane_feedback"][&"up"][&"grade_name"], &"perfect")
 	_check("grading removes only the matching travelling target", graded_snapshot[&"targets"][0][&"visible"], false)
 
+	var source_targets: Array = module.get_response_presentation()[&"targets"]
+	var first_chord_target: Dictionary = source_targets[4]
+	var second_chord_target: Dictionary = source_targets[5]
+	module.submit_response_input(first_chord_target[&"expected_action"], first_chord_target[&"due_beat"])
+	module.submit_response_input(
+		second_chord_target[&"expected_action"],
+		float(second_chord_target[&"due_beat"]) + 0.4
+	)
+	var chord_result_snapshot: Dictionary = highway.get_presentation_snapshot()
+	var feedback_by_target: Dictionary = chord_result_snapshot.get(&"target_feedback", {})
+	var first_chord_feedback: Dictionary = feedback_by_target.get(first_chord_target[&"target_id"], {})
+	var second_chord_feedback: Dictionary = feedback_by_target.get(second_chord_target[&"target_id"], {})
+	_check(
+		"chord components keep independent lane results with non-text quality cues",
+		{
+			&"target_ids": [
+				first_chord_feedback.get(&"target_id", &""),
+				second_chord_feedback.get(&"target_id", &""),
+			],
+			&"lanes": [
+				first_chord_feedback.get(&"lane", &""),
+				second_chord_feedback.get(&"lane", &""),
+			],
+			&"expected_actions": [
+				first_chord_feedback.get(&"expected_action", &""),
+				second_chord_feedback.get(&"expected_action", &""),
+			],
+			&"actual_actions": [
+				first_chord_feedback.get(&"actual_action", &""),
+				second_chord_feedback.get(&"actual_action", &""),
+			],
+			&"signed_offsets": [
+				is_zero_approx(float(first_chord_feedback.get(&"offset_ms", INF))),
+				is_equal_approx(float(second_chord_feedback.get(&"offset_ms", INF)), 200.0),
+			],
+			&"grades": [
+				first_chord_feedback.get(&"grade_name", &""),
+				second_chord_feedback.get(&"grade_name", &""),
+			],
+			&"visual_cues": [
+				first_chord_feedback.get(&"visual_cue", &""),
+				second_chord_feedback.get(&"visual_cue", &""),
+			],
+		},
+		{
+			&"target_ids": [first_chord_target[&"target_id"], second_chord_target[&"target_id"]],
+			&"lanes": [&"up", &"right"],
+			&"expected_actions": [&"up", &"right"],
+			&"actual_actions": [&"up", &"right"],
+			&"signed_offsets": [true, true],
+			&"grades": [&"perfect", &"miss"],
+			&"visual_cues": [&"strong_burst", &"miss_ring"],
+		}
+	)
+
 	var first_round_ids: Array[StringName] = []
 	for target in graded_snapshot[&"targets"]:
 		first_round_ids.append(target[&"target_id"])
 	module.player_intent(CombatV1Script.Intent.SUBMIT_RESPONSE)
 	var cleared_snapshot: Dictionary = highway.get_presentation_snapshot()
 	_check("leaving Response clears scheduled visuals", cleared_snapshot[&"targets"].is_empty(), true)
+	_check("leaving Response clears chord grouping", cleared_snapshot[&"chord_groups"].is_empty(), true)
 	_check("leaving Response clears lane feedback", cleared_snapshot[&"lane_feedback"].is_empty(), true)
+	_check("leaving Response clears target feedback", cleared_snapshot[&"target_feedback"].is_empty(), true)
 
 	module.player_intent(CombatV1Script.Intent.CONTINUE_ROUND)
 	beat_clock.beat.emit(15)
@@ -113,6 +191,7 @@ func _run() -> void:
 	_check("a repeated round owns exactly one fresh visual schedule", repeated_snapshot[&"targets"].size(), 6)
 	_check("a repeated round retains no stale target identities", _arrays_overlap(first_round_ids, repeated_ids), false)
 	_check("a repeated round starts with cleared feedback", repeated_snapshot[&"lane_feedback"].is_empty(), true)
+	_check("a repeated round starts with no stale target feedback", repeated_snapshot[&"target_feedback"].is_empty(), true)
 	_check(
 		"the highway owns one cadence connection",
 		_is_connected(module, &"cadence_changed", highway, &"_on_cadence_changed"),
@@ -133,6 +212,7 @@ func _run() -> void:
 	var resolved_snapshot: Dictionary = highway.get_presentation_snapshot()
 	_check("encounter resolution clears scheduled visuals", resolved_snapshot[&"targets"].is_empty(), true)
 	_check("encounter resolution clears lane feedback", resolved_snapshot[&"lane_feedback"].is_empty(), true)
+	_check("encounter resolution clears target feedback", resolved_snapshot[&"target_feedback"].is_empty(), true)
 
 	highway.teardown()
 	highway.teardown()
@@ -147,6 +227,7 @@ func _run() -> void:
 		false
 	)
 	_check("teardown clears all presentation state", highway.get_presentation_snapshot()[&"targets"].is_empty(), true)
+	_check("teardown clears all per-target feedback", highway.get_presentation_snapshot()[&"target_feedback"].is_empty(), true)
 	module.teardown()
 	module.free()
 	highway.free()

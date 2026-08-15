@@ -244,6 +244,9 @@ func submit_response_input(action: StringName, phrase_position_beats: float) -> 
 	)
 	result[&"target_index"] = target_index
 	result[&"target_id"] = target[&"target_id"]
+	result[&"lane"] = target[&"expected_action"]
+	result[&"group_id"] = target[&"group_id"]
+	result[&"group_size"] = target[&"group_size"]
 	result[&"beat_offset"] = target[&"beat_offset"]
 	result[&"due_beat"] = target[&"due_beat"]
 	target[&"graded"] = true
@@ -311,6 +314,8 @@ func get_response_presentation() -> Dictionary:
 			presentation_targets.append({
 				&"target_id": target[&"target_id"],
 				&"expected_action": target[&"expected_action"],
+				&"group_id": target[&"group_id"],
+				&"group_size": target[&"group_size"],
 				&"beat_offset": target[&"beat_offset"],
 				&"due_beat": target[&"due_beat"],
 			})
@@ -473,6 +478,12 @@ func _prepare_response_targets() -> void:
 					_response_round_id,
 					target_index,
 				]),
+				&"group_id": StringName("%s:%d:group:%d" % [
+					_opponent.phrase.phrase_id,
+					_response_round_id,
+					event_index,
+				]),
+				&"group_size": lane_count,
 				&"event": event,
 				&"event_index": event_index,
 				&"chord_lane_index": chord_lane_index,
@@ -500,6 +511,9 @@ func _complete_response() -> Dictionary:
 			)
 			result[&"target_index"] = target_index
 			result[&"target_id"] = target[&"target_id"]
+			result[&"lane"] = target[&"expected_action"]
+			result[&"group_id"] = target[&"group_id"]
+			result[&"group_size"] = target[&"group_size"]
 			result[&"beat_offset"] = target[&"beat_offset"]
 			result[&"due_beat"] = target[&"due_beat"]
 			target[&"graded"] = true

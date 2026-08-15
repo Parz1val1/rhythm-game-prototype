@@ -63,10 +63,14 @@ func _run() -> void:
 		var target_ids: Array[StringName] = []
 		var actions: Array[StringName] = []
 		var offsets: Array[float] = []
+		var group_ids: Array[StringName] = []
+		var group_sizes: Array[int] = []
 		for target in presentation[&"targets"]:
 			target_ids.append(target[&"target_id"])
 			actions.append(target[&"expected_action"])
 			offsets.append(target[&"beat_offset"])
+			group_ids.append(target[&"group_id"])
+			group_sizes.append(target[&"group_size"])
 		_check(
 			"the complete schedule has stable round-scoped target identities",
 			target_ids,
@@ -81,6 +85,19 @@ func _run() -> void:
 		)
 		_check("the schedule preserves authored chord timing", offsets, [0.0, 0.75, 1.5, 2.5, 3.0, 3.0])
 		_check("the final cue maps to two simultaneous lanes", actions, [&"up", &"right", &"down", &"left", &"up", &"right"])
+		_check(
+			"targets from one authored event share stable group identity",
+			group_ids,
+			[
+				&"opening_call:1:group:0",
+				&"opening_call:1:group:1",
+				&"opening_call:1:group:2",
+				&"opening_call:1:group:3",
+				&"opening_call:1:group:4",
+				&"opening_call:1:group:4",
+			]
+		)
+		_check("only the simultaneous targets report a two-note group", group_sizes, [1, 1, 1, 1, 2, 2])
 		_check("the secondary text cue does not replace advance notation", _announced_targets.size(), 0)
 		root.get_node("BeatClock").beat.emit(9)
 		_check("the secondary text cue remains hidden before the first due beat", _announced_targets.size(), 0)
@@ -112,6 +129,9 @@ func _run() -> void:
 		var first_result: Dictionary = _note_results[0]
 		_check("the graded target keeps presentation identity", first_result[&"target_id"], first_target[&"target_id"])
 		_check("the graded target keeps presentation action", first_result[&"expected_action"], first_target[&"expected_action"])
+		_check("the graded target identifies its feedback lane", first_result[&"lane"], first_target[&"expected_action"])
+		_check("the graded target keeps its chord group", first_result[&"group_id"], first_target[&"group_id"])
+		_check("the graded target keeps its chord size", first_result[&"group_size"], first_target[&"group_size"])
 		_check("the graded target keeps authored offset", first_result[&"beat_offset"], first_target[&"beat_offset"])
 		_check("the graded target keeps its scoreable due time", first_result[&"due_beat"], first_target[&"due_beat"])
 		_check("the presented due time grades perfectly", first_result[&"grade_name"], &"perfect")

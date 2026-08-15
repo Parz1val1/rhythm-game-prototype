@@ -78,6 +78,11 @@ func stop() -> void:
 func is_running() -> bool:
     return _running
 
+## Return the current audio source identity for diagnostics and isolation checks.
+## Zero means the clock is not anchored to an AudioStreamPlayer.
+func get_audio_source_instance_id() -> int:
+    return _stream_player.get_instance_id() if _stream_player != null else 0
+
 ## Return the latest indivisible musical-position snapshot.
 func get_musical_position_beats() -> float:
     return musical_position_beats

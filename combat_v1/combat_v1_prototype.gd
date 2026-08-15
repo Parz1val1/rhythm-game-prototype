@@ -7,6 +7,7 @@ const DebugLog = preload("res://autoloads/debug_log.gd")
 const OpponentData = preload("res://combat_v1/opponent_data.gd")
 const PhraseEvent = preload("res://combat_v1/phrase_event.gd")
 const CombatV1HUD = preload("res://combat_v1/combat_v1_hud.gd")
+const ResponsePerformanceFeedback = preload("res://combat_v1/response_performance_feedback.gd")
 
 const PLAYTEST_TRACK_NAMES: Array[String] = [
 	"Campfire Strings",
@@ -29,6 +30,7 @@ const PLAYTEST_TRACKS: Array[AudioStream] = [
 
 @onready var _audio: AudioStreamPlayer = $AudioStreamPlayer
 @onready var _hud: CombatV1HUD = $CombatV1HUD
+@onready var _response_feedback: ResponsePerformanceFeedback = $ResponsePerformanceFeedback
 
 var _combat_v1: CombatV1
 var _resources_started: bool = false
@@ -77,6 +79,7 @@ func _ready() -> void:
 	_resources_started = true
 
 	_combat_v1 = CombatV1.new()
+	_combat_v1.name = "CombatV1"
 	add_child(_combat_v1)
 	_combat_v1.response_handoff_beats = response_handoff_beats
 	_combat_v1.response_visual_lead_beats = response_visual_lead_beats
@@ -84,6 +87,7 @@ func _ready() -> void:
 	_combat_v1.phrase_event_announced.connect(_on_phrase_event_announced)
 	_combat_v1.response_phrase_graded.connect(_on_response_phrase_graded)
 	_combat_v1.start()
+	_response_feedback.setup(_combat_v1)
 	# Bind after start() so the harness continuously exercises snapshot-first setup.
 	_hud.setup(_combat_v1)
 
@@ -167,6 +171,7 @@ func _configure_loop(stream: AudioStream) -> void:
 ## Stop the harness and disconnect every local module signal. Safe to repeat.
 func teardown() -> void:
 	_hud.teardown()
+	_response_feedback.teardown()
 	if _combat_v1 != null:
 		if _combat_v1.phrase_event_announced.is_connected(_on_phrase_event_announced):
 			_combat_v1.phrase_event_announced.disconnect(_on_phrase_event_announced)
