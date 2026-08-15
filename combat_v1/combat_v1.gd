@@ -69,8 +69,9 @@ signal player_intent_received(intent: Intent)
 signal intent_rejected(intent: Intent)
 ## Emitted when the shared timing/input seam reports a scored input.
 signal rhythm_input_observed(direction: StringName, score: StringName, offset_ms: float)
-## Single source of truth for both audio and visual phrase presentation.
-signal phrase_event_announced(event: PhraseEvent)
+## Single source of truth for audio, text, and lane-preview phrase presentation.
+## Expected actions come from the prepared Response targets for the active profile.
+signal phrase_event_announced(event: PhraseEvent, expected_actions: Array[StringName])
 ## Presents one heard cue as one or more simultaneous scoreable actions in the
 ## active rhythm language.
 signal response_target_announced(event: PhraseEvent, expected_actions: Array[StringName])
@@ -106,6 +107,7 @@ var _response_schedule_lead_beats: float = 2.0
 var _response_schedule_handoff_beats: float = 4.0
 var _response_timeline_origin_beats: float = 0.0
 var _response_handoff_complete: bool = true
+var _announced_phrase_event_indices: Array[int] = []
 var _response_grader = ResponseGrader.new()
 var _last_response_summary: Dictionary = {}
 var _cadence: Cadence = Cadence.IDLE
@@ -411,12 +413,16 @@ func _on_quarter_beat(_beat_number: int, subdivision: float = -1.0) -> void:
 func _announce_phrase_events_at(phrase_position: float) -> void:
 	if _opponent == null or _opponent.phrase == null:
 		return
-	for event in _opponent.phrase.events:
-		if not is_equal_approx(event.beat_offset, phrase_position):
+	for event_index in range(_opponent.phrase.events.size()):
+		var event: PhraseEvent = _opponent.phrase.events[event_index]
+		if event_index in _announced_phrase_event_indices \
+			or not is_equal_approx(event.beat_offset, phrase_position):
 			continue
+		_announced_phrase_event_indices.append(event_index)
+		var expected_actions := _get_expected_actions_for_event(event_index)
 		DebugLog.timing("[PHRASE ] opponent=%s  phrase=%s  offset=%.2f  prompt=%s" % [
 			_opponent.opponent_id, _opponent.phrase.phrase_id, event.beat_offset, event.prompt_id])
-		phrase_event_announced.emit(event)
+		phrase_event_announced.emit(event, expected_actions)
 
 func _announce_response_targets_at(phrase_position: float) -> void:
 	if _opponent == null or _opponent.phrase == null:
@@ -430,11 +436,7 @@ func _announce_response_targets_at(phrase_position: float) -> void:
 			event_indices.append(event_index)
 	for event_index in event_indices:
 		var event: PhraseEvent = _opponent.phrase.events[event_index]
-		var expected_actions: Array[StringName] = []
-		for target in _response_targets:
-			if int(target[&"event_index"]) == event_index \
-				and is_equal_approx(float(target[&"due_beat"]), phrase_position):
-				expected_actions.append(target[&"expected_action"])
+		var expected_actions := _get_expected_actions_for_event(event_index)
 		DebugLog.timing("[RESPONSE] phrase=%s  offset=%.2f  actions=%s" % [
 			_opponent.phrase.phrase_id,
 			event.beat_offset,
@@ -442,8 +444,16 @@ func _announce_response_targets_at(phrase_position: float) -> void:
 		])
 		response_target_announced.emit(event, expected_actions)
 
+func _get_expected_actions_for_event(event_index: int) -> Array[StringName]:
+	var expected_actions: Array[StringName] = []
+	for target in _response_targets:
+		if int(target[&"event_index"]) == event_index:
+			expected_actions.append(target[&"expected_action"])
+	return expected_actions
+
 func _prepare_response_targets() -> void:
 	_response_targets.clear()
+	_announced_phrase_event_indices.clear()
 	if _opponent == null or _opponent.phrase == null:
 		return
 	_response_round_id += 1

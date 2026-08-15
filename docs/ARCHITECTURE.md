@@ -23,8 +23,10 @@ The harness injects the existing `BeatClock` and `RhythmInput` autoloads into
 combat flow. `CombatV1` owns a deterministic `CombatV1EncounterState` and exposes
 cadence plus encounter-wide Groove, Composure, Multiplier, and terminal outcomes
 through one public seam. It also plays a deep-copied V1 `OpponentData` phrase from
-audio-corrected beat/sub-beat signals and emits one event seam for audio and visual
-presentation. Response adds a snapshot-first schedule with stable target identity,
+audio-corrected beat/sub-beat signals and emits one event seam carrying the
+authored cue plus the actions already mapped by the prepared Response schedule.
+Audio, text, and transient lane-preview presentation all consume that seam.
+Response adds a snapshot-first schedule with stable target identity,
 mapped action, authored offset, an input-free handoff, independently configured
 approach lead and scoreable due time, and current BeatClock-derived timeline
 position. A separate diagnostic `CombatV1HUD` consumes only that public
@@ -77,7 +79,7 @@ flowchart LR
 | `combat_v1/encounter_state.gd` | Deterministic Issue #10 state module; owns configurable Groove, shared Composure, shared Multiplier math, clamping, and one-shot Jam/loss resolution |
 | `combat_v1/opponent_data.gd`, `opponent_phrase.gd`, and `phrase_event.gd` | V1 authoring model for opponent identity, one-to-four-bar phrases, musical offsets, one-to-four-input Response cues, and symbolic audio/visual cues; it has no legacy enemy statistics |
 | `combat_v1/opponents/drum_golem.tres` | One-bar prototype opponent phrase with whole-, half-, and quarter-beat events |
-| `combat_v1/response_note_highway.tscn` and `combat_v1/response_note_highway.gd` | Snapshot-first Response presentation adapter; draws stable left/down/up/right lanes, one hit line, BeatClock-derived target travel, and matching lane-local grades without reading CombatV1 internals or owning timing rules |
+| `combat_v1/response_note_highway.tscn` and `combat_v1/response_note_highway.gd` | Four-lane presentation adapter; flashes grouped, translucent Enemy Phrase previews from mapped phrase announcements, then draws snapshot-first BeatClock-derived Response target travel and matching lane-local grades without reading CombatV1 internals or owning chart timing |
 | `combat_v1/combat_v1_hud.tscn` and `combat_v1/combat_v1_hud.gd` | Diagnostic V1 presentation for cadence, Groove, Composure, Multiplier, phrase cues, six-grade note/phrase feedback, nonviolent outcomes, and the active playtest backing track; observes only the public `CombatV1` seam |
 | `combat_v1/combat_v1_prototype.tscn` and `combat_v1/combat_v1_prototype.gd` | Separately runnable harness that injects dependencies, owns symbolic phrase-audio/log handoffs, and hosts `CombatV1HUD`; offers three same-length procedural backing loops switchable with keys 1–3 or controller shoulders without restarting the clock, accepts controller Start for its provisional cadence intents, and is not the configured main scene |
 | `characters/*.gd/.tres` | Character stats, input behavior, and musical/visual identity |
@@ -185,8 +187,10 @@ There is no durable persistence.
   Enemy Phrase duration comes from that opponent's phrase rather than a parallel
   timing argument.
 - `phrase_event_announced` is the single presentation seam for an authored phrase
-  event. Both audio and visual consumers receive the same live deep-copy event;
-  separate scheduling paths would break parity.
+  event. Audio, text, and highway consumers receive the same live deep-copy event
+  plus its active-profile actions read from the already-prepared Response targets;
+  callers do not reconstruct mapping. Round-local event identity prevents a
+  recovered subdivision from announcing the same event twice.
 - `CombatV1ResponseGrader` is the deterministic Response execution seam. A copied
   `Config` defines the five timing boundaries and phrase thresholds; `grade_note()`
   returns one of six typed grades and `summarize()` returns an ordered, immutable-
@@ -209,10 +213,14 @@ Response uses a distinct active treatment. The HUD displays Groove, shared
 Composure, and shared Multiplier with their public bounds, translates all six
 note and phrase grades into readable feedback, and turns each symbolic phrase
 `visual_cue` into an on-screen cue alongside the placeholder audio handoff.
-Its central Response board keeps four directional lanes ordered left/down/up/right,
-shows a fixed hit line, moves each target from the current BeatClock timeline, and
-shows grades at the matching lane. One authored event may place one to four notes
-at the same due beat; the secondary text cue presents those actions as one chord.
+Its central board remains visible during Enemy Phrase and Response. During Enemy
+Phrase it flashes each mapped action group briefly as translucent cyan ghost notes
+in the same four directional lanes later used by Response; the adapter-local flash
+lifetime does not schedule phrase events or enable scoring. During Response the
+board shows a fixed hit line, moves each target from the current BeatClock timeline,
+and shows grades at the matching lane. One authored event may place one to four
+notes at the same due beat; both the preview and secondary text cue present those
+actions as one chord.
 The playtest control panel also names the active temporary backing loop and shows
 the 1–3 comparison controls.
 
@@ -230,15 +238,19 @@ the current audio-corrected `musical_position_beats` atomically before those sig
 for consumers that need a continuous timeline. No combat timer or wall-clock schedule
 is introduced.
 Whole, half, and quarter offsets are matched deterministically in authored order,
-so headless signal simulation reproduces the same event sequence.
+so headless signal simulation reproduces the same event sequence. Each event is
+announced once per round even when BeatClock recovers or repeats a subdivision;
+repeated rounds clear that guard with their fresh Response targets.
 
 During Settle, Enemy Phrase, and the opening Response handoff, `CombatV1`
 temporarily suppresses timing-grade production at the shared `RhythmInput` seam.
 It restores the prior scoring state at the handoff boundary, on another
 non-listening cadence, or on teardown without changing the active profile.
 Listening and handoff presses therefore cannot consume or grade a scheduled
-target. The prototype harness presents
-`prompt_text` and logs the event's symbolic `audio_cue` and `visual_cue`;
+target. `ResponseNoteHighway` listens to those same announcements and flashes the
+mapped Response actions in-place without adding a parallel chart or phrase-event
+scheduler. The prototype harness also presents `prompt_text` and logs the event's
+symbolic `audio_cue` and `visual_cue`;
 production phrase-cue assets remain out of scope. Its three backing loops are
 procedural, temporary playtest material rather than a dynamic arrangement pass.
 
@@ -256,8 +268,9 @@ four-beat bar and the lead-in defaults to two beats. Both remain independent
 playtest-tuning values rather than final cadence or difficulty rules. Targets stay
 hidden and input-free throughout the handoff, then receive the complete lead-in.
 The handoff boundary is logged once from the same absolute Response timeline.
-`response_target_announced` provides
-one secondary text cue with the event's complete simultaneous action list. This
+The prepared targets also supply `phrase_event_announced` with that exact action
+list for the earlier listening preview. `response_target_announced` later provides
+one secondary text cue with the same complete simultaneous action list. This
 mapping is a first reproduction exercise, not a new opponent-preference or
 multiple-answer model.
 

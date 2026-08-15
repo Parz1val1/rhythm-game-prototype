@@ -87,7 +87,10 @@ func _on_response_phrase_graded(summary: Dictionary) -> void:
 	_phrase_feedback_label.text = "PHRASE  %s" % _get_grade_display_name(grade_name)
 	_phrase_feedback_label.add_theme_color_override("font_color", _get_grade_color(grade_name))
 
-func _on_phrase_event_announced(event: PhraseEvent) -> void:
+func _on_phrase_event_announced(
+	event: PhraseEvent,
+	_expected_actions: Array[StringName]
+) -> void:
 	_cue_mode_label.text = "LISTENING CUE"
 	_cue_mode_label.add_theme_color_override("font_color", _get_mode_color(CombatV1.Cadence.ENEMY_PHRASE))
 	_cue_label.text = "HEAR  %s" % event.prompt_text

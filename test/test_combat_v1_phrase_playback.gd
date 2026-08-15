@@ -91,13 +91,22 @@ func _run() -> void:
 	module.queue_free()
 	print("=== done ===")
 
-func _on_phrase_event_announced(event: PhraseEvent) -> void:
+func _on_phrase_event_announced(
+	event: PhraseEvent,
+	_expected_actions: Array[StringName]
+) -> void:
 	_announced_offsets.append(event.beat_offset)
 
-func _on_audio_phrase_event(event: PhraseEvent) -> void:
+func _on_audio_phrase_event(
+	event: PhraseEvent,
+	_expected_actions: Array[StringName]
+) -> void:
 	_audio_event_sequence.append("%s@%.2f" % [event.prompt_id, event.beat_offset])
 
-func _on_visual_phrase_event(event: PhraseEvent) -> void:
+func _on_visual_phrase_event(
+	event: PhraseEvent,
+	_expected_actions: Array[StringName]
+) -> void:
 	_visual_event_sequence.append("%s@%.2f" % [event.prompt_id, event.beat_offset])
 
 func _on_rhythm_input_observed(_direction: StringName, _score: StringName, _offset_ms: float) -> void:

@@ -164,7 +164,9 @@ func _run() -> void:
 	_check("HUD exposes a visual phrase cue", cue_label != null, true)
 	if cue_label != null:
 		var cue_event = load("res://combat_v1/opponents/drum_golem.tres").phrase.events[0]
-		module.phrase_event_announced.emit(cue_event)
+		var cue_actions: Array[StringName] = []
+		cue_actions.append(&"up")
+		module.phrase_event_announced.emit(cue_event, cue_actions)
 		_check("listening cue identifies what the player hears", hud.get_node("CuePanel/CueModeLabel").text, "LISTENING CUE")
 		_check("listening cue shows authored prompt text", cue_label.text, "HEAR  Left pulse")
 		_check("placeholder audio has a readable visual equivalent", hud.get_node("CuePanel/CueDetailLabel").text, "VISUAL  PULSE LEFT  |  BEAT 0.00")
