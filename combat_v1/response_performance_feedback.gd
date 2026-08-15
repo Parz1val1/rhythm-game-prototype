@@ -1,12 +1,13 @@
-## Replaceable one-shot audio adapter for deterministic Combat V1 Response results.
+## Replaceable one-shot audio adapter for Enemy Phrase lessons and Response results.
 class_name CombatV1ResponsePerformanceFeedback
 extends Node
 
 const CombatV1 = preload("res://combat_v1/combat_v1.gd")
 const DebugLog = preload("res://autoloads/debug_log.gd")
+const PhraseEvent = preload("res://combat_v1/phrase_event.gd")
 
 const LANE_ORDER: Array[StringName] = [&"left", &"down", &"up", &"right"]
-const QUALITY_BANDS: Array[StringName] = [&"strong", &"shaky", &"missed"]
+const QUALITY_BANDS: Array[StringName] = [&"preview", &"strong", &"shaky", &"missed"]
 const LANE_PITCH_HZ := {
 	&"left": 261.63,
 	&"down": 293.66,
@@ -18,6 +19,7 @@ var _combat_v1: CombatV1 = null
 var _players: Dictionary = {}
 var _streams: Dictionary = {}
 var _routed_events: Array[Dictionary] = []
+var _preview_events: Array[Dictionary] = []
 
 func _ready() -> void:
 	_ensure_players()
@@ -32,6 +34,8 @@ func setup(combat_v1: CombatV1) -> void:
 		return
 	if not _combat_v1.response_note_graded.is_connected(_on_response_note_graded):
 		_combat_v1.response_note_graded.connect(_on_response_note_graded)
+	if not _combat_v1.phrase_event_announced.is_connected(_on_phrase_event_announced):
+		_combat_v1.phrase_event_announced.connect(_on_phrase_event_announced)
 	if not _combat_v1.cadence_changed.is_connected(_on_cadence_changed):
 		_combat_v1.cadence_changed.connect(_on_cadence_changed)
 
@@ -39,6 +43,7 @@ func setup(combat_v1: CombatV1) -> void:
 func get_feedback_snapshot() -> Dictionary:
 	return {
 		&"routed_events": _routed_events.duplicate(true),
+		&"preview_events": _preview_events.duplicate(true),
 	}
 
 ## Disconnect and stop every one-shot voice. Safe to call repeatedly.
@@ -46,6 +51,9 @@ func teardown() -> void:
 	if _combat_v1 != null \
 			and _combat_v1.response_note_graded.is_connected(_on_response_note_graded):
 		_combat_v1.response_note_graded.disconnect(_on_response_note_graded)
+	if _combat_v1 != null \
+			and _combat_v1.phrase_event_announced.is_connected(_on_phrase_event_announced):
+		_combat_v1.phrase_event_announced.disconnect(_on_phrase_event_announced)
 	if _combat_v1 != null and _combat_v1.cadence_changed.is_connected(_on_cadence_changed):
 		_combat_v1.cadence_changed.disconnect(_on_cadence_changed)
 	_combat_v1 = null
@@ -53,6 +61,39 @@ func teardown() -> void:
 	for player in _players.values():
 		(player as AudioStreamPlayer).stream = null
 	_streams.clear()
+
+func _on_phrase_event_announced(
+	event: PhraseEvent,
+	expected_actions: Array[StringName]
+) -> void:
+	if _combat_v1 == null or _combat_v1.get_cadence() != CombatV1.Cadence.ENEMY_PHRASE:
+		return
+	var lanes: Array[StringName] = []
+	var pitches: Array[float] = []
+	for action in expected_actions:
+		if not LANE_PITCH_HZ.has(action):
+			continue
+		var pitch_hz: float = LANE_PITCH_HZ[action]
+		var player := _players[action] as AudioStreamPlayer
+		player.volume_db = _get_volume_db(&"preview")
+		player.stream = _get_stream(action, pitch_hz, &"preview")
+		player.play()
+		lanes.append(action)
+		pitches.append(pitch_hz)
+	if lanes.is_empty():
+		return
+	_preview_events.append({
+		&"prompt_id": event.prompt_id,
+		&"beat_offset": event.beat_offset,
+		&"lanes": lanes,
+		&"pitch_hz": pitches,
+		&"timbre": _get_timbre(&"preview"),
+	})
+	DebugLog.audio("[LESSON ] prompt=%s  offset=%.2f  lanes=%s" % [
+		event.prompt_id,
+		event.beat_offset,
+		"+".join(lanes),
+	])
 
 func _on_response_note_graded(result: Dictionary) -> void:
 	if _combat_v1 == null or _combat_v1.get_cadence() != CombatV1.Cadence.RESPONSE:
@@ -96,6 +137,7 @@ func _clear_feedback() -> void:
 	for player in _players.values():
 		(player as AudioStreamPlayer).stop()
 	_routed_events.clear()
+	_preview_events.clear()
 
 func _ensure_players() -> void:
 	if not _players.is_empty():
@@ -125,7 +167,11 @@ func _get_stream(
 	var duration_seconds := 0.22
 	var harmonic_level := 0.22
 	var amplitude := 0.42
-	if quality_band == &"shaky":
+	if quality_band == &"preview":
+		duration_seconds = 0.24
+		harmonic_level = 0.14
+		amplitude = 0.34
+	elif quality_band == &"shaky":
 		pitch_hz *= 0.985
 		duration_seconds = 0.18
 		harmonic_level = 0.10
@@ -166,6 +212,8 @@ func _get_quality_band(grade_name: StringName) -> StringName:
 
 func _get_timbre(quality_band: StringName) -> StringName:
 	match quality_band:
+		&"preview":
+			return &"preview_pluck"
 		&"strong":
 			return &"clear_pluck"
 		&"shaky":
@@ -175,6 +223,8 @@ func _get_timbre(quality_band: StringName) -> StringName:
 
 func _get_volume_db(quality_band: StringName) -> float:
 	match quality_band:
+		&"preview":
+			return -10.0
 		&"strong":
 			return -9.0
 		&"shaky":

@@ -82,7 +82,7 @@ flowchart LR
 | `combat_v1/opponent_data.gd`, `opponent_phrase.gd`, and `phrase_event.gd` | V1 authoring model for opponent identity, one-to-four-bar phrases, musical offsets, one-to-four-input Response cues, and symbolic audio/visual cues; it has no legacy enemy statistics |
 | `combat_v1/opponents/drum_golem.tres` | One-bar prototype opponent phrase with whole-, half-, and quarter-beat events |
 | `combat_v1/response_note_highway.tscn` and `combat_v1/response_note_highway.gd` | Four-lane presentation adapter; flashes grouped, translucent Enemy Phrase previews, connects simultaneous Response targets with a shared pulse, then draws snapshot-first BeatClock-derived target travel and independent lane-local result cues without reading CombatV1 internals or owning chart timing |
-| `combat_v1/response_performance_feedback.tscn` and `combat_v1/response_performance_feedback.gd` | Replaceable Response-audio adapter; consumes published note-grade truth, routes four lane-specific synthesized plucks, and softens or mutes imperfect results without observing BeatClock or changing backing playback |
+| `combat_v1/response_performance_feedback.tscn` and `combat_v1/response_performance_feedback.gd` | Replaceable performance-audio adapter; plays each mapped Enemy Phrase highlight as a lane-specific synthesized preview, then consumes published note-grade truth and softens or mutes imperfect Response results without observing BeatClock or changing backing playback |
 | `combat_v1/combat_v1_hud.tscn` and `combat_v1/combat_v1_hud.gd` | Diagnostic V1 presentation for cadence, Groove, Composure, Multiplier, phrase cues, six-grade note/phrase feedback, nonviolent outcomes, and the active playtest backing track; observes only the public `CombatV1` seam |
 | `combat_v1/combat_v1_prototype.tscn` and `combat_v1/combat_v1_prototype.gd` | Separately runnable harness that injects dependencies, owns symbolic phrase-audio/log handoffs, and hosts `CombatV1HUD` plus the Response feedback adapter; offers three same-length procedural backing loops switchable with keys 1–3 or controller shoulders without restarting the clock, accepts controller Start for its provisional cadence intents, and is not the configured main scene |
 | `characters/*.gd/.tres` | Character stats, input behavior, and musical/visual identity |
@@ -204,10 +204,13 @@ There is no durable persistence.
   making the diagnostic harness an owner of grading rules. Each note result keeps
   target and group identity, expected and actual action, signed timing offset, and
   presentation lane so audio and visual adapters consume one deterministic truth.
-- `CombatV1ResponsePerformanceFeedback.setup(combat_v1)` observes only cadence and
-  note-result signals. Four independent one-shot players allow simultaneous chord
-  tones; synthesized placeholder streams remain adapter-local and replaceable.
-  Cadence changes and guarded teardown stop voices and clear round-local routing.
+- `CombatV1ResponsePerformanceFeedback.setup(combat_v1)` observes only cadence,
+  mapped phrase-announcement, and note-result signals. During Enemy Phrase it plays
+  the same already-mapped lanes that the highway highlights, including simultaneous
+  chord voices, so the player hears the lesson before reproducing it. Four
+  independent one-shot players also route Response results; synthesized placeholder
+  streams remain adapter-local and replaceable. Cadence changes and guarded teardown
+  stop voices and clear round-local routing.
 - `CombatV1HUD.setup(combat_v1)` connects presentation signals and immediately
   reads `get_state()`, while its owned `ResponseNoteHighway` reads
   `get_response_presentation()`. This reconstructs cadence, all three meters, the

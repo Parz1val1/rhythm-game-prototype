@@ -30,8 +30,71 @@ func _run() -> void:
 	)
 	module.start()
 	feedback.setup(module)
-	for beat_number in range(1, 9):
+	for beat_number in range(1, 5):
 		beat_clock.beat.emit(beat_number)
+	beat_clock.quarter_beat.emit(4, 0.75)
+	beat_clock.beat.emit(5)
+	beat_clock.half_beat.emit(5)
+	beat_clock.beat.emit(6)
+	beat_clock.half_beat.emit(6)
+	beat_clock.beat.emit(7)
+	var heard_preview: Array = feedback.get_feedback_snapshot().get(&"preview_events", [])
+	var preview_facts: Array[Dictionary] = []
+	for preview in heard_preview:
+		preview_facts.append({
+			&"prompt_id": preview[&"prompt_id"],
+			&"beat_offset": preview[&"beat_offset"],
+			&"lanes": preview[&"lanes"],
+			&"pitch_hz": preview[&"pitch_hz"],
+			&"timbre": preview[&"timbre"],
+		})
+	_check(
+		"Enemy Phrase highlights play the mapped melody and chord before Response",
+		preview_facts,
+		[
+			{
+				&"prompt_id": &"drum_left",
+				&"beat_offset": 0.0,
+				&"lanes": [&"up"],
+				&"pitch_hz": [329.63],
+				&"timbre": &"preview_pluck",
+			},
+			{
+				&"prompt_id": &"drum_right",
+				&"beat_offset": 0.75,
+				&"lanes": [&"right"],
+				&"pitch_hz": [392.0],
+				&"timbre": &"preview_pluck",
+			},
+			{
+				&"prompt_id": &"drum_left",
+				&"beat_offset": 1.5,
+				&"lanes": [&"down"],
+				&"pitch_hz": [293.66],
+				&"timbre": &"preview_pluck",
+			},
+			{
+				&"prompt_id": &"drum_right",
+				&"beat_offset": 2.5,
+				&"lanes": [&"left"],
+				&"pitch_hz": [261.63],
+				&"timbre": &"preview_pluck",
+			},
+			{
+				&"prompt_id": &"drum_both",
+				&"beat_offset": 3.0,
+				&"lanes": [&"up", &"right"],
+				&"pitch_hz": [329.63, 392.0],
+				&"timbre": &"preview_pluck",
+			},
+		]
+	)
+	beat_clock.beat.emit(8)
+	_check(
+		"the audible lesson clears before the player reproduces it",
+		feedback.get_feedback_snapshot()[&"preview_events"].is_empty(),
+		true
+	)
 
 	var presentation: Dictionary = module.get_response_presentation()
 	for target_index in range(4):
