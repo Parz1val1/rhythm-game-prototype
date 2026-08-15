@@ -58,8 +58,13 @@ func _run() -> void:
 	_check("every expected action uses its matching stable lane", target_lanes, [&"up", &"right", &"down", &"left", &"up", &"right"])
 	_check("stable lane placement is left/down/up/right", lane_indices, [2, 3, 1, 0, 2, 3])
 	_check("the final chord shares one scoreable time", response_snapshot[&"targets"][4][&"due_beat"], response_snapshot[&"targets"][5][&"due_beat"])
-	_check("the first target starts at the configured lead distance", response_snapshot[&"targets"][0][&"progress"], 0.0)
+	_check("the first target is hidden throughout the handoff", response_snapshot[&"targets"][0][&"visible"], false)
 	_check("later targets remain hidden until their own lead window", response_snapshot[&"targets"][1][&"visible"], false)
+	for beat_number in range(9, 13):
+		beat_clock.beat.emit(beat_number)
+	await process_frame
+	var approach_snapshot: Dictionary = highway.get_presentation_snapshot()
+	_check("the first target starts at the configured lead distance after the handoff", approach_snapshot[&"targets"][0][&"progress"], 0.0)
 
 	beat_clock.beat_position = 0.5
 	await process_frame
@@ -68,8 +73,8 @@ func _run() -> void:
 
 	# BeatClock can recover several boundaries on one late frame. No presentation
 	# frame is processed between these emissions, so accumulated delta would drift.
-	beat_clock.beat.emit(9)
-	beat_clock.beat.emit(10)
+	beat_clock.beat.emit(13)
+	beat_clock.beat.emit(14)
 	beat_clock.beat_position = 0.0
 	await process_frame
 	var due_snapshot: Dictionary = highway.get_presentation_snapshot()
@@ -96,9 +101,9 @@ func _run() -> void:
 	_check("leaving Response clears lane feedback", cleared_snapshot[&"lane_feedback"].is_empty(), true)
 
 	module.player_intent(CombatV1Script.Intent.CONTINUE_ROUND)
-	beat_clock.beat.emit(11)
+	beat_clock.beat.emit(15)
 	_check("the next round clears visuals while the opponent performs", highway.get_presentation_snapshot()[&"targets"].is_empty(), true)
-	for beat_number in range(12, 16):
+	for beat_number in range(16, 20):
 		beat_clock.beat.emit(beat_number)
 	await process_frame
 	var repeated_snapshot: Dictionary = highway.get_presentation_snapshot()

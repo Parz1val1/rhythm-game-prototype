@@ -94,6 +94,10 @@ func _run() -> void:
 	)
 
 	var module = prototype.get("_combat_v1")
+	# This test drives cadence signals manually, so stop the audio-derived clock and
+	# use CombatV1's deterministic headless position fallback for the handoff.
+	root.get_node("BeatClock").stop()
+	root.get_node("BeatClock").beat_position = 0.0
 	for beat_number in range(1, 9):
 		root.get_node("BeatClock").beat.emit(beat_number)
 	var CombatV1Script = load("res://combat_v1/combat_v1.gd")
@@ -106,7 +110,19 @@ func _run() -> void:
 	Input.parse_input_event(advance)
 	await process_frame
 	_check(
-		"Start submits the Response without using a musical input",
+		"Start cannot submit Response during the input-free handoff",
+		module.get_cadence(),
+		CombatV1Script.Cadence.RESPONSE
+	)
+	for beat_number in range(9, 13):
+		root.get_node("BeatClock").beat.emit(beat_number)
+	var release_advance := _joy_button(JOY_BUTTON_START)
+	release_advance.pressed = false
+	Input.parse_input_event(release_advance)
+	Input.parse_input_event(_joy_button(JOY_BUTTON_START))
+	await process_frame
+	_check(
+		"Start submits the Response after the handoff without using musical input",
 		module.get_cadence(),
 		CombatV1Script.Cadence.TACTICAL_VAMP
 	)

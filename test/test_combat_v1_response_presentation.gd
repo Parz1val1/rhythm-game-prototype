@@ -59,7 +59,7 @@ func _run() -> void:
 		_check("the presentation identifies its BeatClock timeline", presentation[&"timeline_source"], &"BeatClock")
 		_check("the provisional visual lead-in is two beats", presentation[&"visual_lead_beats"], 2.0)
 		_check("the Response timeline begins before its first due target", presentation[&"timeline_position_beats"], 0.0)
-		_check("the authored offset-zero target is due after the lead-in", presentation[&"targets"][0][&"due_beat"], 2.0)
+		_check("the authored offset-zero target is due after handoff and lead-in", presentation[&"targets"][0][&"due_beat"], 6.0)
 		var target_ids: Array[StringName] = []
 		var actions: Array[StringName] = []
 		var offsets: Array[float] = []
@@ -84,18 +84,19 @@ func _run() -> void:
 		_check("the secondary text cue does not replace advance notation", _announced_targets.size(), 0)
 		root.get_node("BeatClock").beat.emit(9)
 		_check("the secondary text cue remains hidden before the first due beat", _announced_targets.size(), 0)
-		root.get_node("BeatClock").beat.emit(10)
+		for beat_number in range(10, 15):
+			root.get_node("BeatClock").beat.emit(beat_number)
 		_check(
 			"the secondary text cue appears when the first target is scoreable",
 			_announced_targets,
 			[{&"expected_actions": [&"up"], &"beat_offset": 0.0}]
 		)
-		root.get_node("BeatClock").quarter_beat.emit(10, 0.75)
-		root.get_node("BeatClock").beat.emit(11)
-		root.get_node("BeatClock").half_beat.emit(11)
-		root.get_node("BeatClock").beat.emit(12)
-		root.get_node("BeatClock").half_beat.emit(12)
-		root.get_node("BeatClock").beat.emit(13)
+		root.get_node("BeatClock").quarter_beat.emit(14, 0.75)
+		root.get_node("BeatClock").beat.emit(15)
+		root.get_node("BeatClock").half_beat.emit(15)
+		root.get_node("BeatClock").beat.emit(16)
+		root.get_node("BeatClock").half_beat.emit(16)
+		root.get_node("BeatClock").beat.emit(17)
 		_check(
 			"the final cue announces one two-action chord",
 			_announced_targets[-1] if _announced_targets.size() > 0 else {},
@@ -162,7 +163,7 @@ func _run() -> void:
 		root.get_node("BeatClock").beat.emit(beat_number)
 	var tuned_presentation: Dictionary = tuned_module.get_response_presentation()
 	_check("the visual lead-in remains configurable", tuned_presentation[&"visual_lead_beats"], 1.25)
-	_check("a tuned lead-in moves the offset-zero scoreable time", tuned_presentation[&"targets"][0][&"due_beat"], 1.25)
+	_check("a tuned lead-in moves only its part of the offset-zero scoreable time", tuned_presentation[&"targets"][0][&"due_beat"], 5.25)
 	tuned_module.teardown()
 	tuned_module.free()
 

@@ -25,8 +25,9 @@ cadence plus encounter-wide Groove, Composure, Multiplier, and terminal outcomes
 through one public seam. It also plays a deep-copied V1 `OpponentData` phrase from
 audio-corrected beat/sub-beat signals and emits one event seam for audio and visual
 presentation. Response adds a snapshot-first schedule with stable target identity,
-mapped action, authored offset, scoreable due time, and current BeatClock-derived
-timeline position. A separate diagnostic `CombatV1HUD` consumes only that public
+mapped action, authored offset, an input-free handoff, independently configured
+approach lead and scoreable due time, and current BeatClock-derived timeline
+position. A separate diagnostic `CombatV1HUD` consumes only that public
 state and signal surface, including snapshot-first setup for signals emitted before
 it connects, and hosts a four-lane `ResponseNoteHighway`. After each non-terminal
 Response, an indefinite Tactical Vamp accepts one provisional Continue Round intent
@@ -72,7 +73,7 @@ flowchart LR
 | `combat/*_evaluator.gd` | Character-specific attack damage/coherence behind `AttackEvaluator` |
 | `combat/neutral_pattern_translator.gd` | Resolves neutral enemy hits into deterministic directional or percussive notes |
 | `combat/combat_ui.gd` and lane scripts | Present state and note approaches through combat signals |
-| `combat_v1/combat_v1.gd` | Isolated Combat V1 seam; owns the repeatable Settle-free conversation cadence plus `CombatV1EncounterState`, schedules an authored opponent phrase and its lead-in-adjusted Response, accepts typed intents/results, and exposes combined state, phrase events, the complete Response presentation snapshot, and terminal signals |
+| `combat_v1/combat_v1.gd` | Isolated Combat V1 seam; owns the repeatable Settle-free conversation cadence plus `CombatV1EncounterState`, schedules an authored opponent phrase and its handoff-plus-lead-adjusted Response, accepts typed intents/results, and exposes combined state, phrase events, the complete Response presentation snapshot, and terminal signals |
 | `combat_v1/encounter_state.gd` | Deterministic Issue #10 state module; owns configurable Groove, shared Composure, shared Multiplier math, clamping, and one-shot Jam/loss resolution |
 | `combat_v1/opponent_data.gd`, `opponent_phrase.gd`, and `phrase_event.gd` | V1 authoring model for opponent identity, one-to-four-bar phrases, musical offsets, one-to-four-input Response cues, and symbolic audio/visual cues; it has no legacy enemy statistics |
 | `combat_v1/opponents/drum_golem.tres` | One-bar prototype opponent phrase with whole-, half-, and quarter-beat events |
@@ -173,8 +174,9 @@ There is no durable persistence.
   `resolved` carries the typed `JAM` or `LOSS` outcome exactly once.
 - `CombatV1.get_response_presentation()` is the complete snapshot-first Response
   presentation seam. While Response is active it exposes stable round-scoped
-  target identity, expected action, authored beat offset, lead-in-adjusted due
-  beat, and the current audio-corrected Response timeline position. That timeline
+  target identity, expected action, authored beat offset, independently configured
+  handoff and visual lead, their combined due beat, whether the handoff is active,
+  and the current audio-corrected Response timeline position. That timeline
   is derived from BeatClock's indivisible `musical_position_beats` snapshot, so a
   boundary callback cannot combine a new whole-beat count with the prior frame's
   fractional position. Presentation adapters do not read `_response_targets` or
@@ -230,11 +232,12 @@ is introduced.
 Whole, half, and quarter offsets are matched deterministically in authored order,
 so headless signal simulation reproduces the same event sequence.
 
-During Settle and Enemy Phrase, `CombatV1` temporarily suppresses timing-grade
-production at the shared `RhythmInput` seam. It restores the prior scoring state
-on Response, another non-listening cadence, or teardown without changing the
-active profile. Listening-phase presses therefore emit no scored input, V1 input
-observation, or encounter-state result. The prototype harness presents
+During Settle, Enemy Phrase, and the opening Response handoff, `CombatV1`
+temporarily suppresses timing-grade production at the shared `RhythmInput` seam.
+It restores the prior scoring state at the handoff boundary, on another
+non-listening cadence, or on teardown without changing the active profile.
+Listening and handoff presses therefore cannot consume or grade a scheduled
+target. The prototype harness presents
 `prompt_text` and logs the event's symbolic `audio_cue` and `visual_cue`;
 production phrase-cue assets remain out of scope. Its three backing loops are
 procedural, temporary playtest material rather than a dynamic arrangement pass.
@@ -248,8 +251,12 @@ by the injected `CharacterInputProfile`; an authored `lane_count` expands one ev
 into one to four distinct targets at the same due beat. The isolated harness defaults
 to Luthier's existing four-direction language. Every target receives a stable
 round-scoped ID and a scoreable due beat equal to its authored offset plus the
-configured visual lead-in. The provisional harness default is two beats; this remains
-tuning rather than a canonical duration rule. `response_target_announced` provides
+configured Response handoff and visual lead-in. The handoff defaults to one fixed
+four-beat bar and the lead-in defaults to two beats. Both remain independent
+playtest-tuning values rather than final cadence or difficulty rules. Targets stay
+hidden and input-free throughout the handoff, then receive the complete lead-in.
+The handoff boundary is logged once from the same absolute Response timeline.
+`response_target_announced` provides
 one secondary text cue with the event's complete simultaneous action list. This
 mapping is a first reproduction exercise, not a new opponent-preference or
 multiple-answer model.
