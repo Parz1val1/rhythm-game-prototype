@@ -4,6 +4,7 @@ extends Control
 
 const CombatV1 = preload("res://combat_v1/combat_v1.gd")
 const DebugLog = preload("res://autoloads/debug_log.gd")
+const PhraseEvent = preload("res://combat_v1/phrase_event.gd")
 
 const LANE_ORDER: Array[StringName] = [&"left", &"down", &"up", &"right"]
 const LANE_LABELS := {
@@ -23,8 +24,11 @@ const GRID_COLOR := Color("385b84")
 const HIT_LINE_COLOR := Color("8ffcff")
 const LABEL_COLOR := Color("dcecff")
 const NOTE_COLOR := Color("f6c85f")
+const PREVIEW_COLOR := Color("8ffcff80")
 const HIT_LINE_RATIO := 0.78
 const APPROACH_START_RATIO := 0.16
+const PREVIEW_LINE_RATIO := 0.47
+const PREVIEW_DURATION_SECONDS := 0.3
 const LATE_TRAVEL_BEATS := 0.5
 
 var _combat_v1: CombatV1 = null
@@ -34,6 +38,8 @@ var _timeline_position_beats: float = 0.0
 var _visual_lead_beats: float = 2.0
 var _targets: Array[Dictionary] = []
 var _lane_feedback: Dictionary = {}
+var _preview: Dictionary = {}
+var _preview_elapsed_seconds: float = 0.0
 
 func _ready() -> void:
 	set_process(false)
@@ -48,6 +54,8 @@ func setup(combat_v1: CombatV1) -> void:
 		_combat_v1.cadence_changed.connect(_on_cadence_changed)
 	if not _combat_v1.response_note_graded.is_connected(_on_response_note_graded):
 		_combat_v1.response_note_graded.connect(_on_response_note_graded)
+	if not _combat_v1.phrase_event_announced.is_connected(_on_phrase_event_announced):
+		_combat_v1.phrase_event_announced.connect(_on_phrase_event_announced)
 	set_process(true)
 	_sync_from_module()
 
@@ -76,6 +84,7 @@ func get_presentation_snapshot() -> Dictionary:
 		&"visual_lead_beats": _visual_lead_beats,
 		&"targets": visible_targets,
 		&"lane_feedback": _lane_feedback.duplicate(true),
+		&"preview": _preview.duplicate(true),
 		&"approach_start_y": size.y * APPROACH_START_RATIO,
 		&"hit_line_y": size.y * HIT_LINE_RATIO,
 	}
@@ -88,16 +97,59 @@ func teardown() -> void:
 			_combat_v1.cadence_changed.disconnect(_on_cadence_changed)
 		if _combat_v1.response_note_graded.is_connected(_on_response_note_graded):
 			_combat_v1.response_note_graded.disconnect(_on_response_note_graded)
+		if _combat_v1.phrase_event_announced.is_connected(_on_phrase_event_announced):
+			_combat_v1.phrase_event_announced.disconnect(_on_phrase_event_announced)
 	_combat_v1 = null
 	set_process(false)
 	_clear_presentation()
 	queue_redraw()
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_sync_from_module()
+	if _preview.is_empty():
+		return
+	_preview_elapsed_seconds += delta
+	if _preview_elapsed_seconds >= PREVIEW_DURATION_SECONDS:
+		_clear_preview()
+		queue_redraw()
+
+func _on_cadence_changed(cadence: CombatV1.Cadence) -> void:
+	if cadence != CombatV1.Cadence.ENEMY_PHRASE:
+		_clear_preview()
 	_sync_from_module()
 
-func _on_cadence_changed(_cadence: CombatV1.Cadence) -> void:
-	_sync_from_module()
+func _on_phrase_event_announced(
+	event: PhraseEvent,
+	expected_actions: Array[StringName]
+) -> void:
+	if _combat_v1 == null or _combat_v1.get_cadence() != CombatV1.Cadence.ENEMY_PHRASE:
+		return
+	var lanes: Array[StringName] = []
+	var lane_indices: Array[int] = []
+	for action in expected_actions:
+		var lane_index := LANE_ORDER.find(action)
+		if lane_index < 0:
+			continue
+		lanes.append(action)
+		lane_indices.append(lane_index)
+	if lanes.is_empty():
+		_clear_preview()
+		return
+	_preview = {
+		&"prompt_id": event.prompt_id,
+		&"beat_offset": event.beat_offset,
+		&"actions": lanes.duplicate(),
+		&"lane_indices": lane_indices,
+		&"style": &"ghost",
+		&"color": PREVIEW_COLOR,
+	}
+	_preview_elapsed_seconds = 0.0
+	DebugLog.visual("[PREVIEW] prompt=%s  offset=%.2f  lanes=%s" % [
+		event.prompt_id,
+		event.beat_offset,
+		"+".join(lanes),
+	])
+	queue_redraw()
 
 func _on_response_note_graded(result: Dictionary) -> void:
 	var target_id: StringName = result.get(&"target_id", &"")
@@ -127,7 +179,7 @@ func _sync_from_module() -> void:
 		return
 	var presentation: Dictionary = _combat_v1.get_response_presentation()
 	if not bool(presentation[&"active"]):
-		_clear_presentation()
+		_clear_response_presentation()
 		return
 	var next_round_id: int = presentation[&"round_id"]
 	if not _active or next_round_id != _round_id:
@@ -189,14 +241,30 @@ func _update_positions(presentation: Dictionary) -> void:
 			])
 		_targets[target_index] = target
 
-func _clear_presentation() -> void:
-	if _active or not _targets.is_empty() or not _lane_feedback.is_empty():
+func _clear_response_presentation() -> void:
+	var had_presentation := _active or not _targets.is_empty() or not _lane_feedback.is_empty()
+	if had_presentation:
 		DebugLog.visual("[CLEAR  ] response_highway=true  round=%d" % _round_id)
 	_active = false
 	_round_id = -1
 	_timeline_position_beats = 0.0
 	_targets.clear()
 	_lane_feedback.clear()
+	if had_presentation:
+		queue_redraw()
+
+func _clear_preview() -> void:
+	var had_preview := not _preview.is_empty()
+	if had_preview:
+		DebugLog.visual("[CLEAR  ] phrase_preview=true  prompt=%s" % _preview[&"prompt_id"])
+	_preview.clear()
+	_preview_elapsed_seconds = 0.0
+	if had_preview:
+		queue_redraw()
+
+func _clear_presentation() -> void:
+	_clear_response_presentation()
+	_clear_preview()
 
 func _draw() -> void:
 	var board_rect := Rect2(Vector2.ZERO, size)
@@ -228,6 +296,12 @@ func _draw() -> void:
 		14,
 		HIT_LINE_COLOR
 	)
+	if not _preview.is_empty():
+		var preview_y := size.y * PREVIEW_LINE_RATIO
+		for lane_index in _preview[&"lane_indices"]:
+			var preview_position := Vector2((float(lane_index) + 0.5) * lane_width, preview_y)
+			draw_circle(preview_position, 21.0, PREVIEW_COLOR)
+			draw_arc(preview_position, 25.0, 0.0, TAU, 32, PREVIEW_COLOR, 2.0)
 	for target in _targets:
 		if not bool(target[&"visible"]):
 			continue

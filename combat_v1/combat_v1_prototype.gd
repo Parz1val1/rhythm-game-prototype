@@ -143,7 +143,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		_:
 			pass
 
-func _on_phrase_event_announced(event: PhraseEvent) -> void:
+func _on_phrase_event_announced(
+	event: PhraseEvent,
+	_expected_actions: Array[StringName]
+) -> void:
 	DebugLog.visual("[PROMPT ] cue=%s  prompt=%s  offset=%.2f" % [
 		event.visual_cue, event.prompt_id, event.beat_offset])
 	DebugLog.audio("[PHRASE ] cue=%s  prompt=%s  offset=%.2f" % [
