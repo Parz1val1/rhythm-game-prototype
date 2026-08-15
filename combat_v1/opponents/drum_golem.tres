@@ -43,6 +43,7 @@ prompt_id = &"drum_both"
 prompt_text = "Together"
 audio_cue = &"drum_both"
 visual_cue = &"pulse_both"
+lane_count = 2
 
 [sub_resource type="Resource" id="OpponentPhrase_opening_call"]
 script = ExtResource("2_phrase")

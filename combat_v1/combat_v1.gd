@@ -53,6 +53,12 @@ const _CADENCE_NAMES: Array[StringName] = [
 	&"Full-Band Vamp",
 	&"Resolution",
 ]
+const _STABLE_DIRECTION_ACTIONS: Array[StringName] = [
+	&"up",
+	&"right",
+	&"down",
+	&"left",
+]
 
 ## Emitted whenever the observable cadence changes. The payload is a typed Cadence value;
 ## use get_cadence_name() when a display label is needed.
@@ -65,8 +71,9 @@ signal intent_rejected(intent: Intent)
 signal rhythm_input_observed(direction: StringName, score: StringName, offset_ms: float)
 ## Single source of truth for both audio and visual phrase presentation.
 signal phrase_event_announced(event: PhraseEvent)
-## Presents the heard phrase as scoreable actions in the active rhythm language.
-signal response_target_announced(event: PhraseEvent, expected_action: StringName)
+## Presents one heard cue as one or more simultaneous scoreable actions in the
+## active rhythm language.
+signal response_target_announced(event: PhraseEvent, expected_actions: Array[StringName])
 ## Emitted after an accepted Response action receives its six-level note grade.
 signal response_note_graded(result: Dictionary)
 ## Emitted once when Response is submitted, after every target has a note result.
@@ -82,12 +89,18 @@ signal stopped()
 
 ## Number of four-beat bars spent in the input-free initial Settle cadence.
 @export_range(1, 8, 1) var settle_bars: int = 2
+## Provisional amount of readable highway travel before the first Response target.
+## This is playtest tuning, not a canonical phrase-duration rule.
+@export_range(0.25, 8.0, 0.25) var response_visual_lead_beats: float = 2.0
 
 var _beat_clock: Node = null
 var _rhythm_input: Node = null
 var _opponent: OpponentData = null
 var _response_actions: Array[StringName] = []
 var _response_targets: Array[Dictionary] = []
+var _response_round_id: int = 0
+var _response_schedule_lead_beats: float = 2.0
+var _response_timeline_origin_beats: float = 0.0
 var _response_grader = ResponseGrader.new()
 var _last_response_summary: Dictionary = {}
 var _cadence: Cadence = Cadence.IDLE
@@ -127,6 +140,8 @@ func setup(
 	_response_actions = _get_response_actions(live_response_profile)
 	_response_grader.setup(response_config)
 	_last_response_summary.clear()
+	_response_round_id = 0
+	_response_timeline_origin_beats = 0.0
 	settle_bars = maxi(1, settle_length_bars)
 	_cadence = Cadence.IDLE
 	_beats_in_cadence = 0
@@ -202,13 +217,13 @@ func player_intent(intent: Intent) -> bool:
 func submit_response_input(action: StringName, phrase_position_beats: float) -> bool:
 	if not _running or _cadence != Cadence.RESPONSE:
 		return false
-	var target_index := _find_closest_ungraded_response_target(phrase_position_beats)
+	var target_index := _find_closest_ungraded_response_target(action, phrase_position_beats)
 	if target_index < 0:
 		return false
 	var target: Dictionary = _response_targets[target_index]
 	var milliseconds_per_beat := _get_milliseconds_per_beat()
 	var offset_ms := (
-		phrase_position_beats - float(target[&"beat_offset"])
+		phrase_position_beats - float(target[&"due_beat"])
 	) * milliseconds_per_beat
 	var result: Dictionary = _response_grader.grade_note(
 		target[&"expected_action"],
@@ -216,7 +231,9 @@ func submit_response_input(action: StringName, phrase_position_beats: float) -> 
 		offset_ms
 	)
 	result[&"target_index"] = target_index
+	result[&"target_id"] = target[&"target_id"]
 	result[&"beat_offset"] = target[&"beat_offset"]
+	result[&"due_beat"] = target[&"due_beat"]
 	target[&"graded"] = true
 	target[&"result"] = result.duplicate(true)
 	_response_targets[target_index] = target
@@ -272,6 +289,33 @@ func get_state() -> Dictionary:
 	})
 	return state
 
+## Return the complete active Response schedule and its current musical position.
+## Presentation adapters poll this snapshot so BeatClock remains the only timing
+## authority and late frames recover from current audio-corrected musical time.
+func get_response_presentation() -> Dictionary:
+	var presentation_targets: Array[Dictionary] = []
+	if _cadence == Cadence.RESPONSE:
+		for target in _response_targets:
+			presentation_targets.append({
+				&"target_id": target[&"target_id"],
+				&"expected_action": target[&"expected_action"],
+				&"beat_offset": target[&"beat_offset"],
+				&"due_beat": target[&"due_beat"],
+			})
+	var phrase_duration_beats := 0.0
+	if _opponent != null and _opponent.phrase != null:
+		phrase_duration_beats = float(_opponent.phrase.get_duration_beats())
+	return {
+		&"active": _running and _cadence == Cadence.RESPONSE,
+		&"timeline_source": &"BeatClock",
+		&"timeline_position_beats": _get_response_timeline_position(),
+		&"visual_lead_beats": _response_schedule_lead_beats,
+		&"phrase_duration_beats": phrase_duration_beats,
+		&"timeline_duration_beats": _response_schedule_lead_beats + phrase_duration_beats,
+		&"round_id": _response_round_id,
+		&"targets": presentation_targets,
+	}
+
 ## Return the enum value for consumers that prefer typed branching.
 func get_cadence() -> Cadence:
 	return _cadence
@@ -311,8 +355,7 @@ func _on_beat(_beat_number: int) -> void:
 		return
 	_beats_in_cadence += 1
 	if _cadence == Cadence.RESPONSE:
-		if _beats_in_cadence < _opponent.phrase.get_duration_beats():
-			_announce_response_targets_at(float(_beats_in_cadence))
+		_announce_response_targets_at(float(_beats_in_cadence))
 		return
 	if _cadence == Cadence.SETTLE \
 		and _beats_in_cadence >= settle_bars * OpponentPhrase.BEATS_PER_BAR:
@@ -320,7 +363,7 @@ func _on_beat(_beat_number: int) -> void:
 		_announce_phrase_events_at(0.0)
 	elif _cadence == Cadence.ENEMY_PHRASE:
 		if _beats_in_cadence >= _opponent.phrase.get_duration_beats():
-			_set_cadence(Cadence.RESPONSE)
+			_set_cadence(Cadence.RESPONSE, float(_beat_number))
 		else:
 			_announce_phrase_events_at(float(_beats_in_cadence))
 
@@ -359,27 +402,56 @@ func _announce_phrase_events_at(phrase_position: float) -> void:
 func _announce_response_targets_at(phrase_position: float) -> void:
 	if _opponent == null or _opponent.phrase == null:
 		return
+	var event_indices: Array[int] = []
 	for target in _response_targets:
-		if not is_equal_approx(float(target[&"beat_offset"]), phrase_position):
+		if not is_equal_approx(float(target[&"due_beat"]), phrase_position):
 			continue
-		var event: PhraseEvent = target[&"event"]
-		var expected_action: StringName = target[&"expected_action"]
-		DebugLog.timing("[RESPONSE] phrase=%s  offset=%.2f  action=%s" % [
-			_opponent.phrase.phrase_id, event.beat_offset, expected_action])
-		response_target_announced.emit(event, expected_action)
+		var event_index: int = target[&"event_index"]
+		if event_index not in event_indices:
+			event_indices.append(event_index)
+	for event_index in event_indices:
+		var event: PhraseEvent = _opponent.phrase.events[event_index]
+		var expected_actions: Array[StringName] = []
+		for target in _response_targets:
+			if int(target[&"event_index"]) == event_index \
+				and is_equal_approx(float(target[&"due_beat"]), phrase_position):
+				expected_actions.append(target[&"expected_action"])
+		DebugLog.timing("[RESPONSE] phrase=%s  offset=%.2f  actions=%s" % [
+			_opponent.phrase.phrase_id,
+			event.beat_offset,
+			"+".join(expected_actions),
+		])
+		response_target_announced.emit(event, expected_actions)
 
 func _prepare_response_targets() -> void:
 	_response_targets.clear()
 	if _opponent == null or _opponent.phrase == null:
 		return
+	_response_round_id += 1
+	_response_schedule_lead_beats = maxf(0.25, response_visual_lead_beats)
+	if _response_actions.is_empty():
+		return
 	for event_index in range(_opponent.phrase.events.size()):
 		var event: PhraseEvent = _opponent.phrase.events[event_index]
-		_response_targets.append({
-			&"event": event,
-			&"beat_offset": event.beat_offset,
-			&"expected_action": _response_actions[event_index % _response_actions.size()],
-			&"graded": false,
-		})
+		var lane_count := mini(clampi(event.lane_count, 1, 4), _response_actions.size())
+		for chord_lane_index in range(lane_count):
+			var target_index := _response_targets.size()
+			_response_targets.append({
+				&"target_id": StringName("%s:%d:%d" % [
+					_opponent.phrase.phrase_id,
+					_response_round_id,
+					target_index,
+				]),
+				&"event": event,
+				&"event_index": event_index,
+				&"chord_lane_index": chord_lane_index,
+				&"beat_offset": event.beat_offset,
+				&"due_beat": _response_schedule_lead_beats + event.beat_offset,
+				&"expected_action": _response_actions[
+					(event_index + chord_lane_index) % _response_actions.size()
+				],
+				&"graded": false,
+			})
 
 func _complete_response() -> Dictionary:
 	var ordered_results: Array[Dictionary] = []
@@ -395,7 +467,9 @@ func _complete_response() -> Dictionary:
 				INF
 			)
 			result[&"target_index"] = target_index
+			result[&"target_id"] = target[&"target_id"]
 			result[&"beat_offset"] = target[&"beat_offset"]
+			result[&"due_beat"] = target[&"due_beat"]
 			target[&"graded"] = true
 			target[&"result"] = result.duplicate(true)
 			_response_targets[target_index] = target
@@ -426,17 +500,29 @@ func _get_execution_for_response_grade(grade: ResponseGrader.Grade) -> Encounter
 		_:
 			return EncounterState.Execution.MAJOR_MISTAKE
 
-func _find_closest_ungraded_response_target(phrase_position_beats: float) -> int:
+func _find_closest_ungraded_response_target(
+	action: StringName,
+	phrase_position_beats: float
+) -> int:
 	var closest_index := -1
 	var closest_distance := INF
 	for target_index in range(_response_targets.size()):
 		var target: Dictionary = _response_targets[target_index]
 		if bool(target[&"graded"]):
 			continue
-		var distance := absf(phrase_position_beats - float(target[&"beat_offset"]))
+		var distance := absf(phrase_position_beats - float(target[&"due_beat"]))
 		if distance < closest_distance:
 			closest_distance = distance
 			closest_index = target_index
+	if closest_index < 0:
+		return -1
+	for target_index in range(_response_targets.size()):
+		var target: Dictionary = _response_targets[target_index]
+		if bool(target[&"graded"]) or target[&"expected_action"] != action:
+			continue
+		var distance := absf(phrase_position_beats - float(target[&"due_beat"]))
+		if is_equal_approx(distance, closest_distance):
+			return target_index
 	return closest_index
 
 func _get_milliseconds_per_beat() -> float:
@@ -447,20 +533,48 @@ func _get_milliseconds_per_beat() -> float:
 			return 60000.0 / float(raw_bpm)
 	return 500.0
 
+func _get_response_timeline_position() -> float:
+	if not _running or _cadence != Cadence.RESPONSE:
+		return 0.0
+	var atomic_position := _get_atomic_beat_clock_position()
+	if atomic_position >= 0.0:
+		return maxf(0.0, atomic_position - _response_timeline_origin_beats)
+	var beat_position := 0.0
+	if _beat_clock != null:
+		var raw_position: Variant = _beat_clock.get("beat_position")
+		if typeof(raw_position) == TYPE_FLOAT or typeof(raw_position) == TYPE_INT:
+			beat_position = float(raw_position)
+	return float(_beats_in_cadence) + beat_position
+
+func _get_atomic_beat_clock_position() -> float:
+	if _beat_clock == null or not _beat_clock.has_method(&"is_running") \
+		or not _beat_clock.has_method(&"get_musical_position_beats"):
+		return -1.0
+	if not bool(_beat_clock.call(&"is_running")):
+		return -1.0
+	var raw_position: Variant = _beat_clock.call(&"get_musical_position_beats")
+	if typeof(raw_position) != TYPE_FLOAT and typeof(raw_position) != TYPE_INT:
+		return -1.0
+	return float(raw_position)
+
 func _get_response_actions(profile: CharacterInputProfile) -> Array[StringName]:
-	var actions: Array[StringName] = []
+	var mapped_actions: Array[StringName] = []
 	if profile != null:
 		for mapped_action in profile.input_map.values():
 			var action := StringName(mapped_action)
-			if action != &"" and action not in actions:
-				actions.append(action)
-	if actions.is_empty():
-		actions.append(&"up")
-		actions.append(&"right")
-		actions.append(&"down")
-		actions.append(&"left")
-	else:
-		actions.sort()
+			if action != &"" and action not in mapped_actions:
+				mapped_actions.append(action)
+	var actions: Array[StringName] = []
+	for stable_action in _STABLE_DIRECTION_ACTIONS:
+		if mapped_actions.is_empty() or stable_action in mapped_actions:
+			actions.append(stable_action)
+	var remaining_actions: Array[String] = []
+	for mapped_action in mapped_actions:
+		if mapped_action not in actions:
+			remaining_actions.append(String(mapped_action))
+	remaining_actions.sort()
+	for remaining_action in remaining_actions:
+		actions.append(StringName(remaining_action))
 	return actions
 
 func _on_input_scored(
@@ -476,12 +590,7 @@ func _on_input_scored(
 			direction, get_cadence_name()])
 		return
 	if _cadence == Cadence.RESPONSE:
-		var beat_position := 0.0
-		if _beat_clock != null:
-			var raw_position: Variant = _beat_clock.get("beat_position")
-			if typeof(raw_position) == TYPE_FLOAT or typeof(raw_position) == TYPE_INT:
-				beat_position = float(raw_position)
-		submit_response_input(direction, float(_beats_in_cadence) + beat_position)
+		submit_response_input(direction, _get_response_timeline_position())
 	DebugLog.timing("[INPUT  ] v1_direction=%-5s  score=%-8s  offset=%+.1f ms" % [direction, score, offset_ms])
 	rhythm_input_observed.emit(direction, score, offset_ms)
 
@@ -492,11 +601,18 @@ func _on_encounter_resolved(outcome: EncounterState.Outcome) -> void:
 	_set_cadence(Cadence.RESOLUTION)
 	resolved.emit(outcome)
 
-func _set_cadence(next_cadence: Cadence) -> void:
+func _set_cadence(
+	next_cadence: Cadence,
+	response_origin_beats: float = -1.0
+) -> void:
 	if _cadence == next_cadence:
 		return
 	_cadence = next_cadence
 	_beats_in_cadence = 0
+	if _cadence == Cadence.RESPONSE:
+		var atomic_position := _get_atomic_beat_clock_position()
+		_response_timeline_origin_beats = response_origin_beats \
+			if response_origin_beats >= 0.0 else maxf(0.0, atomic_position)
 	if _cadence == Cadence.SETTLE or _cadence == Cadence.ENEMY_PHRASE:
 		_suppress_scoring_for_listening()
 	else:
@@ -504,6 +620,12 @@ func _set_cadence(next_cadence: Cadence) -> void:
 	DebugLog.combat("[V1    ] cadence=%s" % get_cadence_name())
 	cadence_changed.emit(_cadence)
 	if _cadence == Cadence.RESPONSE:
+		DebugLog.timing("[SCHEDULE] phrase=%s  round=%d  targets=%d  lead=%.2f beats" % [
+			_opponent.phrase.phrase_id,
+			_response_round_id,
+			_response_targets.size(),
+			_response_schedule_lead_beats,
+		])
 		_announce_response_targets_at(0.0)
 
 func _suppress_scoring_for_listening() -> void:

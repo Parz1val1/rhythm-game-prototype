@@ -1,6 +1,6 @@
 # Combat System v1 Reconciliation
 
-Last reviewed: 2026-08-11.
+Last reviewed: 2026-08-13.
 
 This ledger tracks the gap between the approved
 [Combat System v1](COMBAT_SPEC_V1.md) target and the current prototype. It is a
@@ -53,10 +53,10 @@ and zero Composure, `JAM` wins. The final maximum-Groove interaction remains ope
 | V1 target | Current evidence | Classification | Migration disposition |
 |---|---|---|---|
 | `Approach -> Settle -> Enemy Phrase -> Response -> Tactical Vamp <-> Character Performance -> Full-Band Vamp -> Resolution` | `CombatV1` now runs the provisional Settle-free core loop `Settle -> Enemy Phrase -> Response -> Tactical Vamp -> Enemy Phrase -> ... -> Resolution`. Response results preserve encounter-wide state across rounds, and typed Jam/loss outcomes end the cadence. Character Performance, party ordering, and Full-Band Vamp behavior remain unimplemented. | **Partial** | Keep `CombatV1` as the migration seam. Replace the provisional direct next-round command when skills and party performances provide the missing middle cadence; leave the legacy `CombatScene` phase graph unchanged until a replacement is implemented. |
-| Enemy Phrase is primarily a listening phase followed by a distinct Response | `CombatV1` deep-copies a V1 opponent resource, spends configurable four-beat bars in Settle, then reproduces the opponent's one-to-four-bar phrase from audio-corrected whole/half/quarter beat signals. Listening phases suppress `RhythmInput` scoring. Response begins only after the phrase duration, restores scoring, replays the heard offsets as active-profile actions, and emits note and phrase results. The diagnostic HUD gives listening and active Response distinct text/color treatments and visualizes the matching cue seam. Repeated rounds refresh the targets without repeating Settle. | **Aligned seam** | Preserve input-free listening and the separate phrase/Response presentation signals when party/performance cadence is added. |
+| Enemy Phrase is primarily a listening phase followed by a distinct Response | `CombatV1` deep-copies a V1 opponent resource, spends configurable four-beat bars in Settle, then reproduces the opponent's one-to-four-bar phrase from audio-corrected whole/half/quarter beat signals. Listening phases suppress `RhythmInput` scoring. Response begins only after the phrase duration, restores scoring, and publishes the complete active-profile target schedule before its first scoreable time. The diagnostic HUD gives listening and active Response distinct treatments and hosts a four-lane note highway driven from the same atomically published BeatClock position used by grading. One cue may expand into one to four same-beat targets, and repeated rounds refresh target identities and visuals without repeating Settle. | **Aligned seam** | Preserve input-free listening, the snapshot-first Response schedule, grouped simultaneous cues, and the separate phrase/Response presentation signals when party/performance cadence is added. |
 | Tactical Vamps continue indefinitely with no time pressure | `CombatV1` leaves Tactical Vamp unchanged for any number of BeatClock cycles while its backing harness audio, clock, and timing/input subscriptions continue. One provisional `CONTINUE_ROUND` intent queues exactly one Enemy Phrase transition on the next whole beat; no skill or action is auto-selected. | **Aligned seam** | Preserve indefinite waiting and beat-aligned re-entry when the provisional command is replaced by selected skills and party rules. |
 | Party members select skills and perform separate multi-bar interactions | The prototype uses one active character and four generic actions: Attack, Defend, Item, Run | **Contradiction** | Introduce a skill/performance seam and party cadence before content breadth. Item existence remains open. |
-| Character rhythm languages should make the player's hands think differently | Luthier has four-direction melodic input on arrows, D-pad, or positionally matching face buttons; Beatrice has two-hand percussion on F/J or left/right triggers, plus chords, alternation, and separate visuals/evaluators. V1 Response accepts an active `CharacterInputProfile` and uses Luthier's four aliases for the first reproduction exercise. Fixed controller mappings exist, but remapping, glyph adaptation, calibration, and V1 party switching do not. | **Partial** | Retain the profile seam; Issue #18 owns party switching and broader language validation rather than expanding it inside Response. |
+| Character rhythm languages should make the player's hands think differently | Luthier has four-direction melodic input on arrows, D-pad, or positionally matching face buttons; Beatrice has two-hand percussion on F/J or left/right triggers, plus chords, alternation, and separate visuals/evaluators. V1 Response accepts an active `CharacterInputProfile`, presents Luthier's four aliases as stable left/down/up/right lanes with advance timing and one hit line, and supports authored chords of up to four simultaneous distinct inputs. Fixed controller mappings exist, but production glyph adaptation, remapping, calibration, and V1 party switching do not. | **Partial** | Retain the profile, chord-cardinality, and schedule seams; Issue #18 owns party switching and broader language validation rather than expanding it inside Response. |
 | Performance grading includes six working levels and phrase-level recovery | `CombatV1ResponseGrader` produces configurable Perfect, Great, Good, Near Miss, Miss, and Major Mistake note grades, then calculates an ordered phrase summary from configurable score and broken-phrase thresholds. Strong later notes can recover a phrase after one mistake. `CombatV1` maps the phrase grade to the coarser encounter execution input exactly once, while the diagnostic HUD presents all six note and phrase labels with distinct note colors. | **Partial** | Tune windows, phrase thresholds, and state values through playtesting; reuse this execution truth for later performance slices without coupling it to tactical musical effectiveness. |
 
 ## Tactics, Content, and Progression
@@ -83,7 +83,8 @@ and zero Composure, `JAM` wins. The final maximum-Groove interaction remains ope
 
 These are implementation assets, not V1 product rules:
 
-- `BeatClock` provides an audio-corrected timing source.
+- `BeatClock` provides an audio-corrected timing source and publishes continuous
+  musical position atomically before boundary signals.
 - `RhythmInput`, `ActiveNote`, lookahead, and expiry provide tested note-timing
   machinery.
 - Character input profiles and evaluators demonstrate distinct per-character
@@ -95,12 +96,18 @@ These are implementation assets, not V1 product rules:
 - `CombatV1` provides an isolated cadence and encounter-state seam that reuses
   `BeatClock` and `RhythmInput` through injection. It owns provisional V1
   Groove/Composure/Multiplier and terminal rules, plus the authored opponent
-  phrase timing and Response-grading seams. It now repeats the Settle-free core
-  cadence until deterministic Jam/loss resolution, but does not yet produce
-  Character Performance results or party ordering.
+  phrase timing and Response-grading seams. Its snapshot-first Response seam
+  publishes stable identity, action, authored offset, scoreable due beat, and
+  current musical position; authored events can expand into one to four same-beat
+  targets, and `ResponseNoteHighway` uses that same schedule for movement and
+  matching lane feedback. It now repeats the Settle-free core cadence
+  until deterministic Jam/loss resolution, but does not yet produce Character
+  Performance results or party ordering.
 - `CombatV1HUD` provides a separately testable, snapshot-first presentation
   adapter over that seam. It does not reuse legacy HP/limit nodes or own gameplay
-  calculations, and it guard-disconnects every signal during teardown.
+  calculations, and it guard-disconnects every signal during teardown. The highway
+  is provisional playtest presentation; production art, adaptive glyphs, and the
+  Beatrice spatial-percussion language remain future work.
 
 Preserve these only where they support the selected V1 slice. Their existing names
 and ownership do not constrain the target domain model.
@@ -137,6 +144,7 @@ conversation loop:
 
 This slice is now tracked as Phase A of
 [Combat V1 epic #8](https://github.com/Parz1val1/rhythm-game-prototype/issues/8),
-with implementation issues #9–#14 and the human playtest gate in #15. It targets
+with implementation issues #9–#14, required Response-playability rework in #34,
+and the human playtest gate in #15. It targets
 the highest-value questions in section 18 while reusing the strongest current
 timing seams.

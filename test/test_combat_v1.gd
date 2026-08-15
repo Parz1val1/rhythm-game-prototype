@@ -7,7 +7,6 @@ var _observed_inputs: int = 0
 var _rejected_intents: int = 0
 var _resolved_outcome: int = -1
 var _encounter_state_changes: int = 0
-var _response_targets: Array[Dictionary] = []
 var _has_failures: bool = false
 
 func _init() -> void:
@@ -28,6 +27,7 @@ func _run() -> void:
 	_check("module exposes player_intent", module.has_method("player_intent"), true)
 	_check("module exposes apply_performance_result", module.has_method("apply_performance_result"), true)
 	_check("module exposes get_state", module.has_method("get_state"), true)
+	_check("module exposes Response presentation", module.has_method("get_response_presentation"), true)
 	_check("module exposes teardown", module.has_method("teardown"), true)
 	_check("cadence_changed signal exists", module.has_signal("cadence_changed"), true)
 	_check("intent_rejected signal exists", module.has_signal("intent_rejected"), true)
@@ -59,7 +59,6 @@ func _run() -> void:
 	module.rhythm_input_observed.connect(_on_rhythm_input_observed)
 	module.intent_rejected.connect(_on_intent_rejected)
 	module.encounter_state_changed.connect(_on_encounter_state_changed)
-	module.response_target_announced.connect(_on_response_target_announced)
 	module.resolved.connect(_on_resolved)
 
 	_check("start enters Settle", module.start(), true)
@@ -87,8 +86,11 @@ func _run() -> void:
 	_check("Enemy Phrase transitions to Response", module.get_cadence() == CombatV1Script.Cadence.RESPONSE, true)
 	_check("cadence signal carries enum values", _cadences.size() >= 3 and _cadences[0] == CombatV1Script.Cadence.SETTLE, true)
 
+	var response_targets: Array = module.get_response_presentation()[&"targets"]
+	beat_clock.beat.emit(9)
+	beat_clock.beat.emit(10)
 	beat_clock.beat_position = 0.0
-	var first_response_action: StringName = _response_targets[0][&"action"]
+	var first_response_action: StringName = response_targets[0][&"expected_action"]
 	rhythm_input.input_scored.emit(first_response_action, &"perfect", -4.0, false)
 	_check("shared input is observed through its signal", _observed_inputs, 1)
 	_check("Response rejects a command for another cadence", module.player_intent(CombatV1Script.Intent.CONTINUE_ROUND), false)
@@ -96,20 +98,14 @@ func _run() -> void:
 	_check("unknown command is rejected predictably", module.player_intent(99), false)
 	_check("unknown command is reported", _rejected_intents, 2)
 	_check("Response remains until typed intent", module.get_cadence() == CombatV1Script.Cadence.RESPONSE, true)
-	beat_clock.quarter_beat.emit(8, 0.75)
-	beat_clock.beat.emit(9)
-	beat_clock.half_beat.emit(9)
-	beat_clock.beat.emit(10)
-	beat_clock.half_beat.emit(10)
-	beat_clock.beat.emit(11)
-	for target_index in range(1, _response_targets.size()):
-		var target: Dictionary = _response_targets[target_index]
-		module.submit_response_input(target[&"action"], target[&"offset"])
+	for target_index in range(1, response_targets.size()):
+		var target: Dictionary = response_targets[target_index]
+		module.submit_response_input(target[&"expected_action"], target[&"due_beat"])
 	_check("typed response intent advances cadence", module.player_intent(CombatV1Script.Intent.SUBMIT_RESPONSE), true)
 	_check("Response transitions to Tactical Vamp", module.get_cadence() == CombatV1Script.Cadence.TACTICAL_VAMP, true)
 	_check("typed next-round intent is accepted", module.player_intent(CombatV1Script.Intent.CONTINUE_ROUND), true)
 	_check("next-round intent waits for a beat boundary", module.get_cadence() == CombatV1Script.Cadence.TACTICAL_VAMP, true)
-	beat_clock.beat.emit(12)
+	beat_clock.beat.emit(11)
 	_check("next beat starts another Enemy Phrase", module.get_cadence() == CombatV1Script.Cadence.ENEMY_PHRASE, true)
 	_check(
 		"performance result applies through CombatV1",
@@ -153,12 +149,15 @@ func _run() -> void:
 		root.add_child(prototype)
 		var prototype_module = prototype.get("_combat_v1")
 		var prototype_hud = prototype.get_node("CombatV1HUD")
+		var prototype_highway = prototype_hud.get_node("ResponseNoteHighway")
 		_check("HUD connects cadence signal", _is_connected(prototype_module, &"cadence_changed", prototype_hud, "_on_cadence_changed"), true)
 		_check("HUD connects encounter state signal", _is_connected(prototype_module, &"encounter_state_changed", prototype_hud, "_on_encounter_state_changed"), true)
 		_check("prototype connects phrase event signal", _is_connected(prototype_module, &"phrase_event_announced", prototype, "_on_phrase_event_announced"), true)
 		_check("HUD connects phrase event signal", _is_connected(prototype_module, &"phrase_event_announced", prototype_hud, "_on_phrase_event_announced"), true)
 		_check("HUD connects Response target signal", _is_connected(prototype_module, &"response_target_announced", prototype_hud, "_on_response_target_announced"), true)
 		_check("HUD connects Response note signal", _is_connected(prototype_module, &"response_note_graded", prototype_hud, "_on_response_note_graded"), true)
+		_check("highway connects cadence signal", _is_connected(prototype_module, &"cadence_changed", prototype_highway, "_on_cadence_changed"), true)
+		_check("highway connects Response note signal", _is_connected(prototype_module, &"response_note_graded", prototype_highway, "_on_response_note_graded"), true)
 		_check("prototype connects Response summary signal", _is_connected(prototype_module, &"response_phrase_graded", prototype, "_on_response_phrase_graded"), true)
 		_check("HUD connects Response summary signal", _is_connected(prototype_module, &"response_phrase_graded", prototype_hud, "_on_response_phrase_graded"), true)
 		_check("HUD connects resolution signal", _is_connected(prototype_module, &"resolved", prototype_hud, "_on_resolved"), true)
@@ -170,6 +169,8 @@ func _run() -> void:
 		_check("HUD teardown disconnects phrase event signal", _is_connected(prototype_module, &"phrase_event_announced", prototype_hud, "_on_phrase_event_announced"), false)
 		_check("HUD teardown disconnects Response target signal", _is_connected(prototype_module, &"response_target_announced", prototype_hud, "_on_response_target_announced"), false)
 		_check("HUD teardown disconnects Response note signal", _is_connected(prototype_module, &"response_note_graded", prototype_hud, "_on_response_note_graded"), false)
+		_check("highway teardown disconnects cadence signal", _is_connected(prototype_module, &"cadence_changed", prototype_highway, "_on_cadence_changed"), false)
+		_check("highway teardown disconnects Response note signal", _is_connected(prototype_module, &"response_note_graded", prototype_highway, "_on_response_note_graded"), false)
 		_check("prototype teardown disconnects Response summary signal", _is_connected(prototype_module, &"response_phrase_graded", prototype, "_on_response_phrase_graded"), false)
 		_check("HUD teardown disconnects Response summary signal", _is_connected(prototype_module, &"response_phrase_graded", prototype_hud, "_on_response_phrase_graded"), false)
 		_check("HUD teardown disconnects resolution signal", _is_connected(prototype_module, &"resolved", prototype_hud, "_on_resolved"), false)
@@ -211,12 +212,6 @@ func _on_intent_rejected(_intent: int) -> void:
 
 func _on_encounter_state_changed(_state: Dictionary) -> void:
 	_encounter_state_changes += 1
-
-func _on_response_target_announced(event, expected_action: StringName) -> void:
-	_response_targets.append({
-		&"action": expected_action,
-		&"offset": event.beat_offset,
-	})
 
 func _on_resolved(outcome: int) -> void:
 	_resolved_outcome = outcome

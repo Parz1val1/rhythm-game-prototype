@@ -20,8 +20,11 @@ const PLAYTEST_TRACKS: Array[AudioStream] = [
 ]
 
 @export_range(1, 8, 1) var settle_bars: int = 2
+@export_range(0.25, 8.0, 0.25) var response_visual_lead_beats: float = 2.0
 @export var opponent: OpponentData = preload("res://combat_v1/opponents/drum_golem.tres")
 @export_range(0, 2, 1) var default_playtest_track: int = 0
+@export_category("Debug")
+@export var enable_debug_logging: bool = false
 
 @onready var _audio: AudioStreamPlayer = $AudioStreamPlayer
 @onready var _hud: CombatV1HUD = $CombatV1HUD
@@ -60,6 +63,8 @@ func select_playtest_track(index: int) -> bool:
 	return true
 
 func _ready() -> void:
+	if enable_debug_logging:
+		DebugLog.enable_all()
 	BeatClock.bpm = 130.0
 	BeatClock.intro_offset_ms = 1200.0
 	select_playtest_track(default_playtest_track)
@@ -72,6 +77,7 @@ func _ready() -> void:
 
 	_combat_v1 = CombatV1.new()
 	add_child(_combat_v1)
+	_combat_v1.response_visual_lead_beats = response_visual_lead_beats
 	_combat_v1.setup(BeatClock, RhythmInput, opponent, settle_bars)
 	_combat_v1.phrase_event_announced.connect(_on_phrase_event_announced)
 	_combat_v1.response_phrase_graded.connect(_on_response_phrase_graded)

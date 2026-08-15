@@ -1,9 +1,6 @@
 # Verifies the repeatable Tactical Vamp cadence through CombatV1's public seam.
 extends SceneTree
 
-const PhraseEvent = preload("res://combat_v1/phrase_event.gd")
-
-var _response_targets: Array[Dictionary] = []
 var _has_failures: bool = false
 
 func _init() -> void:
@@ -19,7 +16,6 @@ func _run() -> void:
 	var opponent = load("res://combat_v1/opponents/drum_golem.tres")
 	var module = CombatV1Script.new()
 	root.add_child(module)
-	module.response_target_announced.connect(_on_response_target_announced)
 	module.setup(beat_clock, rhythm_input, opponent, 1)
 	module.start()
 
@@ -50,14 +46,13 @@ func _run() -> void:
 	beat_clock.beat.emit(9)
 	_check("next beat starts the next Enemy Phrase", module.get_cadence(), CombatV1Script.Cadence.ENEMY_PHRASE)
 
-	_response_targets.clear()
 	_advance_round_to_response(beat_clock)
 	_check("the repeated round reaches Response without another Settle", module.get_cadence(), CombatV1Script.Cadence.RESPONSE)
 	var repeated_inputs_accepted := true
-	for target in _response_targets:
+	for target in module.get_response_presentation()[&"targets"]:
 		repeated_inputs_accepted = module.submit_response_input(
-			target[&"action"],
-			target[&"offset"]
+			target[&"expected_action"],
+			target[&"due_beat"]
 		) and repeated_inputs_accepted
 	_check("the repeated Response accepts every refreshed target", repeated_inputs_accepted, true)
 	_check(
@@ -80,31 +75,14 @@ func _run() -> void:
 func _advance_to_response(beat_clock: Node) -> void:
 	for beat_number in range(1, 9):
 		beat_clock.beat.emit(beat_number)
-	beat_clock.quarter_beat.emit(8, 0.75)
-	beat_clock.beat.emit(9)
-	beat_clock.half_beat.emit(9)
-	beat_clock.beat.emit(10)
-	beat_clock.half_beat.emit(10)
-	beat_clock.beat.emit(11)
 
 func _perform_perfect_response(module: Node) -> void:
-	for target in _response_targets:
-		module.submit_response_input(target[&"action"], target[&"offset"])
+	for target in module.get_response_presentation()[&"targets"]:
+		module.submit_response_input(target[&"expected_action"], target[&"due_beat"])
 
 func _advance_round_to_response(beat_clock: Node) -> void:
-	beat_clock.quarter_beat.emit(9, 0.75)
-	beat_clock.beat.emit(10)
-	beat_clock.half_beat.emit(10)
-	beat_clock.beat.emit(11)
-	beat_clock.half_beat.emit(11)
-	beat_clock.beat.emit(12)
-	beat_clock.beat.emit(13)
-	beat_clock.quarter_beat.emit(13, 0.75)
-	beat_clock.beat.emit(14)
-	beat_clock.half_beat.emit(14)
-	beat_clock.beat.emit(15)
-	beat_clock.half_beat.emit(15)
-	beat_clock.beat.emit(16)
+	for beat_number in range(10, 14):
+		beat_clock.beat.emit(beat_number)
 
 func _connection_count(source: Node, signal_name: StringName, target: Object) -> int:
 	var count := 0
@@ -112,12 +90,6 @@ func _connection_count(source: Node, signal_name: StringName, target: Object) ->
 		if connection["callable"].get_object() == target:
 			count += 1
 	return count
-
-func _on_response_target_announced(event: PhraseEvent, expected_action: StringName) -> void:
-	_response_targets.append({
-		&"offset": event.beat_offset,
-		&"action": expected_action,
-	})
 
 func _check(label: String, got, expected) -> void:
 	if got == expected:
