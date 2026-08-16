@@ -179,9 +179,11 @@ func _run() -> void:
 	_check("leaving Response clears target feedback", cleared_snapshot[&"target_feedback"].is_empty(), true)
 
 	module.player_intent(CombatV1Script.Intent.CONTINUE_ROUND)
-	beat_clock.beat.emit(15)
-	_check("the next round clears visuals while the opponent performs", highway.get_presentation_snapshot()[&"targets"].is_empty(), true)
-	for beat_number in range(16, 20):
+	for beat_number in range(15, 19):
+		beat_clock.beat.emit(beat_number)
+	_check("the next-round count-in keeps Response visuals clear", highway.get_presentation_snapshot()[&"targets"].is_empty(), true)
+	beat_clock.beat.emit(19)
+	for beat_number in range(20, 24):
 		beat_clock.beat.emit(beat_number)
 	await process_frame
 	var repeated_snapshot: Dictionary = highway.get_presentation_snapshot()

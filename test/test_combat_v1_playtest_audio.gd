@@ -31,6 +31,11 @@ func _run() -> void:
 		prototype.get_playtest_track_options(),
 		["Campfire Strings", "Stonebeat", "Starcurrent"]
 	)
+	_check(
+		"Stonebeat is the default backing track",
+		prototype.get_selected_playtest_track_name(),
+		"Stonebeat"
+	)
 	var beat_number_before_switch: int = root.get_node("BeatClock").beat_number
 	_check("playtester can select Stonebeat", prototype.select_playtest_track(1), true)
 	_check(

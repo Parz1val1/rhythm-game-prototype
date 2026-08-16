@@ -16,6 +16,11 @@ func _run() -> void:
 	var opponent = load("res://combat_v1/opponents/drum_golem.tres")
 	var module = CombatV1Script.new()
 	root.add_child(module)
+	var repeated_phrase_offsets: Array[float] = []
+	module.phrase_event_announced.connect(
+		func(event, _expected_actions: Array[StringName]) -> void:
+			repeated_phrase_offsets.append(event.beat_offset)
+	)
 	module.setup(beat_clock, rhythm_input, opponent, 1)
 	module.start()
 
@@ -43,8 +48,23 @@ func _run() -> void:
 		module.player_intent(CombatV1Script.Intent.CONTINUE_ROUND),
 		false
 	)
-	beat_clock.beat.emit(9)
-	_check("next beat starts the next Enemy Phrase", module.get_cadence(), CombatV1Script.Cadence.ENEMY_PHRASE)
+	repeated_phrase_offsets.clear()
+	for beat_number in range(9, 13):
+		beat_clock.beat.emit(beat_number)
+	_check(
+		"one full count-in bar passes before the opponent melody returns",
+		{
+			&"cadence": module.get_cadence(),
+			&"phrase_offsets": repeated_phrase_offsets,
+		},
+		{
+			&"cadence": CombatV1Script.Cadence.TACTICAL_VAMP,
+			&"phrase_offsets": [],
+		}
+	)
+	beat_clock.beat.emit(13)
+	_check("the following downbeat starts the next Enemy Phrase", module.get_cadence(), CombatV1Script.Cadence.ENEMY_PHRASE)
+	_check("the opponent melody starts on that downbeat", repeated_phrase_offsets, [0.0])
 
 	_advance_round_to_response(beat_clock)
 	_check("the repeated round reaches Response without another Settle", module.get_cadence(), CombatV1Script.Cadence.RESPONSE)
@@ -81,7 +101,7 @@ func _perform_perfect_response(module: Node) -> void:
 		module.submit_response_input(target[&"expected_action"], target[&"due_beat"])
 
 func _advance_round_to_response(beat_clock: Node) -> void:
-	for beat_number in range(10, 14):
+	for beat_number in range(14, 18):
 		beat_clock.beat.emit(beat_number)
 
 func _connection_count(source: Node, signal_name: StringName, target: Object) -> int:

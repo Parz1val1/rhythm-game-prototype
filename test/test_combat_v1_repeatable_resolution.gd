@@ -33,7 +33,8 @@ func _run() -> void:
 	_check("the first correct Response builds partial Groove", module.get_state()[&"groove"], 5.0)
 
 	module.player_intent(CombatV1Script.Intent.CONTINUE_ROUND)
-	beat_clock.beat.emit(20)
+	for beat_number in range(20, 25):
+		beat_clock.beat.emit(beat_number)
 	_advance_round_to_response(beat_clock)
 	_perform_perfect_response(module)
 	_check(
@@ -86,7 +87,7 @@ func _advance_initial_to_response(beat_clock: Node) -> void:
 		beat_clock.beat.emit(beat_number)
 
 func _advance_round_to_response(beat_clock: Node) -> void:
-	for beat_number in range(21, 25):
+	for beat_number in range(25, 29):
 		beat_clock.beat.emit(beat_number)
 
 func _perform_perfect_response(module: Node) -> void:

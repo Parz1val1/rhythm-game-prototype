@@ -90,7 +90,7 @@ func _run() -> void:
 	_check(
 		"right shoulder cycles the backing track during play",
 		prototype.get_selected_playtest_track_name(),
-		"Stonebeat"
+		"Starcurrent"
 	)
 
 	var module = prototype.get("_combat_v1")

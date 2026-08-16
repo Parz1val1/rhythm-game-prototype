@@ -33,8 +33,9 @@ position. A separate diagnostic `CombatV1HUD` consumes only that public
 state and signal surface, including snapshot-first setup for signals emitted before
 it connects, and hosts a four-lane `ResponseNoteHighway`. After each non-terminal
 Response, an indefinite Tactical Vamp accepts one provisional Continue Round intent
-and begins the next Enemy Phrase on the next BeatClock beat without repeating
-Settle. Party ordering, skills, and opponent preferences remain unimplemented.
+and holds a full four-beat count-in before beginning the next Enemy Phrase without
+repeating Settle. Party ordering, skills, and opponent preferences remain
+unimplemented.
 
 ```mermaid
 flowchart LR
@@ -84,7 +85,7 @@ flowchart LR
 | `combat_v1/response_note_highway.tscn` and `combat_v1/response_note_highway.gd` | Four-lane presentation adapter; flashes grouped, translucent Enemy Phrase previews, connects simultaneous Response targets with a shared pulse, then draws snapshot-first BeatClock-derived target travel and independent lane-local result cues without reading CombatV1 internals or owning chart timing |
 | `combat_v1/response_performance_feedback.tscn` and `combat_v1/response_performance_feedback.gd` | Replaceable performance-audio adapter; plays each mapped Enemy Phrase highlight as a lane-specific synthesized preview, then consumes published note-grade truth and softens or mutes imperfect Response results without observing BeatClock or changing backing playback |
 | `combat_v1/combat_v1_hud.tscn` and `combat_v1/combat_v1_hud.gd` | Diagnostic V1 presentation for cadence, Groove, Composure, Multiplier, phrase cues, six-grade note/phrase feedback, nonviolent outcomes, and the active playtest backing track; observes only the public `CombatV1` seam |
-| `combat_v1/combat_v1_prototype.tscn` and `combat_v1/combat_v1_prototype.gd` | Separately runnable harness that injects dependencies, owns symbolic phrase-audio/log handoffs, and hosts `CombatV1HUD` plus the Response feedback adapter; offers three same-length procedural backing loops switchable with keys 1–3 or controller shoulders without restarting the clock, accepts controller Start for its provisional cadence intents, and is not the configured main scene |
+| `combat_v1/combat_v1_prototype.tscn` and `combat_v1/combat_v1_prototype.gd` | Separately runnable harness that injects dependencies, owns symbolic phrase-audio/log handoffs, and hosts `CombatV1HUD` plus the Response feedback adapter; defaults to the restrained Stonebeat loop while offering three same-length procedural backing loops switchable with keys 1–3 or controller shoulders without restarting the clock, accepts controller Start for its provisional cadence intents, and is not the configured main scene |
 | `characters/*.gd/.tres` | Character stats, input behavior, and musical/visual identity |
 | `encounters/*.tres` | Editable encounter groups and neutral enemy patterns |
 | `rhythm_engine/` | `NoteData`, `NeutralHit`, and queued `ActiveNote` domain types |
@@ -169,8 +170,9 @@ There is no durable persistence.
   triggers. Harness-only Start and shoulder actions remain in the harness adapter.
 - `CombatV1.player_intent()` currently accepts `SUBMIT_RESPONSE` during Response
   and one provisional `CONTINUE_ROUND` command during Tactical Vamp. Continue
-  Round queues exactly one transition to Enemy Phrase on the next BeatClock beat;
-  all intents are rejected after terminal Resolution.
+  Round queues exactly one full four-beat count-in, then transitions to Enemy
+  Phrase on the following BeatClock beat; all intents are rejected after terminal
+  Resolution.
 - `CombatV1.apply_performance_result(execution, effectiveness)` is the V1 state
   seam. Its enum inputs keep execution quality distinct from tactical
   effectiveness; callers do not calculate Multiplier-adjusted Groove.
@@ -321,12 +323,13 @@ active. Beat and subdivision signals do not drain encounter state or advance the
 cadence while the player waits. Skills do not exist yet, so `CONTINUE_ROUND` is
 the only provisional Tactical Vamp intent.
 
-An accepted Continue Round intent leaves the module in Tactical Vamp until the
-next whole-beat signal. That beat starts Enemy Phrase at phrase offset zero,
-refreshes Response targets, and skips the one-time Settle. Groove, Composure, and
-Multiplier remain encounter-wide across rounds, and the module reuses its existing
-BeatClock and RhythmInput subscriptions. A Jam or loss moves immediately to
-Resolution, after which combat intents and state results are rejected.
+An accepted Continue Round intent leaves the module in Tactical Vamp through one
+complete four-beat count-in. No phrase event is announced during that bar; the
+following whole-beat signal starts Enemy Phrase at phrase offset zero, refreshes
+Response targets, and skips the one-time Settle. Groove, Composure, and Multiplier
+remain encounter-wide across rounds, and the module reuses its existing BeatClock
+and RhythmInput subscriptions. A Jam or loss moves immediately to Resolution,
+after which combat intents and state results are rejected.
 
 ## Combat V1 Encounter State
 

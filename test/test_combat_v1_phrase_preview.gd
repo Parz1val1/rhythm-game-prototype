@@ -128,7 +128,9 @@ func _run() -> void:
 
 	module.player_intent(CombatV1Script.Intent.SUBMIT_RESPONSE)
 	module.player_intent(CombatV1Script.Intent.CONTINUE_ROUND)
-	beat_clock.beat.emit(9)
+	for beat_number in range(9, 13):
+		beat_clock.beat.emit(beat_number)
+	beat_clock.beat.emit(13)
 	await process_frame
 	_check(
 		"a repeated round begins with one fresh downbeat preview",

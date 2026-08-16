@@ -59,6 +59,7 @@ const _STABLE_DIRECTION_ACTIONS: Array[StringName] = [
 	&"down",
 	&"left",
 ]
+const _NEXT_ROUND_COUNT_IN_BEATS := OpponentPhrase.BEATS_PER_BAR
 
 ## Emitted whenever the observable cadence changes. The payload is a typed Cadence value;
 ## use get_cadence_name() when a display label is needed.
@@ -115,6 +116,7 @@ var _beats_in_cadence: int = 0
 var _running: bool = false
 var _last_intent: int = -1
 var _next_round_pending: bool = false
+var _next_round_count_in_beats_elapsed: int = 0
 var _scoring_suppressed: bool = false
 var _previous_scoring_enabled: bool = true
 var _encounter_state = EncounterState.new()
@@ -175,6 +177,7 @@ func start() -> bool:
 	_beats_in_cadence = 0
 	_last_intent = -1
 	_next_round_pending = false
+	_next_round_count_in_beats_elapsed = 0
 	_encounter_state.reset()
 	_prepare_response_targets()
 	_last_response_summary.clear()
@@ -208,7 +211,9 @@ func player_intent(intent: Intent) -> bool:
 		Cadence.TACTICAL_VAMP:
 			if intent == Intent.CONTINUE_ROUND and not _next_round_pending:
 				_next_round_pending = true
-				DebugLog.combat("[V1    ] next_round=pending  transition=next_beat")
+				_next_round_count_in_beats_elapsed = 0
+				DebugLog.combat("[V1    ] next_round=pending  count_in_beats=%d" % \
+					_NEXT_ROUND_COUNT_IN_BEATS)
 				accepted = true
 		_:
 			pass
@@ -368,7 +373,15 @@ func _on_beat(_beat_number: int) -> void:
 		return
 	if _cadence == Cadence.TACTICAL_VAMP:
 		if _next_round_pending:
+			if _next_round_count_in_beats_elapsed < _NEXT_ROUND_COUNT_IN_BEATS:
+				_next_round_count_in_beats_elapsed += 1
+				DebugLog.timing("[COUNTIN] next_round=%d/%d" % [
+					_next_round_count_in_beats_elapsed,
+					_NEXT_ROUND_COUNT_IN_BEATS,
+				])
+				return
 			_next_round_pending = false
+			_next_round_count_in_beats_elapsed = 0
 			_prepare_response_targets()
 			_set_cadence(Cadence.ENEMY_PHRASE)
 			_announce_phrase_events_at(0.0)

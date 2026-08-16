@@ -170,8 +170,10 @@ func _run() -> void:
 	module.player_intent(CombatV1Script.Intent.SUBMIT_RESPONSE)
 	var cleared_after_response: bool = feedback.get_feedback_snapshot()[&"routed_events"].is_empty()
 	module.player_intent(CombatV1Script.Intent.CONTINUE_ROUND)
-	beat_clock.beat.emit(9)
-	for beat_number in range(10, 14):
+	for beat_number in range(9, 13):
+		beat_clock.beat.emit(beat_number)
+	beat_clock.beat.emit(13)
+	for beat_number in range(14, 18):
 		beat_clock.beat.emit(beat_number)
 	var next_presentation: Dictionary = module.get_response_presentation()
 	var next_target: Dictionary = next_presentation[&"targets"][0]

@@ -24,7 +24,7 @@ const PLAYTEST_TRACKS: Array[AudioStream] = [
 @export_range(0.0, 16.0, 0.25) var response_handoff_beats: float = 4.0
 @export_range(0.25, 8.0, 0.25) var response_visual_lead_beats: float = 2.0
 @export var opponent: OpponentData = preload("res://combat_v1/opponents/drum_golem.tres")
-@export_range(0, 2, 1) var default_playtest_track: int = 0
+@export_range(0, 2, 1) var default_playtest_track: int = 1
 @export_category("Debug")
 @export var enable_debug_logging: bool = false
 
