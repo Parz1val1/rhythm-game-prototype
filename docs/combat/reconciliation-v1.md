@@ -135,10 +135,10 @@ a migration slice reaches them:
 Mark an ADR superseded only when a concrete replacement and its trade-off are
 chosen.
 
-## Recommended First Prototype Slice
+## First Prototype Slice — Approved
 
-Before skills, progression, bosses, or overworld transitions, build one narrow
-conversation loop:
+The approved first slice established one narrow conversation loop before skills,
+progression, bosses, or overworld transitions:
 
 1. Settle for a fixed musical interval.
 2. Play one authored Enemy Phrase without required input.
@@ -149,9 +149,11 @@ conversation loop:
 5. Enter an indefinite Tactical Vamp that keeps the arrangement and clock running.
 6. Repeat until Groove reaches a provisional Jam or Composure reaches zero.
 
-This slice is now tracked as Phase A of
+This slice was completed as Phase A of
 [Combat V1 epic #8](https://github.com/Parz1val1/rhythm-game-prototype/issues/8),
-with implementation issues #9–#14, required Response-playability rework in #34
-and #38, and the human playtest gate in #15. It targets
-the highest-value questions in section 18 while reusing the strongest current
-timing seams.
+with implementation issues #9–#14, required Response-playability and musical-agency
+rework in #34 and #36–#38, and the human playtest gate in #15. The final replay on
+2026-08-19 approved the core cadence and unblocked Phase B. Settle, the one-bar
+Response handoff, note approach time, exact reproduction, and the indefinite
+Tactical Vamp remain provisional prototype defaults rather than final production
+rules.

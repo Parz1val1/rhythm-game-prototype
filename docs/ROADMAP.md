@@ -1,40 +1,35 @@
 # Roadmap
 
-Last reviewed: 2026-08-11. [Combat System v1](combat/COMBAT_SPEC_V1.md) is the
+Last reviewed: 2026-08-19. [Combat System v1](combat/COMBAT_SPEC_V1.md) is the
 north star for combat prototyping. Ordering after the first slice remains
 provisional and should respond to playtest evidence.
 
 ## Now
 
-### C1 — Approve the first Combat System v1 conversation slice
-
-Tracking: [Combat V1 epic #8](https://github.com/Parz1val1/rhythm-game-prototype/issues/8).
-
-The first conversation slice is specified as issues
-[#9](https://github.com/Parz1val1/rhythm-game-prototype/issues/9) through
-[#15](https://github.com/Parz1val1/rhythm-game-prototype/issues/15), beginning with
-the isolated V1 harness and ending at the human playtest gate:
-
-- a short Settle;
-- one authored Enemy Phrase with no required input;
-- a distinct Response using an existing character rhythm language;
-- minimal Groove, Composure, and shared Multiplier state;
-- an indefinite Tactical Vamp with continuous music; and
-- provisional Jam/loss endpoints for testing, without settling final formulas.
-
-The previous demo-polish direction in
-[issue #6](https://github.com/Parz1val1/rhythm-game-prototype/issues/6) is closed as
-superseded.
-
-## Next
-
 ### C2 — Skills and character performances
+
+Tracking: [Combat V1 epic #8](https://github.com/Parz1val1/rhythm-game-prototype/issues/8),
+beginning with [issue #16](https://github.com/Parz1val1/rhythm-game-prototype/issues/16).
+
+The human playtest gate in
+[#15](https://github.com/Parz1val1/rhythm-game-prototype/issues/15) approved the
+core conversation cadence and unblocked Phase B. Start with the smallest useful
+Skill and multi-bar Character Performance model:
 
 - Define the smallest skill model that joins a musical effect to a character's
   rhythm-game interaction.
 - Test multi-bar performance duration and the pacing between Tactical Vamps and
   active play.
 - Preserve distinct Luthier and Beatrice interaction languages.
+- Allow the count-in presentation cleanup in
+  [#42](https://github.com/Parz1val1/rhythm-game-prototype/issues/42) to land before
+  or alongside early Phase B work.
+- Add the small Enemy Phrase repertoire in
+  [#43](https://github.com/Parz1val1/rhythm-game-prototype/issues/43) before the
+  #20 playtest draws conclusions about phrase difficulty or Multiplier pressure;
+  it does not block starting #16.
+
+## Next
 
 ### C3 — Party tactics and opponent preferences
 
@@ -70,6 +65,12 @@ superseded.
 
 ## Completed
 
+- **C1 — First Combat System v1 conversation slice (2026-08-19):** delivered and
+  approved the isolated Settle → Enemy Phrase → Response → Tactical Vamp loop
+  through issues #9–#15, then completed playtest-driven readability and musical-agency
+  revisions in #34 and #36–#38. The human replay approved the cadence, retained
+  its durations as provisional tuning values, selected Stonebeat as the preferred
+  playtest backing track, and explicitly unblocked Phase B.
 - **Combat System v1 intake (2026-08-11):** established the new normative combat
   design, canonical vocabulary, authority routing, and current/target
   reconciliation without changing runtime behavior.
