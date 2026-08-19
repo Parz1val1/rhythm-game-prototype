@@ -1,0 +1,29 @@
+{
+ "ProjectInfo": {
+  "Project": {
+   "Name": "WwiseSpike",
+   "GUID": "{D3FF6F93-0B8C-4E7F-8488-D1070BEA7BE9}",
+   "Generator": "2025.1.9.9197"
+  },
+  "CacheRoot": "../spikes/wwise/authoring/WwiseSpike/.cache",
+  "Platforms": [
+   {
+    "Name": "Windows",
+    "GUID": "{A49B4F17-8874-4C6C-8DA8-15B111311158}",
+    "BasePlatform": "Windows",
+    "BasePlatformGUID": "{6E0CB257-C6C8-4C5C-8366-2740DFC441EB}",
+    "Path": "Windows"
+   }
+  ],
+  "Languages": [
+   {
+    "Name": "English(US)",
+    "Id": "684519430",
+    "GUID": "{458E2383-A617-4976-B4D2-6CB0E486F551}",
+    "Default": "true",
+    "UseAsStandIn": "true"
+   }
+  ],
+  "FileHash": "{956DC503-FD17-BCB9-E085-0E17BF07E326}"
+ }
+}

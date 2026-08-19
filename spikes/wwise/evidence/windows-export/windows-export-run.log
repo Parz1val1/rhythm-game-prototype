@@ -1,0 +1,67 @@
+Godot Engine v4.6.3.stable.mono.official.7d41c59c4 - https://godotengine.org
+OpenGL API 3.3.0 NVIDIA 573.22 - Compatibility - Using Device: NVIDIA - Quadro M1200
+
+WwiseGodot: (LOG) Sound engine initialized successfully.
+WwiseGodot: (LOG) WwiseGodot: Wwise(R) SDK v2025.1.9 Build 9197.
+[AUDIO  ] wwise_spike=started  playing_id=1
+[AUDIO  ] wwise_spike=running  duration_seconds=10.0  evidence=C:\Users\Tim\Development\Godot\rhythm-game-prototype\spikes\wwise\evidence\windows-export/wwise-timing-2026-08-19T14-06-08
+[TIMING ] wwise_callback=sync_point  position_beats=0.002  error_ms=1.000
+[TIMING ] wwise_callback=sync_point  position_beats=0.002  error_ms=1.000
+[TIMING ] wwise_callback=entry  position_beats=0.002  error_ms=1.000
+[TIMING ] wwise_callback=bar  position_beats=0.002  error_ms=1.000
+[TIMING ] wwise_callback=beat  position_beats=0.002  error_ms=1.000
+[TIMING ] wwise_callback=grid  position_beats=0.002  error_ms=1.000
+[TIMING ] wwise_callback=beat  position_beats=0.981  error_ms=5.000
+[TIMING ] wwise_callback=grid  position_beats=0.981  error_ms=5.000
+[TIMING ] wwise_callback=beat  position_beats=1.993  error_ms=3.000
+[TIMING ] wwise_callback=grid  position_beats=1.993  error_ms=3.000
+[TIMING ] wwise_callback=beat  position_beats=2.964  error_ms=3.000
+[TIMING ] wwise_callback=grid  position_beats=2.964  error_ms=3.000
+[TIMING ] wwise_callback=bar  position_beats=3.980  error_ms=2.000
+[TIMING ] wwise_callback=beat  position_beats=3.980  error_ms=2.000
+[TIMING ] wwise_callback=grid  position_beats=3.980  error_ms=2.000
+[TIMING ] wwise_callback=beat  position_beats=4.994  error_ms=1.000
+[TIMING ] wwise_callback=grid  position_beats=4.994  error_ms=1.000
+[TIMING ] wwise_callback=beat  position_beats=5.965  error_ms=1.000
+[TIMING ] wwise_callback=grid  position_beats=5.965  error_ms=1.000
+[TIMING ] wwise_callback=beat  position_beats=6.979  error_ms=0.000
+[TIMING ] wwise_callback=grid  position_beats=6.979  error_ms=0.000
+[TIMING ] wwise_callback=bar  position_beats=8.008  error_ms=5.000
+[TIMING ] wwise_callback=beat  position_beats=8.008  error_ms=5.000
+[TIMING ] wwise_callback=grid  position_beats=8.008  error_ms=5.000
+[TIMING ] wwise_callback=beat  position_beats=8.974  error_ms=3.000
+[TIMING ] wwise_callback=grid  position_beats=8.974  error_ms=3.000
+[TIMING ] wwise_callback=beat  position_beats=9.988  error_ms=2.000
+[TIMING ] wwise_callback=grid  position_beats=9.988  error_ms=2.000
+[TIMING ] wwise_callback=beat  position_beats=10.959  error_ms=2.000
+[TIMING ] wwise_callback=grid  position_beats=10.959  error_ms=2.000
+[TIMING ] wwise_callback=bar  position_beats=11.973  error_ms=1.000
+[TIMING ] wwise_callback=beat  position_beats=11.973  error_ms=1.000
+[TIMING ] wwise_callback=grid  position_beats=11.973  error_ms=1.000
+[TIMING ] wwise_callback=beat  position_beats=12.989  error_ms=0.000
+[TIMING ] wwise_callback=grid  position_beats=12.989  error_ms=0.000
+[TIMING ] wwise_callback=beat  position_beats=13.960  error_ms=0.000
+[TIMING ] wwise_callback=grid  position_beats=13.960  error_ms=0.000
+[TIMING ] wwise_callback=beat  position_beats=14.987  error_ms=5.000
+[TIMING ] wwise_callback=grid  position_beats=14.987  error_ms=5.000
+[AUDIO  ] arrangement=layer  enabled=true  requested_at=16.001
+[TIMING ] wwise_callback=bar  position_beats=16.001  error_ms=4.000
+[TIMING ] wwise_callback=beat  position_beats=16.001  error_ms=4.000
+[TIMING ] wwise_callback=grid  position_beats=16.001  error_ms=4.000
+[TIMING ] wwise_callback=beat  position_beats=16.978  error_ms=4.000
+[TIMING ] wwise_callback=grid  position_beats=16.978  error_ms=4.000
+[TIMING ] wwise_callback=beat  position_beats=17.981  error_ms=0.000
+[TIMING ] wwise_callback=grid  position_beats=17.981  error_ms=0.000
+[TIMING ] wwise_callback=beat  position_beats=19.008  error_ms=5.000
+[TIMING ] wwise_callback=grid  position_beats=19.008  error_ms=5.000
+[TIMING ] wwise_callback=bar  position_beats=19.981  error_ms=6.000
+[TIMING ] wwise_callback=beat  position_beats=19.981  error_ms=6.000
+[TIMING ] wwise_callback=grid  position_beats=19.981  error_ms=6.000
+[TIMING ] wwise_callback=beat  position_beats=20.993  error_ms=4.000
+[TIMING ] wwise_callback=grid  position_beats=20.993  error_ms=4.000
+WwiseGodot: (LOG) Sound engine terminated successfully.
+[AUDIO  ] wwise_spike=stopped
+[TIMING ] wwise_spike=complete  callbacks=53  mean_error_ms=2.566  p95_abs_error_ms=6.000  max_abs_error_ms=6.000
+[TIMING ] callback_jitter_ms=1.898  clock_drift_ms=-2.526  clock_drift_ppm=-252.251
+[TIMING ] boundaries=21  missed=0  duplicates=0  beat_callbacks=22  callback_missed=0  callback_duplicates=0
+=== done ===

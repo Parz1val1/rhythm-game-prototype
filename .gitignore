@@ -2,7 +2,18 @@
 .godot/
 .freebuff/
 /android/
+/builds/
 .claude/worktrees/
 
 # Auto-generated Godot UID sidecar files (regenerated on project open)
 *.uid
+
+# Wwise authoring/integration files regenerated per developer machine.
+*.wsettings
+*.validationcache
+**/.cache/
+/Wwise/resources/WwiseProjectData.tres
+
+# Godot mistakes raw spike CSV evidence for translation source during editor scans.
+/spikes/wwise/evidence/**/*.translation
+/spikes/wwise/evidence/**/*.csv.import

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WwiseDocument Type="WorkUnit" ID="{21F63B7B-7266-411A-854A-6DF01CE741F4}" SchemaVersion="133">
+	<Events>
+		<WorkUnit Name="Default Work Unit" ID="{21F63B7B-7266-411A-854A-6DF01CE741F4}" PersistMode="Standalone">
+			<ChildrenList>
+				<Event Name="Play_Combat_Spike" ID="{11C6127D-4F1A-49EF-B931-42C78F873220}">
+					<ChildrenList>
+						<Action Name="" ID="{8CDD8389-1CD2-47A2-B258-E4EE5AADFD79}" ShortID="984904155">
+							<ReferenceList>
+								<Reference Name="Target">
+									<ObjectRef Name="Combat_Spike" ID="{5708B882-D39C-45F2-B9D4-E4A196BD8005}" WorkUnitID="{756D932D-148F-4079-8CBA-BB1ADA69102A}"/>
+								</Reference>
+							</ReferenceList>
+						</Action>
+					</ChildrenList>
+				</Event>
+			</ChildrenList>
+		</WorkUnit>
+	</Events>
+</WwiseDocument>

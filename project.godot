@@ -21,6 +21,7 @@ config/run/main_scene="res://test_scene.tscn"
 
 BeatClock="*res://autoloads/beat_clock.gd"
 RhythmInput="*res://autoloads/rhythm_input.gd"
+WwiseRuntimeManager="*uid://dvyqm00pbv23"
 
 [dotnet]
 
@@ -98,3 +99,8 @@ playtest_audio_next={
 rendering_device/driver.windows="d3d12"
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+
+[wwise]
+
+common_user_settings/root_output_path="res://WwiseBanks"
+project_settings/windows_platform_info="res://Wwise/resources/Windows.tres"
