@@ -104,9 +104,11 @@ func _run() -> void:
 	_check("typed response intent advances cadence", module.player_intent(CombatV1Script.Intent.SUBMIT_RESPONSE), true)
 	_check("Response transitions to Tactical Vamp", module.get_cadence() == CombatV1Script.Cadence.TACTICAL_VAMP, true)
 	_check("typed next-round intent is accepted", module.player_intent(CombatV1Script.Intent.CONTINUE_ROUND), true)
-	_check("next-round intent waits for a beat boundary", module.get_cadence() == CombatV1Script.Cadence.TACTICAL_VAMP, true)
-	beat_clock.beat.emit(11)
-	_check("next beat starts another Enemy Phrase", module.get_cadence() == CombatV1Script.Cadence.ENEMY_PHRASE, true)
+	_check("next-round intent waits in Tactical Vamp", module.get_cadence() == CombatV1Script.Cadence.TACTICAL_VAMP, true)
+	for beat_number in range(11, 15):
+		beat_clock.beat.emit(beat_number)
+	beat_clock.beat.emit(15)
+	_check("the following downbeat starts another Enemy Phrase", module.get_cadence() == CombatV1Script.Cadence.ENEMY_PHRASE, true)
 	_check(
 		"performance result applies through CombatV1",
 		module.apply_performance_result(

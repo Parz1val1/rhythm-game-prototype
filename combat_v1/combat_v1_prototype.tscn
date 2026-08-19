@@ -1,6 +1,7 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://combat_v1/combat_v1_prototype.gd" id="1_v1"]
+[ext_resource type="PackedScene" path="res://combat_v1/response_performance_feedback.tscn" id="2_feedback"]
 [ext_resource type="PackedScene" path="res://combat_v1/combat_v1_hud.tscn" id="3_hud"]
 
 [node name="CombatV1Prototype" type="Node2D"]
@@ -13,5 +14,7 @@ mouse_filter = 2
 color = Color(0.012, 0.02, 0.045, 1)
 
 [node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="."]
+
+[node name="ResponsePerformanceFeedback" parent="." instance=ExtResource("2_feedback")]
 
 [node name="CombatV1HUD" parent="." instance=ExtResource("3_hud")]

@@ -33,8 +33,9 @@ position. A separate diagnostic `CombatV1HUD` consumes only that public
 state and signal surface, including snapshot-first setup for signals emitted before
 it connects, and hosts a four-lane `ResponseNoteHighway`. After each non-terminal
 Response, an indefinite Tactical Vamp accepts one provisional Continue Round intent
-and begins the next Enemy Phrase on the next BeatClock beat without repeating
-Settle. Party ordering, skills, and opponent preferences remain unimplemented.
+and holds a full four-beat count-in before beginning the next Enemy Phrase without
+repeating Settle. Party ordering, skills, and opponent preferences remain
+unimplemented.
 
 ```mermaid
 flowchart LR
@@ -58,6 +59,8 @@ flowchart LR
     V1 -->|injected RhythmInput| RI
     V1 -->|same phrase event<br/>audio + visual cues| V1P
     V1 -->|Response schedule snapshot<br/>BeatClock timeline| NH[ResponseNoteHighway<br/>left / down / up / right]
+    V1 -->|deterministic note grade| RF[ResponsePerformanceFeedback<br/>lane plucks / result timbre]
+    V1P --> RF
     V1 -->|typed performance result| V1S[CombatV1EncounterState<br/>Groove / Composure / Multiplier]
     V1S -->|state change / Jam / loss| V1
     V1 -->|Continue Round<br/>next beat| V1
@@ -79,9 +82,10 @@ flowchart LR
 | `combat_v1/encounter_state.gd` | Deterministic Issue #10 state module; owns configurable Groove, shared Composure, shared Multiplier math, clamping, and one-shot Jam/loss resolution |
 | `combat_v1/opponent_data.gd`, `opponent_phrase.gd`, and `phrase_event.gd` | V1 authoring model for opponent identity, one-to-four-bar phrases, musical offsets, one-to-four-input Response cues, and symbolic audio/visual cues; it has no legacy enemy statistics |
 | `combat_v1/opponents/drum_golem.tres` | One-bar prototype opponent phrase with whole-, half-, and quarter-beat events |
-| `combat_v1/response_note_highway.tscn` and `combat_v1/response_note_highway.gd` | Four-lane presentation adapter; flashes grouped, translucent Enemy Phrase previews from mapped phrase announcements, then draws snapshot-first BeatClock-derived Response target travel and matching lane-local grades without reading CombatV1 internals or owning chart timing |
+| `combat_v1/response_note_highway.tscn` and `combat_v1/response_note_highway.gd` | Four-lane presentation adapter; flashes grouped, translucent Enemy Phrase previews, connects simultaneous Response targets with a shared pulse, then draws snapshot-first BeatClock-derived target travel and independent lane-local result cues without reading CombatV1 internals or owning chart timing |
+| `combat_v1/response_performance_feedback.tscn` and `combat_v1/response_performance_feedback.gd` | Replaceable performance-audio adapter; plays each mapped Enemy Phrase highlight as a lane-specific synthesized preview, then consumes published note-grade truth and softens or mutes imperfect Response results without observing BeatClock or changing backing playback |
 | `combat_v1/combat_v1_hud.tscn` and `combat_v1/combat_v1_hud.gd` | Diagnostic V1 presentation for cadence, Groove, Composure, Multiplier, phrase cues, six-grade note/phrase feedback, nonviolent outcomes, and the active playtest backing track; observes only the public `CombatV1` seam |
-| `combat_v1/combat_v1_prototype.tscn` and `combat_v1/combat_v1_prototype.gd` | Separately runnable harness that injects dependencies, owns symbolic phrase-audio/log handoffs, and hosts `CombatV1HUD`; offers three same-length procedural backing loops switchable with keys 1–3 or controller shoulders without restarting the clock, accepts controller Start for its provisional cadence intents, and is not the configured main scene |
+| `combat_v1/combat_v1_prototype.tscn` and `combat_v1/combat_v1_prototype.gd` | Separately runnable harness that injects dependencies, owns symbolic phrase-audio/log handoffs, and hosts `CombatV1HUD` plus the Response feedback adapter; defaults to the restrained Stonebeat loop while offering three same-length procedural backing loops switchable with keys 1–3 or controller shoulders without restarting the clock, accepts controller Start for its provisional cadence intents, and is not the configured main scene |
 | `characters/*.gd/.tres` | Character stats, input behavior, and musical/visual identity |
 | `encounters/*.tres` | Editable encounter groups and neutral enemy patterns |
 | `rhythm_engine/` | `NoteData`, `NeutralHit`, and queued `ActiveNote` domain types |
@@ -166,8 +170,9 @@ There is no durable persistence.
   triggers. Harness-only Start and shoulder actions remain in the harness adapter.
 - `CombatV1.player_intent()` currently accepts `SUBMIT_RESPONSE` during Response
   and one provisional `CONTINUE_ROUND` command during Tactical Vamp. Continue
-  Round queues exactly one transition to Enemy Phrase on the next BeatClock beat;
-  all intents are rejected after terminal Resolution.
+  Round queues exactly one full four-beat count-in, then transitions to Enemy
+  Phrase on the following BeatClock beat; all intents are rejected after terminal
+  Resolution.
 - `CombatV1.apply_performance_result(execution, effectiveness)` is the V1 state
   seam. Its enum inputs keep execution quality distinct from tactical
   effectiveness; callers do not calculate Multiplier-adjusted Groove.
@@ -176,9 +181,10 @@ There is no durable persistence.
   `resolved` carries the typed `JAM` or `LOSS` outcome exactly once.
 - `CombatV1.get_response_presentation()` is the complete snapshot-first Response
   presentation seam. While Response is active it exposes stable round-scoped
-  target identity, expected action, authored beat offset, independently configured
-  handoff and visual lead, their combined due beat, whether the handoff is active,
-  and the current audio-corrected Response timeline position. That timeline
+  target identity, expected action, stable authored-event group identity and size,
+  authored beat offset, independently configured handoff and visual lead, their
+  combined due beat, whether the handoff is active, and the current audio-corrected
+  Response timeline position. That timeline
   is derived from BeatClock's indivisible `musical_position_beats` snapshot, so a
   boundary callback cannot combine a new whole-beat count with the prior frame's
   fractional position. Presentation adapters do not read `_response_targets` or
@@ -197,7 +203,16 @@ There is no durable persistence.
   by-convention phrase result with per-grade counts.
 - `response_target_announced`, `response_note_graded`, and
   `response_phrase_graded` expose Response presentation and execution without
-  making the diagnostic harness an owner of grading rules.
+  making the diagnostic harness an owner of grading rules. Each note result keeps
+  target and group identity, expected and actual action, signed timing offset, and
+  presentation lane so audio and visual adapters consume one deterministic truth.
+- `CombatV1ResponsePerformanceFeedback.setup(combat_v1)` observes only cadence,
+  mapped phrase-announcement, and note-result signals. During Enemy Phrase it plays
+  the same already-mapped lanes that the highway highlights, including simultaneous
+  chord voices, so the player hears the lesson before reproducing it. Four
+  independent one-shot players also route Response results; synthesized placeholder
+  streams remain adapter-local and replaceable. Cadence changes and guarded teardown
+  stop voices and clear round-local routing.
 - `CombatV1HUD.setup(combat_v1)` connects presentation signals and immediately
   reads `get_state()`, while its owned `ResponseNoteHighway` reads
   `get_response_presentation()`. This reconstructs cadence, all three meters, the
@@ -217,10 +232,13 @@ Its central board remains visible during Enemy Phrase and Response. During Enemy
 Phrase it flashes each mapped action group briefly as translucent cyan ghost notes
 in the same four directional lanes later used by Response; the adapter-local flash
 lifetime does not schedule phrase events or enable scoring. During Response the
-board shows a fixed hit line, moves each target from the current BeatClock timeline,
-and shows grades at the matching lane. One authored event may place one to four
-notes at the same due beat; both the preview and secondary text cue present those
-actions as one chord.
+board shows a fixed hit line and moves each target from the current BeatClock
+timeline. Targets from one multi-lane event share a purple connector and
+synchronized pulse. Results remain keyed by target identity and render a lane-local
+burst, double ring, or missed-note ring/X in addition to text, so two chord
+components can display different outcomes without overwriting each other. One
+authored event may place one to four notes at the same due beat; the preview,
+highway, and secondary text cue all present those actions as one chord.
 The playtest control panel also names the active temporary backing loop and shows
 the 1–3 comparison controls.
 
@@ -281,7 +299,9 @@ directly. `CombatV1ResponseGrader` converts the signed distance from the closest
 ungraded target's same published due time into configurable `perfect`, `great`,
 `good`, `near_miss`, `miss`, or `major_mistake` results. Grade results repeat the
 target ID, action, authored offset, and due beat so presentation/scoring parity is
-observable. When multiple targets share that closest time, the matching action is
+observable. They also carry the target lane plus stable group identity and size,
+allowing feedback adapters to preserve chord membership without reconstructing
+timing. When multiple targets share that closest time, the matching action is
 selected so chord inputs may arrive in either order. A wrong action is at least a
 Miss, and a target still unplayed when Response is submitted becomes a Major Mistake.
 
@@ -303,12 +323,13 @@ active. Beat and subdivision signals do not drain encounter state or advance the
 cadence while the player waits. Skills do not exist yet, so `CONTINUE_ROUND` is
 the only provisional Tactical Vamp intent.
 
-An accepted Continue Round intent leaves the module in Tactical Vamp until the
-next whole-beat signal. That beat starts Enemy Phrase at phrase offset zero,
-refreshes Response targets, and skips the one-time Settle. Groove, Composure, and
-Multiplier remain encounter-wide across rounds, and the module reuses its existing
-BeatClock and RhythmInput subscriptions. A Jam or loss moves immediately to
-Resolution, after which combat intents and state results are rejected.
+An accepted Continue Round intent leaves the module in Tactical Vamp through one
+complete four-beat count-in. No phrase event is announced during that bar; the
+following whole-beat signal starts Enemy Phrase at phrase offset zero, refreshes
+Response targets, and skips the one-time Settle. Groove, Composure, and Multiplier
+remain encounter-wide across rounds, and the module reuses its existing BeatClock
+and RhythmInput subscriptions. A Jam or loss moves immediately to Resolution,
+after which combat intents and state results are rejected.
 
 ## Combat V1 Encounter State
 

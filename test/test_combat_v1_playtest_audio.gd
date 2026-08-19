@@ -31,6 +31,11 @@ func _run() -> void:
 		prototype.get_playtest_track_options(),
 		["Campfire Strings", "Stonebeat", "Starcurrent"]
 	)
+	_check(
+		"Stonebeat is the default backing track",
+		prototype.get_selected_playtest_track_name(),
+		"Stonebeat"
+	)
 	var beat_number_before_switch: int = root.get_node("BeatClock").beat_number
 	_check("playtester can select Stonebeat", prototype.select_playtest_track(1), true)
 	_check(
@@ -64,6 +69,55 @@ func _run() -> void:
 		"AUDIO  3  STARCURRENT  |  1 / 2 / 3 OR SHOULDERS"
 	)
 
+	var feedback = prototype.get_node_or_null("ResponsePerformanceFeedback")
+	var module = prototype.get_node_or_null("CombatV1")
+	var backing_player: AudioStreamPlayer = prototype.get_node("AudioStreamPlayer")
+	var has_clock_source_snapshot := root.get_node("BeatClock").has_method(&"get_audio_source_instance_id")
+	var source_before: int = root.get_node("BeatClock").call(&"get_audio_source_instance_id") \
+		if has_clock_source_snapshot else 0
+	var backing_stream_before: AudioStream = backing_player.stream
+	var schedule_before: Array[Dictionary] = []
+	var feedback_count: int = 0
+	if feedback != null and module != null:
+		for beat_number in range(1, 13):
+			root.get_node("BeatClock").beat.emit(beat_number)
+		var presentation: Dictionary = module.get_response_presentation()
+		schedule_before = _schedule_facts(presentation)
+		if not presentation[&"targets"].is_empty():
+			var target: Dictionary = presentation[&"targets"][0]
+			module.submit_response_input(target[&"expected_action"], target[&"due_beat"])
+		feedback_count = feedback.get_feedback_snapshot()[&"routed_events"].size()
+	var source_after: int = root.get_node("BeatClock").call(&"get_audio_source_instance_id") \
+		if has_clock_source_snapshot else -1
+	var schedule_after: Array[Dictionary] = []
+	if module != null:
+		schedule_after = _schedule_facts(module.get_response_presentation())
+	_check(
+		"Response feedback leaves the backing source, playback, and score schedule untouched",
+		{
+			&"adapter_present": feedback != null,
+			&"clock_source_observable": has_clock_source_snapshot,
+			&"source_before": source_before,
+			&"source_after": source_after,
+			&"backing_player": backing_player.get_instance_id(),
+			&"backing_stream_unchanged": backing_player.stream == backing_stream_before,
+			&"backing_playing": backing_player.playing,
+			&"feedback_count": feedback_count,
+			&"schedule_unchanged": schedule_after == schedule_before,
+		},
+		{
+			&"adapter_present": true,
+			&"clock_source_observable": true,
+			&"source_before": backing_player.get_instance_id(),
+			&"source_after": backing_player.get_instance_id(),
+			&"backing_player": backing_player.get_instance_id(),
+			&"backing_stream_unchanged": true,
+			&"backing_playing": true,
+			&"feedback_count": 1,
+			&"schedule_unchanged": true,
+		}
+	)
+
 	prototype.teardown()
 	prototype.free()
 	_disable_debug_logging(debug_log)
@@ -88,6 +142,17 @@ func _disable_debug_logging(debug_log) -> void:
 	debug_log.combat_events = false
 	debug_log.note_visuals = false
 	debug_log.audio_events = false
+
+func _schedule_facts(presentation: Dictionary) -> Array[Dictionary]:
+	var facts: Array[Dictionary] = []
+	for target in presentation.get(&"targets", []):
+		facts.append({
+			&"target_id": target[&"target_id"],
+			&"expected_action": target[&"expected_action"],
+			&"group_id": target[&"group_id"],
+			&"due_beat": target[&"due_beat"],
+		})
+	return facts
 
 func _check(label: String, got, expected) -> void:
 	if got == expected:
