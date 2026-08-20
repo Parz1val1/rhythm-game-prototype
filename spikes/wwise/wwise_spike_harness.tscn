@@ -4,3 +4,6 @@
 
 [node name="WwiseSpikeHarness" type="Node"]
 script = ExtResource("1_harness")
+
+[node name="WwiseListener" type="AkListener2D" parent="."]
+is_default_listener = true

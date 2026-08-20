@@ -21,6 +21,7 @@ var _started_us: int = 0
 var _finished: bool = false
 var _evidence_file: FileAccess
 var _evidence_stem: String = ""
+@onready var _wwise_listener: Node = $WwiseListener
 
 var _whole_boundaries: int = 0
 var _missed_whole_boundaries: int = 0
@@ -217,6 +218,7 @@ func _finish(allow_quit: bool = true) -> void:
 	if _finished:
 		return
 	_finished = true
+	_release_wwise_listener()
 	if _adapter != null:
 		_adapter.stop()
 	if _evidence_file != null:
@@ -249,6 +251,14 @@ func _finish(allow_quit: bool = true) -> void:
 	print("=== done ===")
 	if allow_quit and _auto_quit:
 		get_tree().quit(0)
+
+
+func _release_wwise_listener() -> void:
+	if not is_instance_valid(_wwise_listener):
+		return
+	if _wwise_listener.is_inside_tree():
+		remove_child(_wwise_listener)
+	_wwise_listener.free()
 
 
 func _build_metrics() -> Dictionary:
