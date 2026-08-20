@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WwiseDocument Type="WorkUnit" ID="{7928142A-BB19-4416-A320-93C4F2F9062C}" SchemaVersion="133">
+	<States>
+		<WorkUnit Name="Default Work Unit" ID="{7928142A-BB19-4416-A320-93C4F2F9062C}" PersistMode="Standalone">
+			<ChildrenList>
+				<StateGroup Name="Combat_Layer" ID="{F985C36E-DE3D-4B94-82B5-E0AC2E181859}">
+					<PropertyList>
+						<Property Name="DefaultTransitionTime" Type="Real64" Value="0"/>
+					</PropertyList>
+					<ChildrenList>
+						<State Name="None" ID="{E5D01948-6D3A-425A-B78D-9070F1618E27}"/>
+						<State Name="Disabled" ID="{E1E48F42-0D69-497D-835C-BCE09A99FE3F}"/>
+						<State Name="Enabled" ID="{C9A7C549-25E6-4D18-933F-111622EF3688}"/>
+					</ChildrenList>
+				</StateGroup>
+				<StateGroup Name="Combat_Section" ID="{5C9A9ADF-ECAF-4933-B5C8-556FE633F3A5}">
+					<PropertyList>
+						<Property Name="DefaultTransitionTime" Type="Real64" Value="0"/>
+					</PropertyList>
+					<ChildrenList>
+						<State Name="None" ID="{88700DC5-B289-4A27-82F7-A6F6A2EC0017}"/>
+						<State Name="Loop" ID="{5D157C23-1F28-47D4-9A15-399759F4CF5A}"/>
+						<State Name="Alternate" ID="{F655F9CF-1171-4612-9A27-4DD410FD67A4}"/>
+					</ChildrenList>
+				</StateGroup>
+			</ChildrenList>
+		</WorkUnit>
+	</States>
+</WwiseDocument>

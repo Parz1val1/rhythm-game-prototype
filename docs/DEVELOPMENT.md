@@ -42,9 +42,11 @@ Run a headless import/parse smoke check without opening the GUI:
 & $env:GODOT_PATH --headless --editor --path . --quit
 ```
 
-There is no `export_presets.cfg`, so the repository has no verified build/export
-command. There are also no configured formatter, linter, separate type checker,
-dependency scanner, or CI workflow.
+The repository has one isolated Windows export preset for the Wwise technical
+spike. It is not a production game export; follow the temporary main-scene and
+autoload procedure in [the spike record](../spikes/wwise/README.md#windows-export-workflow).
+There are no configured formatter, linter, separate type checker, dependency
+scanner, or CI workflow.
 
 ## Testing
 
