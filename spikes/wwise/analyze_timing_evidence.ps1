@@ -8,8 +8,29 @@ if ($resolvedPaths.Count -ne 1) {
     throw "Expected exactly one evidence CSV, resolved $($resolvedPaths.Count)."
 }
 $resolvedPath = $resolvedPaths[0].Path
+$summaryPath = [System.IO.Path]::ChangeExtension($resolvedPath, '.json')
+if (-not (Test-Path -LiteralPath $summaryPath)) {
+    throw "Expected evidence summary beside CSV: $summaryPath"
+}
+$summary = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json
+$requiredPositionMetrics = @(
+    'position_samples',
+    'position_discontinuities',
+    'rejected_position_samples',
+    'backward_position_samples',
+    'max_position_delta_error_ms',
+    'position_discontinuity_threshold_ms'
+)
+foreach ($metric in $requiredPositionMetrics) {
+    if ($null -eq $summary.PSObject.Properties[$metric]) {
+        throw "Evidence summary predates position-discontinuity instrumentation: missing '$metric'."
+    }
+}
 $rows = @(Import-Csv -LiteralPath $resolvedPath)
 $boundaryRows = @($rows | Where-Object { $_.record_type -eq 'boundary' })
+$positionDiscontinuityRows = @($rows | Where-Object { $_.record_type -eq 'position_discontinuity' })
+$positionRegressionRows = @($rows | Where-Object { $_.record_type -eq 'position_regression' })
+$positionAnomalyRows = @($positionDiscontinuityRows + $positionRegressionRows)
 
 $steps = foreach ($row in $boundaryRows) {
     $beat = [int] $row.index
@@ -57,11 +78,28 @@ $result = [ordered]@{
     missed_boundaries = $missed
     duplicate_boundaries = $duplicates
     non_monotonic_boundaries = $nonMonotonic
+    position_samples = [int] $summary.position_samples
+    position_discontinuities = [int] $summary.position_discontinuities
+    rejected_position_samples = [int] $summary.rejected_position_samples
+    backward_position_samples = [int] $summary.backward_position_samples
+    max_position_delta_error_ms = [double] $summary.max_position_delta_error_ms
+    position_discontinuity_threshold_ms = [double] $summary.position_discontinuity_threshold_ms
+    raw_position_discontinuity_records = $positionDiscontinuityRows.Count
+    raw_position_regression_records = $positionRegressionRows.Count
 }
 
 $result | ConvertTo-Json
+if ($positionDiscontinuityRows.Count -ne [int] $summary.position_discontinuities) {
+    Write-Error 'Raw discontinuity records do not match the evidence summary.'
+    exit 1
+}
+$rawRejectedPositionSamples = @($positionAnomalyRows | Where-Object { $_.value -eq 'accepted=false' }).Count
+if ($rawRejectedPositionSamples -ne [int] $summary.rejected_position_samples) {
+    Write-Error 'Raw rejected-position records do not match the evidence summary.'
+    exit 1
+}
 if ($missed -ne 0 -or $duplicates -ne 0 -or $nonMonotonic -ne 0) {
-    Write-Error 'Timing evidence contains missing, duplicate, or non-monotonic subdivisions.'
+    Write-Error 'Timing evidence contains missing, duplicate, or non-monotonic musical boundaries.'
     exit 1
 }
 

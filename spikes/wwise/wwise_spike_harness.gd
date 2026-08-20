@@ -7,10 +7,12 @@ extends Node
 
 const DebugLog = preload("res://autoloads/debug_log.gd")
 const WwiseMusicAdapter = preload("res://spikes/wwise/wwise_music_adapter.gd")
+const WwisePositionContinuityTracker = preload("res://spikes/wwise/wwise_position_continuity_tracker.gd")
 const WwiseRuntimeBridge = preload("res://spikes/wwise/wwise_runtime_bridge.gd")
 
 const DEFAULT_DURATION_SECONDS := 900.0
 const DEFAULT_EVIDENCE_DIR := "user://wwise_spike"
+const POSITION_DISCONTINUITY_THRESHOLD_MS := 20.0
 
 var _adapter: Node
 var _runtime: RefCounted
@@ -21,6 +23,9 @@ var _started_us: int = 0
 var _finished: bool = false
 var _evidence_file: FileAccess
 var _evidence_stem: String = ""
+var _position_continuity_tracker := WwisePositionContinuityTracker.new(
+	POSITION_DISCONTINUITY_THRESHOLD_MS
+)
 @onready var _wwise_listener: Node = $WwiseListener
 
 var _whole_boundaries: int = 0
@@ -53,12 +58,13 @@ func _ready() -> void:
 	_adapter.quarter_beat.connect(_on_quarter_beat)
 	_adapter.arrangement_requested.connect(_on_arrangement_requested)
 	_adapter.timing_observed.connect(_on_timing_observed)
+	_adapter.continuous_position_sampled.connect(_on_continuous_position_sampled)
 	_adapter.setup(_runtime)
 	if not _adapter.start():
 		_fail("Wwise failed to initialize or Play_Combat_Spike was not found")
 		return
 	_started_us = Time.get_ticks_usec()
-	print("[AUDIO  ] wwise_spike=running  duration_seconds=%.1f  evidence=%s" % [
+	DebugLog.audio("[AUDIO  ] wwise_spike=running  duration_seconds=%.1f  evidence=%s" % [
 		_duration_seconds,
 		_evidence_stem,
 	])
@@ -186,6 +192,30 @@ func _on_timing_observed(observation: Dictionary) -> void:
 	]))
 
 
+func _on_continuous_position_sampled(position_beats: float, accepted: bool) -> void:
+	var sampled_at_ms := _elapsed_ms()
+	var beat_duration_ms: float = 60000.0 / float(_adapter.bpm)
+	var is_discontinuity: bool = _position_continuity_tracker.observe(
+		position_beats,
+		sampled_at_ms,
+		beat_duration_ms,
+		accepted
+	)
+	if not is_discontinuity and accepted:
+		return
+	_store_position_anomaly(position_beats, sampled_at_ms, accepted, is_discontinuity)
+	if not is_discontinuity:
+		return
+	DebugLog.timing(
+		"[TIMING ] position_discontinuity=%d  position_beats=%.6f  delta_error_ms=%.3f  accepted=%s" % [
+			_position_continuity_tracker.discontinuity_count,
+			position_beats,
+			_position_continuity_tracker.last_delta_error_ms,
+			accepted,
+		]
+	)
+
+
 func _store_evidence(
 	record_type: StringName,
 	kind: StringName,
@@ -205,6 +235,27 @@ func _store_evidence(
 		"",
 		"",
 		value,
+	]))
+
+
+func _store_position_anomaly(
+	position_beats: float,
+	sampled_at_ms: float,
+	accepted: bool,
+	is_discontinuity: bool
+) -> void:
+	if _evidence_file == null:
+		return
+	_evidence_file.store_csv_line(PackedStringArray([
+		"%.3f" % sampled_at_ms,
+		"position_discontinuity" if is_discontinuity else "position_regression",
+		"continuous",
+		str(_position_continuity_tracker.discontinuity_count),
+		"%.6f" % position_beats,
+		"",
+		"",
+		"%.3f" % _position_continuity_tracker.last_delta_error_ms,
+		"accepted=%s" % accepted,
 	]))
 
 
@@ -229,24 +280,31 @@ func _finish(allow_quit: bool = true) -> void:
 	var metrics_file := FileAccess.open("%s.json" % _evidence_stem, FileAccess.WRITE)
 	if metrics_file != null:
 		metrics_file.store_string(JSON.stringify(metrics, "  "))
-	print("[TIMING ] wwise_spike=complete  callbacks=%d  mean_error_ms=%.3f  p95_abs_error_ms=%.3f  max_abs_error_ms=%.3f" % [
+	DebugLog.timing("[TIMING ] wwise_spike=complete  callbacks=%d  mean_error_ms=%.3f  p95_abs_error_ms=%.3f  max_abs_error_ms=%.3f" % [
 		metrics[&"callback_observations"],
 		metrics[&"mean_error_ms"],
 		metrics[&"p95_abs_error_ms"],
 		metrics[&"max_abs_error_ms"],
 	])
-	print("[TIMING ] callback_jitter_ms=%.3f  clock_drift_ms=%.3f  clock_drift_ppm=%.3f" % [
+	DebugLog.timing("[TIMING ] callback_jitter_ms=%.3f  clock_drift_ms=%.3f  clock_drift_ppm=%.3f" % [
 		metrics[&"callback_jitter_ms"],
 		metrics[&"clock_drift_ms"],
 		metrics[&"clock_drift_ppm"],
 	])
-	print("[TIMING ] boundaries=%d  missed=%d  duplicates=%d  beat_callbacks=%d  callback_missed=%d  callback_duplicates=%d" % [
+	DebugLog.timing("[TIMING ] boundaries=%d  missed=%d  duplicates=%d  beat_callbacks=%d  callback_missed=%d  callback_duplicates=%d" % [
 		_whole_boundaries,
 		_missed_whole_boundaries,
 		_duplicate_whole_boundaries,
 		_beat_callbacks,
 		_missed_beat_callbacks,
 		_duplicate_beat_callbacks,
+	])
+	DebugLog.timing("[TIMING ] position_samples=%d  position_discontinuities=%d  rejected_samples=%d  backward_samples=%d  max_delta_error_ms=%.3f" % [
+		_position_continuity_tracker.sample_count,
+		_position_continuity_tracker.discontinuity_count,
+		_position_continuity_tracker.rejected_sample_count,
+		_position_continuity_tracker.backward_sample_count,
+		_position_continuity_tracker.max_abs_delta_error_ms,
 	])
 	print("=== done ===")
 	if allow_quit and _auto_quit:
@@ -311,6 +369,12 @@ func _build_metrics() -> Dictionary:
 		&"missed_beat_callbacks": _missed_beat_callbacks,
 		&"duplicate_beat_callbacks": _duplicate_beat_callbacks,
 		&"arrangement_requests": _arrangement_requests,
+		&"position_samples": _position_continuity_tracker.sample_count,
+		&"position_discontinuities": _position_continuity_tracker.discontinuity_count,
+		&"rejected_position_samples": _position_continuity_tracker.rejected_sample_count,
+		&"backward_position_samples": _position_continuity_tracker.backward_sample_count,
+		&"max_position_delta_error_ms": _position_continuity_tracker.max_abs_delta_error_ms,
+		&"position_discontinuity_threshold_ms": POSITION_DISCONTINUITY_THRESHOLD_MS,
 	}
 
 

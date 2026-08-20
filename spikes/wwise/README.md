@@ -21,6 +21,9 @@ later target platform, licensing constraint, or integration upgrade blocks Wwise
   SDK types.
 - `wwise_runtime_bridge.gd`: the replaceable Wwise-specific implementation behind
   that seam.
+- `wwise_position_continuity_tracker.gd`: a spike-only monitor that compares each
+  continuous position sample with monotonic elapsed time and records regressions
+  separately from material delta anomalies.
 - `wwise_spike_harness.tscn`: an isolated recorder that exercises looping,
   quarter/half/whole boundaries, continuous position, layer changes, and section
   transitions.
@@ -67,6 +70,13 @@ so a late frame recovers boundaries exactly once. Segment-position wraps are
 unrolled into one continuous timeline. Arrangement requests do not reset that
 timeline.
 
+The evidence harness observes every valid continuous-position query through a
+repository-owned signal. It records all samples the adapter rejects to preserve a
+monotonic gameplay clock, and separately flags position-delta errors above 20 ms
+as material discontinuities. This threshold distinguishes the integration's
+sub-frame query noise from a stall or jump large enough to matter to presentation;
+all raw anomalies remain in the CSV.
+
 Wwise music callbacks are observations, not the gameplay clock. The harness
 compares their authored positions with the extrapolated position to measure
 main-thread callback jitter. A short exploratory run observed one missing beat
@@ -95,10 +105,10 @@ must either accept or solve in a maintained integration fork.
 The strict result for a run is: exit code 0, exact `=== done ===`, and no `FAIL`,
 `SCRIPT ERROR`, or line-leading `ERROR:` diagnostic.
 
-| Run | Duration | Continuous whole beats | Missed / duplicate | Beat callbacks | Callback missed / duplicate | Callback error (mean / jitter / p95 / max) | Clock phase drift |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| Godot editor/headless soak | 900.028 s | 1,949 | 0 / 0 | 1,890 | 60 / 0 | 3.180 / 2.974 / 6 / 51 ms | -12.974 ms (-14.415 ppm) |
-| Windows release export | 10.014 s | 21 | 0 / 0 | 22 | 0 / 0 | 2.566 / 1.898 / 6 / 6 ms | -2.526 ms (-252 ppm; short-run sampling noise) |
+| Run | Duration | Continuous whole beats | Missed / duplicate | Beat callbacks | Callback missed / duplicate | Callback error (mean / jitter / p95 / max) | Position samples / discontinuities / max delta | Clock phase drift |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Godot headless soak | 900.018 s | 1,949 | 0 / 0 | 1,890 | 60 / 0 | 3.004 / 2.400 / 6 / 40 ms | 129,829 / 2 / 30.478 ms | -13.556 ms (-15.062 ppm) |
+| Windows release export | 10.033 s | 21 | 0 / 0 | 22 | 0 / 0 | 2.434 / 1.928 / 5 / 6 ms | 1,593 / 0 / 10.278 ms | -3.301 ms (-329 ppm; short-run sampling noise) |
 
 The raw CSV stores every emitted boundary, arrangement request, and callback
 comparison. JSON is a reproducible summary rather than a substitute for the raw
@@ -108,25 +118,38 @@ The full soak recorded consecutive quarter-steps 1–7,799: 1,949 whole beats,
 1,950 half-beats, and 3,900 quarter-beats, all exactly once. Its 60 missing Wwise
 beat callbacks clustered at authored segment/arrangement changes; no callback was
 allowed to suppress or duplicate an adapter boundary. The isolated 51 ms maximum
-callback error did not affect the 6 ms p95.
-Validate the complete quarter-step sequence, including half- and quarter-beats,
-with:
+callback error from the original soak did not affect its 6 ms p95; the
+instrumented rerun reduced the maximum to 40 ms with the same p95.
+
+Of 129,829 continuous samples, 5,442 small backward source samples were rejected
+and clamped by the adapter. Their largest delta error was 11.203 ms. Two adjacent,
+accepted samples at 233.240 s formed one bounded stall/catch-up pair (-29.420 ms,
+then +30.478 ms); they produced no skipped, duplicate, or non-monotonic published
+boundary and did not accumulate. The final phase drift remained -13.556 ms across
+15 minutes. This observed behavior supports using the clamped continuous position
+for gameplay, while #21 should retain the monitor and calibration seam rather than
+assuming the raw integration query is perfectly monotonic.
+
+Validate the complete quarter-step sequence, summary metrics, and raw anomaly
+counts with:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass `
   -File ./spikes/wwise/analyze_timing_evidence.ps1 `
-  ./spikes/wwise/evidence/editor/wwise-timing-*.csv
+  ./spikes/wwise/evidence/editor/wwise-timing-2026-08-20T14-07-54.csv
 ```
 
-The Windows release export completed under the same strict contract. Its files
-were:
+The rebuilt Windows release export completed under the same strict contract. Its
+runtime log contained no strict diagnostic and its separately analyzed evidence
+contained 86 consecutive subdivisions, 62 clamped minor regressions, and no
+material position discontinuity. Its files were:
 
 | File/content | Bytes |
 |---|---:|
-| `RhythmGameWwiseSpike.exe` | 104,796,672 |
-| exported `.pck` | 7,873,556 |
+| `RhythmGameWwiseSpike.exe` | 104,755,712 |
+| exported `.pck` | 7,859,932 |
 | Wwise release DLL | 4,248,064 |
-| export total (excluding evidence logs) | 116,918,292 (111.50 MiB) |
+| export total (excluding evidence logs) | 116,863,708 (111.45 MiB) |
 | Wwise bank plus runtime DLL | 12,067,358 (11.51 MiB) |
 
 The test bank is 7,819,294 bytes and is dominated by uncompressed prototype PCM.
@@ -138,9 +161,22 @@ editor teardown. Focused scripts, the playback harness, and the exported build d
 not emit those errors. Treat that as an integration-upgrade guardrail; investigate
 before calling editor-import CI green, even though it did not affect playback.
 The headless playback/test processes also printed Godot's line-leading `WARNING:
-ObjectDB instances leaked at exit`; warnings are permitted by the repository's
-strict contract, but #21 should retain a teardown smoke check rather than assuming
-the warning is harmless.
+ObjectDB instances leaked at exit`. A minimal Godot/Mono project exited cleanly,
+while the same project with only `wwise.gdextension` loaded--no runtime manager,
+listener, event, bank, or harness--reproduced exactly one anonymous leaked
+`ObjectDB` instance. This isolates the warning to the native community integration
+rather than the spike scene or adapter.
+
+Manual Godot 4.6.3 editor validation on 2026-08-20 confirmed audible backing/layer
+playback, no `SCRIPT ERROR` or line-leading `ERROR:` console diagnostics, and
+stable repeated run/stop cycles in one editor session; the Wwise authoring project
+was also inspected without finding a configuration issue.
+The single process-exit warning is therefore non-blocking evidence of an
+integration teardown defect, not an observed accumulating runtime leak. Warnings
+are permitted by the repository's strict contract, but #21 should retain a
+teardown smoke check and re-open this risk if the leaked-instance count grows,
+voices or game objects fail to return to baseline, memory rises across scene
+restarts, or the warning appears before process exit.
 
 ## Reproduce the authoring project and bank
 
@@ -260,5 +296,6 @@ layer enabled/disabled and section/approach intent—and implement a Wwise adapt
 that maps those intents to authored States. Preserve the current timing surface
 and the continuous-position authority. Do not expose Wwise event names, States,
 RTPCs, or callback dictionaries to combat. Keep native audio selectable until the
-real combat slice has passed the same loop, transition, teardown, and export
-checks.
+real combat slice has passed the same loop, transition, continuity, teardown, and
+export checks. Retain discontinuity/regression monitoring when that adapter is
+integrated so a dependency update cannot silently weaken the timing evidence.

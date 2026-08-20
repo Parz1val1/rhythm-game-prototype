@@ -12,6 +12,7 @@ signal half_beat(beat_number: int)
 signal quarter_beat(beat_number: int, subdivision: float)
 signal arrangement_requested(kind: StringName, value: Variant, requested_at_beats: float)
 signal timing_observed(observation: Dictionary)
+signal continuous_position_sampled(position_beats: float, accepted: bool)
 
 const CALLBACK_KINDS := {
 	0x0100: &"beat",
@@ -159,7 +160,9 @@ func _publish_position(sample: Dictionary) -> void:
 	_seconds_per_beat = beat_duration_ms / 1000.0
 	bpm = 60000.0 / beat_duration_ms
 	var sampled_position_beats := (_completed_source_ms + source_position_ms) / beat_duration_ms
-	if sampled_position_beats + 0.000001 < musical_position_beats:
+	var accepted := sampled_position_beats + 0.000001 >= musical_position_beats
+	continuous_position_sampled.emit(sampled_position_beats, accepted)
+	if not accepted:
 		return
 
 	# Publish the atomic position before any boundary signal, matching BeatClock.

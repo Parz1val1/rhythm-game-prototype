@@ -29,6 +29,19 @@ func _run() -> void:
 			true
 		)
 	harness.free()
+
+	var export_config := ConfigFile.new()
+	_check("Wwise spike export preset is readable", export_config.load("res://export_presets.cfg"), OK)
+	var export_files: PackedStringArray = export_config.get_value(
+		"preset.0",
+		"export_files",
+		PackedStringArray()
+	)
+	_check(
+		"Wwise spike export includes the continuity tracker",
+		export_files.has("res://spikes/wwise/wwise_position_continuity_tracker.gd"),
+		true
+	)
 	print("=== done ===")
 
 

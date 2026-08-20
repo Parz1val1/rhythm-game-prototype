@@ -61,6 +61,7 @@ var _whole_beats: Array[int] = []
 var _half_beats: Array[int] = []
 var _quarter_beats: Array[Vector2] = []
 var _timing_observations: Array[Dictionary] = []
+var _position_samples: Array[Dictionary] = []
 var _has_failures: bool = false
 
 
@@ -72,6 +73,7 @@ func _init() -> void:
 
 func _run() -> void:
 	print("=== Wwise music adapter tests ===")
+	_run_position_continuity_tracker_contract()
 	var adapter_script := load("res://spikes/wwise/wwise_music_adapter.gd")
 	_check("Wwise music adapter is available", adapter_script != null, true)
 	if adapter_script == null:
@@ -85,6 +87,7 @@ func _run() -> void:
 	adapter.half_beat.connect(_on_half_beat)
 	adapter.quarter_beat.connect(_on_quarter_beat)
 	adapter.timing_observed.connect(_on_timing_observed)
+	adapter.continuous_position_sampled.connect(_on_continuous_position_sampled)
 	adapter.setup(runtime)
 	_check("adapter starts through the repository-owned runtime seam", adapter.start(), true)
 	await process_frame
@@ -105,6 +108,10 @@ func _run() -> void:
 		Vector2(1, 0.75),
 	])
 	_check("continuous musical position is atomic", adapter.get_musical_position_beats(), 1.75)
+	_check("continuous position samples stay repository-owned", _position_samples, [{
+		&"position_beats": 1.75,
+		&"accepted": true,
+	}])
 	_check("the integration autoload remains the sole RenderAudio owner", runtime.render_count, 0)
 	_check("signed offset remains negative before the next beat", adapter.get_offset_ms(), -125.0)
 	_check("callback comparison is published without Wwise types", _timing_observations.size(), 1)
@@ -114,6 +121,14 @@ func _run() -> void:
 		_check("same-frame position exposes callback delivery error", observation.get(&"error_ms"), 25.0)
 		_check("observation records continuous musical time", observation.get(&"position_beats"), 1.75)
 		_check("callback position is continuous and generic", observation.get(&"callback_position_beats"), 1.7)
+
+	runtime.position_ms = 750
+	await process_frame
+	_check("backward source samples are observable", _position_samples[-1], {
+		&"position_beats": 1.5,
+		&"accepted": false,
+	})
+	_check("a backward source sample does not regress musical time", adapter.get_musical_position_beats(), 1.75)
 
 	adapter.stop()
 	adapter.free()
@@ -164,6 +179,23 @@ func _run() -> void:
 	print("=== done ===")
 
 
+func _run_position_continuity_tracker_contract() -> void:
+	var tracker_script := load("res://spikes/wwise/wwise_position_continuity_tracker.gd")
+	_check("position continuity tracker is available", tracker_script != null, true)
+	if tracker_script == null:
+		return
+	var tracker: RefCounted = tracker_script.new(20.0)
+	_check("first continuous sample establishes a baseline", tracker.observe(0.0, 0.0, 500.0, true), false)
+	_check("clock-matched progress remains continuous", tracker.observe(0.1, 50.0, 500.0, true), false)
+	_check("a small rejected regression stays below the discontinuity threshold", tracker.observe(0.099, 58.0, 500.0, false), false)
+	_check("a stalled position sample is recorded as a discontinuity", tracker.observe(0.13, 100.0, 500.0, true), true)
+	_check("every valid position observation is counted", tracker.sample_count, 4)
+	_check("material position discontinuities are counted", tracker.discontinuity_count, 1)
+	_check("rejected samples are counted", tracker.rejected_sample_count, 1)
+	_check("backward samples are counted", tracker.backward_sample_count, 1)
+	_check("maximum position delta error is measured", roundf(tracker.max_abs_delta_error_ms * 1000.0) / 1000.0, 26.5)
+
+
 func _on_beat(beat_number: int) -> void:
 	_whole_beats.append(beat_number)
 
@@ -178,6 +210,13 @@ func _on_quarter_beat(beat_number: int, subdivision: float) -> void:
 
 func _on_timing_observed(observation: Dictionary) -> void:
 	_timing_observations.append(observation)
+
+
+func _on_continuous_position_sampled(position_beats: float, accepted: bool) -> void:
+	_position_samples.append({
+		&"position_beats": position_beats,
+		&"accepted": accepted,
+	})
 
 
 func _check(label: String, got, expected) -> void:
