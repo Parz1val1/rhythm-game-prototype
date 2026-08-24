@@ -54,13 +54,25 @@ The integration is community-maintained rather than an Audiokinetic-supported
 Godot product. Its code is MIT-licensed; the bundled Wwise SDK/runtime remains
 subject to Audiokinetic's separate terms. Only the Windows editor/profile,
 Windows debug/profile, and Windows release/release native slices are committed.
-That subset is about 35.9 MiB; the full expanded release was about 713 MiB and
-mostly contained unused platform binaries.
+Each slice contains only its core DLL: 3 tracked native files totaling 18,101,248
+bytes (17.26 MiB). Before the final trim those directories held 48 files totaling
+37,461,577 bytes (35.73 MiB). Removing 39 unused DSP DLLs and 6 link-time
+`.lib`/`.exp` artifacts removed 19,360,329 bytes (18.46 MiB, 51.7%). The full
+expanded integration release was about 713 MiB and mostly contained unused
+platform binaries.
+
+`WwiseBanks/Windows/PluginInfo.json` names only the standard `System` and
+`No Output` audio devices; the authored bank uses no optional DSP plug-in. Commit
+an additional DSP library only when regenerated bank metadata proves the runtime
+dependency and its licensing has been reviewed. The neighboring `.lib` and `.exp`
+files are linker artifacts and are not needed by Godot editor or exported runtime
+loading.
 
 Treat the exact Wwise patch version and integration tag as one dependency. An
-upgrade requires regenerating banks, importing the editor, rerunning the adapter
-tests, completing the timing soak, and verifying an export. Do not silently mix
-SDK and integration patch versions.
+upgrade requires regenerating banks, validating `PluginInfo.json`, importing the
+editor with the teardown caveat below, rerunning the adapter tests, completing the
+timing soak, and verifying an export contains only its required runtime libraries.
+Do not silently mix SDK and integration patch versions.
 
 ## Timing design
 
@@ -139,17 +151,18 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   ./spikes/wwise/evidence/editor/wwise-timing-2026-08-20T14-07-54.csv
 ```
 
-The rebuilt Windows release export completed under the same strict contract. Its
-runtime log contained no strict diagnostic and its separately analyzed evidence
-contained 86 consecutive subdivisions, 62 clamped minor regressions, and no
-material position discontinuity. Its files were:
+The post-trim Windows release export completed under the same strict contract.
+Its 10.023-second packaged runtime emitted 21 consecutive whole boundaries, no
+missed/duplicate/non-monotonic boundary, 1,439 position samples, 62 clamped minor
+regressions, no material discontinuity, and a 9.924 ms maximum delta error. Its
+files were:
 
 | File/content | Bytes |
 |---|---:|
 | `RhythmGameWwiseSpike.exe` | 104,755,712 |
-| exported `.pck` | 7,859,932 |
+| exported `.pck` | 7,860,860 |
 | Wwise release DLL | 4,248,064 |
-| export total (excluding evidence logs) | 116,863,708 (111.45 MiB) |
+| export total (excluding evidence logs) | 116,864,636 (111.45 MiB) |
 | Wwise bank plus runtime DLL | 12,067,358 (11.51 MiB) |
 
 The test bank is 7,819,294 bytes and is dominated by uncompressed prototype PCM.
@@ -177,6 +190,39 @@ are permitted by the repository's strict contract, but #21 should retain a
 teardown smoke check and re-open this risk if the leaked-instance count grows,
 voices or game objects fail to return to baseline, memory rises across scene
 restarts, or the warning appears before process exit.
+
+## Post-trim packaging verification
+
+The final 2026-08-24 trim and verification changed packaging only; the adapter,
+bridge, bank, and accepted 15-minute timing evidence above are unchanged. The
+short-run packaging logs were intentionally written to ignored temporary paths;
+the committed raw acceptance record remains the full timing evidence above.
+
+- Native inventory: 48 files / 37,461,577 bytes before; 3 core DLLs /
+  18,101,248 bytes after. No DSP directory, `.lib`, `.exp`, or `*~RF*.TMP`
+  artifact remained. The three tracked DLLs are the editor/profile,
+  template-debug/profile, and template-release/release libraries referenced by
+  `wwise.gdextension`.
+- Bank metadata: `PluginInfo.json` contains only the standard `System` and
+  `No Output` audio devices.
+- Focused Wwise contract: 3/3 scripts valid, 60 visible `PASS` lines, every exact
+  `=== done ===`, and no strict diagnostic.
+- Short playback harness: 35.019 seconds, 75 whole boundaries, 5,048 position
+  samples, and all four layer/section requests (layer on/off and Alternate/Loop).
+  It recorded no missed/duplicate/non-monotonic boundary and no material position
+  discontinuity; 197 minor source regressions were clamped, with a 10.968 ms
+  maximum delta error.
+- Windows release export: export exit `0` with no strict diagnostic. The package
+  contains the release core DLL and no DSP/linker artifact. Its waited packaged
+  runtime exited `0`, printed one exact completion marker, and emitted no `FAIL`,
+  `SCRIPT ERROR`, or line-leading `ERROR:`.
+- Complete suite: 55/55 scripts valid and 933 visible `PASS` lines under the same
+  strict contract.
+
+Godot's native-extension `ObjectDB` exit warning remains the isolated,
+non-accumulating caveat documented above. These runtime results do not supersede
+the separate headless editor-import teardown caveat and must not be reported as a
+green editor-import CI check.
 
 ## Reproduce the authoring project and bank
 
@@ -227,6 +273,7 @@ Focused adapter tests:
 ```powershell
 & $godot --headless --path . -s res://test/test_wwise_music_adapter.gd
 & $godot --headless --path . -s res://test/test_wwise_runtime_bridge.gd
+& $godot --headless --path . -s res://test/test_wwise_spike_harness.gd
 ```
 
 ## Windows export workflow
@@ -241,9 +288,12 @@ committing.
 
 ```powershell
 & $godot --headless --path . --export-release "Wwise Spike Windows"
-& "$PWD\builds\wwise-spike\RhythmGameWwiseSpike.console.exe" -- `
-  --spike-seconds=10 `
-  --evidence-dir="$PWD\spikes\wwise\evidence\windows-export"
+$runtime = "$PWD\builds\wwise-spike\RhythmGameWwiseSpike.exe"
+$evidence = "$PWD\spikes\wwise\evidence\windows-export"
+$log = "$evidence\export-run.log"
+$process = Start-Process -FilePath $runtime -WindowStyle Hidden -PassThru -Wait `
+  -ArgumentList @("--headless", "--log-file", $log, "--", "--spike-seconds=10", "--evidence-dir=$evidence")
+if ($process.ExitCode -ne 0) { throw "Wwise export exited $($process.ExitCode)" }
 ```
 
 The build directory is ignored. The evidence files are retained.
@@ -256,15 +306,19 @@ Commit:
 - the deterministic authoring script;
 - generated banks and their JSON/TXT metadata, so a clone can run without Wwise
   Authoring installed;
-- `Wwise/resources/Windows.tres` and the pinned Windows integration subset;
+- `Wwise/resources/Windows.tres` and exactly the three pinned Windows core DLLs
+  referenced by `wwise.gdextension`;
 - the integration's upstream `LICENSE`; and
-- raw acceptance evidence.
+- raw timing acceptance evidence.
 
 Ignore Wwise caches, user settings, validation caches, Wwise project-database
-resources, generated Godot UIDs, and exported builds. Review Wwise work-unit diffs
-like source code. Audiokinetic's [source-control guidance](https://www.audiokinetic.com/library/2024.1.6_8842/?id=working_with_projects&source=Help)
-explains why work units and Originals belong in version control while local caches
-do not.
+resources, generated Godot UIDs, and exported builds. The narrow `*~RF*.TMP`
+pattern covers Godot hot-reload replacements without ignoring normal `.TMP` files.
+Do not commit the integration's optional DSP directories or link-time `.lib`/`.exp`
+artifacts by default; add an individual DSP only after bank metadata and license
+review establish that it is required. Review Wwise work-unit diffs like source
+code. Audiokinetic's [source-control guidance](https://www.audiokinetic.com/en/public-library/2024.1.4_8780/?id=pg_source_control_unity.html&source=Unity)
+also recommends keeping only the plug-in binaries a project actually uses.
 
 ## Platforms, licensing, and maintenance risk
 
@@ -282,7 +336,7 @@ actual target platforms; do not infer shipping rights from the integration's MIT
 license or from successful local authoring. Recheck pricing and terms when funding,
 platforms, DLC plans, or commercial status changes.
 
-The dependency-update burden is meaningful: a roughly 36 MiB Windows dependency
+The dependency-update burden is meaningful: 17.26 MiB of Windows core native DLLs
 is vendored, Godot support is community-maintained, CI cannot regenerate banks
 without installing/licensing Wwise tooling, and patch updates can affect native
 ABI, callbacks, editor import, and bank compatibility. The deterministic authoring

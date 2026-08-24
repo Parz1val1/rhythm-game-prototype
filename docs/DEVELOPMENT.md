@@ -11,7 +11,9 @@ target combat behavior; use [Combat System v1](combat/COMBAT_SPEC_V1.md) and its
 ## Local Setup
 
 The project has no package-manager dependencies. It requires Godot
-`4.6.3-stable` Mono. The verified executable on the primary Windows machine is:
+`4.6.3-stable` Mono and includes a pinned Windows native dependency for the
+isolated Wwise spike. The verified Godot executable on the primary Windows
+machine is:
 
 ```powershell
 $env:GODOT_PATH = "C:\Users\Tim\External Applications\Godot_v4.6.3-stable_mono_win64\Godot_v4.6.3-stable_mono_win64_console.exe"
@@ -41,6 +43,22 @@ Run a headless import/parse smoke check without opening the GUI:
 ```powershell
 & $env:GODOT_PATH --headless --editor --path . --quit
 ```
+
+### Wwise spike dependency
+
+See the [Wwise spike record](../spikes/wwise/README.md) for the exact dependency
+pin and the install, authoring, bank-generation, harness, Windows export, and
+upgrade procedures. A clone can run the committed Windows bank and core runtime
+DLLs without Wwise Authoring installed. Regenerating or changing the bank requires
+the pinned Wwise 2025.1.9.9197 Authoring/SDK installation.
+
+Only the three Windows core DLLs used by editor, debug, and release profiles are
+vendored. Unused DSP libraries and link-time `.lib`/`.exp` artifacts are excluded;
+add a DSP only when generated-bank metadata proves the dependency and its license
+has been reviewed. Godot hot-reload `*~RF*.TMP` replacements are narrowly ignored.
+The spike record owns the known native `ObjectDB` exit warning and headless
+editor-import teardown caveat; do not describe editor-import CI as green from
+runtime/test results alone.
 
 The repository has one isolated Windows export preset for the Wwise technical
 spike. It is not a production game export; follow the temporary main-scene and
@@ -81,9 +99,9 @@ A valid test process must:
 The older filtered command that selects only `PASS`, `FAIL`, and `===` lines is
 not sufficient because it hides engine diagnostics.
 
-### Verified green baseline (2026-08-16)
+### Verified green baseline (2026-08-24)
 
-- 52 discovered scripts and 873 visible `PASS` lines.
+- 55 discovered scripts and 933 visible `PASS` lines.
 - 0 visible `FAIL` lines, `SCRIPT ERROR` diagnostics, or line-leading `ERROR:`
   diagnostics.
 - Every script exited `0` and printed the exact `=== done ===` completion marker.

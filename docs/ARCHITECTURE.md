@@ -13,8 +13,9 @@ encounter Resources, starts audio and the global beat clock, instantiates combat
 selects the active input profile, and wires the UI/feedback scenes.
 
 There is no client/server split, database, authentication, external service,
-background worker, durable save system, export configuration, or deployment
-architecture.
+background worker, durable save system, production export configuration, or
+deployment architecture. The isolated Wwise spike export preset described below
+is technical evidence rather than a production game export.
 
 `combat_v1/` is an isolated Combat V1 cadence and encounter-state module, and
 `combat_v1/combat_v1_prototype.tscn` is a separately runnable harness for it.
@@ -36,6 +37,25 @@ Response, an indefinite Tactical Vamp accepts one provisional Continue Round int
 and holds a full four-beat count-in before beginning the next Enemy Phrase without
 repeating Settle. Party ordering, skills, and opponent preferences remain
 unimplemented.
+
+### Isolated Wwise spike infrastructure
+
+`spikes/wwise/` is isolated technical-spike infrastructure, not part of the normal
+Combat V1 composition. The configured legacy scene and standalone Combat V1
+harness still use the `BeatClock` autoload and native Godot audio. The spike's
+`WwiseMusicAdapter` demonstrates a second implementation of the same musical-time
+surface: continuous position plus recovered whole-, half-, and quarter-beat
+boundaries. `WwiseRuntimeBridge` contains the direct Wwise engine calls and
+lifecycle operations. The adapter owns Wwise-shaped playing/callback
+observations only long enough to normalize them into the repository timing
+surface; those details do not cross the isolated adapter boundary.
+
+ADR-010 selects that adapter direction for #21 after the #20 Phase B gate, but the
+production-facing arrangement-intent interface and real-combat integration do not
+exist yet. Combat should emit repository-owned intent; a future adapter may map it
+to Wwise while native audio remains the rollback path. Wwise callbacks may inform
+presentation and diagnostics, but continuous extrapolated position remains the
+timing authority and callbacks must not become a scoring dependency.
 
 ```mermaid
 flowchart LR
@@ -86,6 +106,8 @@ flowchart LR
 | `combat_v1/response_performance_feedback.tscn` and `combat_v1/response_performance_feedback.gd` | Replaceable performance-audio adapter; plays each mapped Enemy Phrase highlight as a lane-specific synthesized preview, then consumes published note-grade truth and softens or mutes imperfect Response results without observing BeatClock or changing backing playback |
 | `combat_v1/combat_v1_hud.tscn` and `combat_v1/combat_v1_hud.gd` | Diagnostic V1 presentation for cadence, Groove, Composure, Multiplier, phrase cues, six-grade note/phrase feedback, nonviolent outcomes, and the active playtest backing track; observes only the public `CombatV1` seam |
 | `combat_v1/combat_v1_prototype.tscn` and `combat_v1/combat_v1_prototype.gd` | Separately runnable harness that injects dependencies, owns symbolic phrase-audio/log handoffs, and hosts `CombatV1HUD` plus the Response feedback adapter; defaults to the restrained Stonebeat loop while offering three same-length procedural backing loops switchable with keys 1–3 or controller shoulders without restarting the clock, accepts controller Start for its provisional cadence intents, and is not the configured main scene |
+| `spikes/wwise/wwise_music_adapter.gd` | Isolated `BeatClock`-compatible timing and arrangement adapter proven by #45; it is not wired into Combat V1 |
+| `spikes/wwise/wwise_runtime_bridge.gd` | Replaceable Wwise boundary that owns middleware event, State, callback, and position-query knowledge |
 | `characters/*.gd/.tres` | Character stats, input behavior, and musical/visual identity |
 | `encounters/*.tres` | Editable encounter groups and neutral enemy patterns |
 | `rhythm_engine/` | `NoteData`, `NeutralHit`, and queued `ActiveNote` domain types |
