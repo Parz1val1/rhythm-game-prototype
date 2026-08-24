@@ -274,6 +274,7 @@ func _run() -> void:
 		var hud_signals: Array[StringName] = [
 			&"cadence_changed",
 			&"encounter_state_changed",
+			&"next_round_transition_changed",
 			&"phrase_event_announced",
 			&"response_target_announced",
 			&"response_note_graded",
@@ -283,6 +284,7 @@ func _run() -> void:
 		var hud_methods: Array[StringName] = [
 			&"_on_cadence_changed",
 			&"_on_encounter_state_changed",
+			&"_on_next_round_transition_changed",
 			&"_on_phrase_event_announced",
 			&"_on_response_target_announced",
 			&"_on_response_note_graded",
