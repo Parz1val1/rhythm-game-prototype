@@ -1,0 +1,20 @@
+Event	ID	Name			Wwise Object Path	Notes
+	3844191113	Play_Combat_Spike			\Default Work Unit\Play_Combat_Spike	
+
+State Group	ID	Name			Wwise Object Path	Notes
+	3484900869	Combat_Section			\Default Work Unit\Combat_Section	
+	4154955983	Combat_Layer			\Default Work Unit\Combat_Layer	
+
+State	ID	Name	State Group			Notes
+	691006007	Loop	Combat_Section			
+	748895195	None	Combat_Section			
+	2915544473	Alternate	Combat_Section			
+	748895195	None	Combat_Layer			
+	3248502869	Disabled	Combat_Layer			
+	4174102348	Enabled	Combat_Layer			
+
+In Memory Audio	ID	Name	Audio source file		Wwise Object Path	Notes	Data Size
+	289445868	Base	.cache\80\{80514AA8-8FF3-42E7-1F11-86B5F432AD60}.wem		\Containers\Default Work Unit\Combat_Spike\Alternate_Enabled\Alternate\Base		2605388
+	418881631	Layer	.cache\EF\{EF9E298E-9446-BE60-58F4-FE3E2947C531}.wem		\Containers\Default Work Unit\Combat_Spike\Loop_Enabled\Loop\Layer		2605388
+	573739321	Base	.cache\5D\{5DFA7877-0F29-C7D3-0277-99C70B79C25E}.wem		\Containers\Default Work Unit\Combat_Spike\Loop_Disabled\Loop\Base		2605388
+

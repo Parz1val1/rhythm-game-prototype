@@ -1,6 +1,6 @@
 # Roadmap
 
-Last reviewed: 2026-08-19. [Combat System v1](combat/COMBAT_SPEC_V1.md) is the
+Last reviewed: 2026-08-24. [Combat System v1](combat/COMBAT_SPEC_V1.md) is the
 north star for combat prototyping. Ordering after the first slice remains
 provisional and should respond to playtest evidence.
 
@@ -40,10 +40,15 @@ Skill and multi-bar Character Performance model:
 
 ### C4 — Arrangement as feedback and reward
 
+- After the Phase B gate in #20, define #21's repository-owned arrangement intent
+  and evaluate the Wwise path selected by #45 in real combat behind repository-
+  owned timing and arrangement interfaces.
 - Make Groove, Composure, Multiplier, contributions, and opponent synchronization
   audible in the evolving arrangement.
 - Test whether the player feels they helped create the song.
 - Add visual and accessibility equivalents alongside audio feedback.
+- Keep native Godot audio selectable until the real-combat timing, lifecycle,
+  transition, teardown, and Windows export checks pass.
 
 ## Later
 
@@ -65,6 +70,12 @@ Skill and multi-bar Character Performance model:
 
 ## Completed
 
+- **Wwise musical-timeline and arrangement spike (2026-08-24):** issue #45 selected
+  pinned Wwise 2025.1.9.9197 plus its community Godot integration for #21's later
+  arrangement prototype behind repository-owned interfaces. A 15-minute timing
+  soak, manual editor replay, authored layer/section transitions, and a Windows
+  release runtime passed; native Godot audio remains the rollback path and
+  shipping/platform adoption remains conditional.
 - **C1 — First Combat System v1 conversation slice (2026-08-19):** delivered and
   approved the isolated Settle → Enemy Phrase → Response → Tactical Vamp loop
   through issues #9–#15, then completed playtest-driven readability and musical-agency

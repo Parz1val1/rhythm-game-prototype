@@ -53,6 +53,7 @@ report the blocker.
 - **System boundaries, data flow, or extension seams** → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - **Established technical choices that a change may challenge** → [docs/DECISIONS.md](docs/DECISIONS.md)
 - **Godot setup, commands, tests, logging, or file-editing mechanics** → [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+- **Wwise integration, bank authoring, timing evidence, or dependency upgrades** → [spikes/wwise/README.md](spikes/wwise/README.md)
 - **Priorities or future work** → [docs/ROADMAP.md](docs/ROADMAP.md)
 - **Current medium/large implementation effort** → [plans/current.md](plans/current.md)
 
@@ -66,6 +67,8 @@ a current document links to a specific record as design evidence.
   other mutable gameplay Resource before live use with `duplicate(true)`.
 - Keep `BeatClock` an audio-corrected signal source. Game rules belong in combat
   systems, and input-free combat phases must not stop the backing music or clock.
+- Keep Wwise behind repository-owned timing/arrangement interfaces; extrapolated
+  position is gameplay authority, while callbacks are presentation/diagnostics.
 - In autoload scripts, preload cross-file `class_name` types and `DebugLog` because
   Godot 4.6 autoload parse order does not reliably expose global types.
 - Convert `StringName` before indexing a `String`-keyed Dictionary, and build typed

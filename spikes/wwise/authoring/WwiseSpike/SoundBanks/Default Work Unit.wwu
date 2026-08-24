@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WwiseDocument Type="WorkUnit" ID="{C0989C2B-DE8A-49E9-A815-1277D8F22532}" SchemaVersion="133">
+	<SoundBanks>
+		<WorkUnit Name="Default Work Unit" ID="{C0989C2B-DE8A-49E9-A815-1277D8F22532}" PersistMode="Standalone">
+			<ChildrenList>
+				<SoundBank Name="Combat_Spike" ID="{72A5D7AA-565D-431C-A27E-94640804302E}">
+					<ObjectInclusionList>
+						<ObjectRef Name="Play_Combat_Spike" ID="{11C6127D-4F1A-49EF-B931-42C78F873220}" WorkUnitID="{21F63B7B-7266-411A-854A-6DF01CE741F4}" Origin="Manual" Filter="7"/>
+					</ObjectInclusionList>
+					<ObjectExclusionList/>
+					<GameSyncExclusionList/>
+				</SoundBank>
+			</ChildrenList>
+		</WorkUnit>
+	</SoundBanks>
+</WwiseDocument>

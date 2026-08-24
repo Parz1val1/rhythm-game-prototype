@@ -1,0 +1,30 @@
+{
+  "arrangement_requests": 121,
+  "beat_callbacks": 1890,
+  "callback_jitter_ms": 2.97439864477048,
+  "callback_observations": 4211,
+  "clock_drift_ms": -12.9739999999032,
+  "clock_drift_ppm": -14.4151061725214,
+  "duplicate_beat_callbacks": 0,
+  "duplicate_whole_boundaries": 0,
+  "duration_seconds": 900.028057,
+  "godot_version": {
+    "build": "official",
+    "hash": "7d41c59c457bd5a245092b4e7eb2d833e3b3f8c3",
+    "hex": 263683,
+    "major": 4,
+    "minor": 6,
+    "patch": 3,
+    "status": "stable",
+    "string": "4.6.3-stable (official)",
+    "timestamp": 0
+  },
+  "integration_tag": "wwise_v2025.1.9",
+  "max_abs_error_ms": 51.0,
+  "mean_error_ms": 3.17976727618143,
+  "missed_beat_callbacks": 60,
+  "missed_whole_boundaries": 0,
+  "p95_abs_error_ms": 6.0,
+  "whole_boundaries": 1949,
+  "wwise_version": "2025.1.9.9197"
+}

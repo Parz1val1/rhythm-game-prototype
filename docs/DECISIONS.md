@@ -21,11 +21,15 @@ enabled but C# is unused.
 **Context:** The project needs rapid iteration on timing, input, audio, data, and UI
 inside one engine.
 
-**Rationale:** The original design selected Godot's audio timing, signal, autoload,
-and Resource systems. No separate runtime or dependency ecosystem is required.
+**Rationale:** The original design selected Godot's signal, autoload, Resource,
+and application-runtime systems. Evidence-backed native middleware may be vendored
+behind repository-owned interfaces without adding a package-manager ecosystem or
+moving application orchestration out of Godot.
 
 **Consequences:** Engine version and parse behavior matter; there is currently no
-independent build tool, package manager, or non-Godot type-check step.
+independent build tool, package manager, or non-Godot type-check step. A pinned
+community native integration now adds its own version, platform, licensing, and
+export obligations; ADR-010 constrains that dependency.
 
 ## ADR-002 — Keep `BeatClock` audio-corrected and free of game logic
 
@@ -162,3 +166,49 @@ script error or incomplete run.
 
 **Consequences:** Full-suite commands and any future CI runner must inspect raw
 output and completion markers. Current violations remain tracked in the roadmap.
+
+## ADR-010 — Adopt Wwise behind owned audio interfaces for the Phase C prototype
+
+**Status:** Accepted for the Phase C/#21 prototype; shipping remains conditional
+
+**Decision:** Use Wwise 2025.1.9.9197 with community integration tag
+`wwise_v2025.1.9` for the arrangement prototype in #21 after the #20 Phase B
+gate. Preserve the repository-owned `BeatClock` timing interface and express
+arrangement intent in repository language. The isolated Wwise adapter boundary
+may know Wwise events,
+States, RTPCs, playing IDs, callback dictionaries, or SDK types; combat remains
+independent of them. `WwiseRuntimeBridge` owns direct engine calls while the
+adapter normalizes their results into repository timing and arrangement signals.
+
+Extrapolated continuous segment position is the gameplay timing authority. It is
+unrolled and clamped through the adapter before publishing subdivisions or signed
+offset snapshots. Wwise callbacks are observations for presentation and
+diagnostics, not scoring authority. The integration-provided
+`WwiseRuntimeManager` remains the sole owner of `RenderAudio()`.
+
+**Context:** Issue #45 demonstrated complete beat/subdivision recovery, bounded
+continuous-position noise, bar-quantized layer/section changes, stable editor
+playback, and a clean Windows release runtime. Callback delivery had observable
+gaps at authored transitions while the extrapolated position remained complete,
+which makes the authority boundary material rather than stylistic.
+
+**Rationale:** Wwise's authored music transitions reduce custom arrangement work
+without requiring Combat V1 to adopt middleware vocabulary. A repository-owned
+adapter preserves the proven timing interface, calibration seam, and native Godot
+audio rollback path.
+
+**Consequences:** The repository commits the generated Windows bank and exactly
+the editor/profile, template-debug/profile, and template-release/release core DLLs
+needed by the spike. Wwise-specific installation, authoring, bank, export, and
+binary policy stays in `spikes/wwise/README.md`, not the combat specification.
+Adding a DSP binary requires a generated-bank dependency and license review.
+
+The exact Wwise SDK patch and integration tag are one pin. Any upgrade must
+regenerate banks, validate `PluginInfo.json`, import the editor with its known
+teardown caveat, rerun focused adapter tests and a timing soak, perform teardown
+checks, and verify a packaged export. Keep native audio selectable through #21's
+first real-combat playtest and its lifecycle, continuity, transition, teardown,
+and export checks. Shipping and every additional target platform require separate
+licensing and platform evidence. Future #25
+calibration applies a signed scoring/input offset; it does not rewrite musical
+position.

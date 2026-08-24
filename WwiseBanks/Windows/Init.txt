@@ -1,0 +1,19 @@
+State Group	ID	Name			Wwise Object Path	Notes
+	3484900869	Combat_Section			\Default Work Unit\Combat_Section	
+	4154955983	Combat_Layer			\Default Work Unit\Combat_Layer	
+
+State	ID	Name	State Group			Notes
+	691006007	Loop	Combat_Section			
+	748895195	None	Combat_Section			
+	2915544473	Alternate	Combat_Section			
+	748895195	None	Combat_Layer			
+	3248502869	Disabled	Combat_Layer			
+	4174102348	Enabled	Combat_Layer			
+
+Audio Bus	ID	Name			Wwise Object Path	Notes
+	2246998526	Main Audio Bus			\Default Work Unit\Main Audio Bus	
+
+Audio Devices	ID	Name	Type				Notes
+	2317455096	No_Output	No Output			
+	3859886410	System	System			
+

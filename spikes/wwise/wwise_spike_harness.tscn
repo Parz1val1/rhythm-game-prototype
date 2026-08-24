@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://spikes/wwise/wwise_spike_harness.gd" id="1_harness"]
+
+[node name="WwiseSpikeHarness" type="Node"]
+script = ExtResource("1_harness")
+
+[node name="WwiseListener" type="AkListener2D" parent="."]
+is_default_listener = true
