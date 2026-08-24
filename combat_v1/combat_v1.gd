@@ -68,6 +68,9 @@ signal cadence_changed(cadence: Cadence)
 signal player_intent_received(intent: Intent)
 ## Emitted when a known or unknown intent cannot be accepted in the current state.
 signal intent_rejected(intent: Intent)
+## Emitted when the authoritative next-round count-in state changes. Presentation
+## consumers can also reconstruct this snapshot through get_state().
+signal next_round_transition_changed(transition: Dictionary)
 ## Emitted when the shared timing/input seam reports a scored input.
 signal rhythm_input_observed(direction: StringName, score: StringName, offset_ms: float)
 ## Single source of truth for audio, text, and lane-preview phrase presentation.
@@ -212,8 +215,10 @@ func player_intent(intent: Intent) -> bool:
 			if intent == Intent.CONTINUE_ROUND and not _next_round_pending:
 				_next_round_pending = true
 				_next_round_count_in_beats_elapsed = 0
+				_suppress_scoring_for_listening()
 				DebugLog.combat("[V1    ] next_round=pending  count_in_beats=%d" % \
 					_NEXT_ROUND_COUNT_IN_BEATS)
+				next_round_transition_changed.emit(_get_next_round_transition_state())
 				accepted = true
 		_:
 			pass
@@ -306,8 +311,18 @@ func get_state() -> Dictionary:
 		&"response_summary": _last_response_summary.duplicate(true),
 		&"running": _running,
 		&"last_intent": _last_intent,
+		&"next_round_pending": _next_round_pending,
+		&"next_round_count_in_beat": _next_round_count_in_beats_elapsed,
+		&"next_round_count_in_beats": _NEXT_ROUND_COUNT_IN_BEATS,
 	})
 	return state
+
+func _get_next_round_transition_state() -> Dictionary:
+	return {
+		&"active": _next_round_pending,
+		&"count_in_beat": _next_round_count_in_beats_elapsed,
+		&"count_in_beats": _NEXT_ROUND_COUNT_IN_BEATS,
+	}
 
 ## Return the complete active Response schedule and its current musical position.
 ## Presentation adapters poll this snapshot so BeatClock remains the only timing
@@ -364,6 +379,8 @@ func teardown() -> void:
 	if not _running:
 		return
 	_running = false
+	_next_round_pending = false
+	_next_round_count_in_beats_elapsed = 0
 	DebugLog.combat("[V1    ] stopped")
 	_set_cadence(Cadence.IDLE)
 	stopped.emit()
@@ -379,6 +396,7 @@ func _on_beat(_beat_number: int) -> void:
 					_next_round_count_in_beats_elapsed,
 					_NEXT_ROUND_COUNT_IN_BEATS,
 				])
+				next_round_transition_changed.emit(_get_next_round_transition_state())
 				return
 			_next_round_pending = false
 			_next_round_count_in_beats_elapsed = 0
@@ -657,6 +675,8 @@ func _on_encounter_state_changed(state: Dictionary) -> void:
 	encounter_state_changed.emit(state)
 
 func _on_encounter_resolved(outcome: EncounterState.Outcome) -> void:
+	_next_round_pending = false
+	_next_round_count_in_beats_elapsed = 0
 	_set_cadence(Cadence.RESOLUTION)
 	resolved.emit(outcome)
 

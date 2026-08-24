@@ -359,6 +359,17 @@ theme_override_colors/font_color = Color(0.88, 0.92, 1, 1)
 theme_override_font_sizes/font_size = 18
 text = "Waiting for the conversation to begin."
 
+[node name="CountInLabel" type="Label" parent="InstructionPanel"]
+visible = false
+layout_mode = 0
+offset_left = 18.0
+offset_top = 72.0
+offset_right = 1060.0
+offset_bottom = 98.0
+theme_override_colors/font_color = Color(0.25, 0.82, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "COUNT-IN  ○  ○  ○  ○"
+
 [node name="AudioTrackLabel" type="Label" parent="InstructionPanel"]
 layout_mode = 0
 offset_left = 18.0

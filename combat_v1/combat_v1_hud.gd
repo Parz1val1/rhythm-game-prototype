@@ -23,6 +23,7 @@ const ResponseNoteHighway = preload("res://combat_v1/response_note_highway.gd")
 @onready var _outcome_title: Label = $OutcomePanel/OutcomeTitle
 @onready var _outcome_body: Label = $OutcomePanel/OutcomeBody
 @onready var _instruction_label: Label = $InstructionPanel/InstructionLabel
+@onready var _count_in_label: Label = $InstructionPanel/CountInLabel
 @onready var _audio_track_label: Label = $InstructionPanel/AudioTrackLabel
 @onready var _response_note_highway: ResponseNoteHighway = $ResponseNoteHighway
 
@@ -49,6 +50,8 @@ func setup(combat_v1: CombatV1) -> void:
 		_combat_v1.cadence_changed.connect(_on_cadence_changed)
 	if not _combat_v1.encounter_state_changed.is_connected(_on_encounter_state_changed):
 		_combat_v1.encounter_state_changed.connect(_on_encounter_state_changed)
+	if not _combat_v1.next_round_transition_changed.is_connected(_on_next_round_transition_changed):
+		_combat_v1.next_round_transition_changed.connect(_on_next_round_transition_changed)
 	if not _combat_v1.response_note_graded.is_connected(_on_response_note_graded):
 		_combat_v1.response_note_graded.connect(_on_response_note_graded)
 	if not _combat_v1.response_phrase_graded.is_connected(_on_response_phrase_graded):
@@ -72,6 +75,9 @@ func _on_cadence_changed(_cadence: CombatV1.Cadence) -> void:
 	_sync_from_module()
 
 func _on_encounter_state_changed(_state: Dictionary) -> void:
+	_sync_from_module()
+
+func _on_next_round_transition_changed(_transition: Dictionary) -> void:
 	_sync_from_module()
 
 func _on_response_note_graded(result: Dictionary) -> void:
@@ -130,10 +136,21 @@ func _sync_from_module() -> void:
 	if _combat_v1 == null:
 		return
 	var state: Dictionary = _combat_v1.get_state()
-	_cadence_label.text = String(state[&"cadence_name"])
-	_mode_label.text = _get_mode_text(state[&"cadence"])
-	_mode_label.add_theme_color_override("font_color", _get_mode_color(state[&"cadence"]))
-	_instruction_label.text = _get_instruction_text(state[&"cadence"])
+	var next_round_pending: bool = state[&"next_round_pending"]
+	_cadence_label.text = "Next Round Count-In" if next_round_pending \
+		else String(state[&"cadence_name"])
+	_mode_label.text = _get_mode_text(state[&"cadence"], next_round_pending)
+	_mode_label.add_theme_color_override(
+		"font_color",
+		_get_mode_color(state[&"cadence"], next_round_pending)
+	)
+	_instruction_label.text = _get_instruction_text(state[&"cadence"], next_round_pending)
+	_count_in_label.visible = next_round_pending
+	if next_round_pending:
+		_count_in_label.text = _get_count_in_text(
+			state[&"next_round_count_in_beat"],
+			state[&"next_round_count_in_beats"]
+		)
 	if bool(state[&"terminal"]):
 		var outcome: CombatV1.Outcome = state[&"outcome"]
 		_show_outcome(outcome)
@@ -156,7 +173,9 @@ func _sync_from_module() -> void:
 	_multiplier_bar.value = float(state[&"multiplier"])
 	_multiplier_value.text = "MULTIPLIER  %sx" % _format_number(state[&"multiplier"])
 
-func _get_mode_text(cadence: CombatV1.Cadence) -> String:
+func _get_mode_text(cadence: CombatV1.Cadence, next_round_pending: bool = false) -> String:
+	if next_round_pending:
+		return "COUNT-IN - LISTEN"
 	match cadence:
 		CombatV1.Cadence.SETTLE, CombatV1.Cadence.ENEMY_PHRASE:
 			return "LISTEN - NO INPUT"
@@ -169,7 +188,9 @@ func _get_mode_text(cadence: CombatV1.Cadence) -> String:
 		_:
 			return "WAITING"
 
-func _get_mode_color(cadence: CombatV1.Cadence) -> Color:
+func _get_mode_color(cadence: CombatV1.Cadence, next_round_pending: bool = false) -> Color:
+	if next_round_pending:
+		return Color("40d1ff")
 	match cadence:
 		CombatV1.Cadence.SETTLE, CombatV1.Cadence.ENEMY_PHRASE:
 			return Color("40d1ff")
@@ -182,7 +203,9 @@ func _get_mode_color(cadence: CombatV1.Cadence) -> Color:
 		_:
 			return Color("8daecf")
 
-func _get_instruction_text(cadence: CombatV1.Cadence) -> String:
+func _get_instruction_text(cadence: CombatV1.Cadence, next_round_pending: bool = false) -> String:
+	if next_round_pending:
+		return "Choice locked. Listen for the next Enemy Phrase."
 	match cadence:
 		CombatV1.Cadence.SETTLE:
 			return "Listen. No input is scored while the band settles."
@@ -196,6 +219,12 @@ func _get_instruction_text(cadence: CombatV1.Cadence) -> String:
 			return "Conversation complete. Reload the harness to play again."
 		_:
 			return "Waiting for the conversation to begin."
+
+func _get_count_in_text(elapsed_beats: int, total_beats: int) -> String:
+	var beat_markers := PackedStringArray()
+	for beat_index in range(total_beats):
+		beat_markers.append("●" if beat_index < elapsed_beats else "○")
+	return "COUNT-IN  %s" % "  ".join(beat_markers)
 
 func _get_grade_display_name(grade_name: StringName) -> String:
 	match grade_name:
@@ -247,6 +276,8 @@ func teardown() -> void:
 		_combat_v1.cadence_changed.disconnect(_on_cadence_changed)
 	if _combat_v1.encounter_state_changed.is_connected(_on_encounter_state_changed):
 		_combat_v1.encounter_state_changed.disconnect(_on_encounter_state_changed)
+	if _combat_v1.next_round_transition_changed.is_connected(_on_next_round_transition_changed):
+		_combat_v1.next_round_transition_changed.disconnect(_on_next_round_transition_changed)
 	if _combat_v1.response_note_graded.is_connected(_on_response_note_graded):
 		_combat_v1.response_note_graded.disconnect(_on_response_note_graded)
 	if _combat_v1.response_phrase_graded.is_connected(_on_response_phrase_graded):
