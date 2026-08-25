@@ -98,10 +98,14 @@ func _run() -> void:
 				and "Rising single-note run" in first_option.text,
 			&"first_communicates_effect": first_option != null \
 				and "Contribute Groove" in first_option.text,
+			&"first_communicates_cost": first_option != null \
+				and "0 INSPIRATION" in first_option.text,
 			&"second_communicates_interaction": second_option != null \
 				and "Measured chord pulses" in second_option.text,
 			&"second_communicates_effect": second_option != null \
 				and "Restore 20 Composure" in second_option.text,
+			&"second_communicates_cost": second_option != null \
+				and "30 INSPIRATION" in second_option.text,
 			&"selected": selected,
 			&"selected_skill_id": module.get_state().get(&"selected_skill_id", &""),
 			&"panel_hidden_after_selection": skill_panel != null and not skill_panel.visible,
@@ -113,8 +117,10 @@ func _run() -> void:
 			&"choice_ids": [&"bright_motif", &"steadying_harmony"],
 			&"first_communicates_interaction": true,
 			&"first_communicates_effect": true,
+			&"first_communicates_cost": true,
 			&"second_communicates_interaction": true,
 			&"second_communicates_effect": true,
+			&"second_communicates_cost": true,
 			&"selected": true,
 			&"selected_skill_id": &"steadying_harmony",
 			&"panel_hidden_after_selection": true,

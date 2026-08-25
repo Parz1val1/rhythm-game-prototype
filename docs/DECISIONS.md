@@ -239,3 +239,33 @@ Effects must use encounter-state methods rather than mutate public snapshots, an
 their order is observable when effects depend on prior state. The prototype's one
 Character Performance per exchange is a scoped product simplification recorded in
 the combat prototype record, not a technical constraint imposed by this ADR.
+
+## ADR-012 — Keep Inspiration in injected, character-owned session state
+
+**Status:** Accepted for the Combat V1 prototype
+
+**Decision:** Keep Inspiration in a separately owned `CombatV1SessionState` and
+inject that session plus an active character identity into each `CombatV1`
+encounter. Give each registered character independently copied Inspiration
+bounds, starting value, and grade/source generation settings. Route graded
+performance into that owner and check/spend authored Skill costs atomically at
+commitment without crossing the configured floor. Publish copied character and
+party snapshots through the public Combat V1 state/presentation boundary.
+
+**Context:** Issue #17 requires Inspiration to persist between encounters while
+Groove, Composure, and shared Multiplier remain encounter-local. Legacy
+`CharacterData` Resources also hold mutable HP and a limit gauge; storing
+Inspiration beside those values would either leak Resource-template state or
+conflate an unresolved Finale/Limit concept with the new character economy.
+
+**Rationale:** An injected in-memory owner gives character progression a longer
+lifetime than an encounter without introducing save files, an autoload, or a
+production world-state architecture prematurely. One session-owned affordability
+rule prevents the orchestrator and HUD from disagreeing about minimum floors.
+
+**Consequences:** The harness or another future composition root must retain the
+session across encounter replacement. Encounter setup/reset must never clear
+registered Inspiration; fight-local state must still reset and gameplay Resources
+must still be deep-copied. The one-active-Luthier harness, party ordering,
+cross-character effects, durable saves, final rates, and any separate
+Finale/Limit resource remain unresolved or out of scope.

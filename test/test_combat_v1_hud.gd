@@ -27,8 +27,11 @@ func _run() -> void:
 	config.baseline_multiplier = 1.5
 	config.max_multiplier = 3.0
 
+	var presentation_session = CombatV1Script.SessionState.new()
+	presentation_session.register_character(&"luthier_frett", "Luthier Frett")
 	var module = CombatV1Script.new()
 	root.add_child(module)
+	module.bind_session(presentation_session, &"luthier_frett")
 	module.setup(
 		root.get_node("BeatClock"),
 		root.get_node("RhythmInput"),
@@ -75,6 +78,52 @@ func _run() -> void:
 	_check("late setup reflects current Composure", hud.get_node("MeterPanel/Meters/Composure/ComposureBar").value, 60.0)
 	_check("late setup reflects Multiplier minimum", hud.get_node("MeterPanel/Meters/Multiplier/MultiplierBar").min_value, 0.5)
 	_check("late setup reflects current Multiplier", hud.get_node("MeterPanel/Meters/Multiplier/MultiplierBar").value, 1.5)
+	var inspiration_bar: ProgressBar = hud.get_node_or_null(
+		"MeterPanel/Meters/Inspiration/InspirationBar"
+	)
+	var inspiration_value: Label = hud.get_node_or_null(
+		"MeterPanel/Meters/Inspiration/InspirationValue"
+	)
+	_check(
+		"late setup presents the active character's Inspiration and configured floor",
+		{
+			&"minimum": inspiration_bar.min_value if inspiration_bar != null else -1.0,
+			&"maximum": inspiration_bar.max_value if inspiration_bar != null else -1.0,
+			&"value": inspiration_bar.value if inspiration_bar != null else -1.0,
+			&"label": inspiration_value.text if inspiration_value != null else "",
+		},
+		{
+			&"minimum": 20.0,
+			&"maximum": 100.0,
+			&"value": 50.0,
+			&"label": "LUTHIER INSPIRATION  50 / 100",
+		}
+	)
+	var stronger_skill_label: Label = hud.get_node("SkillPanel/SecondSkill")
+	var initially_available := "UNAVAILABLE" not in stronger_skill_label.text
+	presentation_session.spend_inspiration(&"luthier_frett", 30.0)
+	var unavailable_at_floor := "UNAVAILABLE" in stronger_skill_label.text
+	for note_index in range(6):
+		presentation_session.record_performance_grade(
+			&"luthier_frett",
+			&"perfect",
+			&"note"
+		)
+	_check(
+		"Skill affordability follows live Inspiration changes without owning resource rules",
+		{
+			&"initially_available": initially_available,
+			&"unavailable_at_floor": unavailable_at_floor,
+			&"available_after_play": "UNAVAILABLE" not in stronger_skill_label.text,
+			&"restored_inspiration": inspiration_bar.value if inspiration_bar != null else -1.0,
+		},
+		{
+			&"initially_available": true,
+			&"unavailable_at_floor": true,
+			&"available_after_play": true,
+			&"restored_inspiration": 50.0,
+		}
+	)
 	var listening_color: Color = hud.get_node("CadencePanel/ModeLabel").get_theme_color("font_color")
 	for beat_number in range(1, 5):
 		root.get_node("BeatClock").beat.emit(beat_number)
@@ -86,6 +135,22 @@ func _run() -> void:
 		var highway_snapshot: Dictionary = response_highway.get_presentation_snapshot()
 		_check("the integrated highway is active before the first due target", highway_snapshot[&"active"], true)
 		_check("the integrated highway receives the complete Response schedule", highway_snapshot[&"targets"].size(), 6)
+	var first_response_target: Dictionary = module.get_response_presentation()[&"targets"][0]
+	module.submit_response_input(
+		first_response_target[&"expected_action"],
+		first_response_target[&"due_beat"]
+	)
+	_check(
+		"character Inspiration signals immediately refresh the presentation meter",
+		{
+			&"value": inspiration_bar.value if inspiration_bar != null else -1.0,
+			&"label": inspiration_value.text if inspiration_value != null else "",
+		},
+		{
+			&"value": 55.0,
+			&"label": "LUTHIER INSPIRATION  55 / 100",
+		}
+	)
 	if instruction_label != null:
 		_check(
 			"Response guidance explains submission",
@@ -274,6 +339,7 @@ func _run() -> void:
 		var hud_signals: Array[StringName] = [
 			&"cadence_changed",
 			&"encounter_state_changed",
+			&"inspiration_changed",
 			&"next_round_transition_changed",
 			&"phrase_event_announced",
 			&"response_target_announced",
@@ -286,6 +352,7 @@ func _run() -> void:
 		var hud_methods: Array[StringName] = [
 			&"_on_cadence_changed",
 			&"_on_encounter_state_changed",
+			&"_on_inspiration_changed",
 			&"_on_next_round_transition_changed",
 			&"_on_phrase_event_announced",
 			&"_on_response_target_announced",

@@ -9,19 +9,24 @@ provisional and should respond to playtest evidence.
 ### C2 — Skills and character performances
 
 Tracking: [Combat V1 epic #8](https://github.com/Parz1val1/rhythm-game-prototype/issues/8),
-beginning with [issue #16](https://github.com/Parz1val1/rhythm-game-prototype/issues/16).
+including [issue #16](https://github.com/Parz1val1/rhythm-game-prototype/issues/16)
+and [issue #17](https://github.com/Parz1val1/rhythm-game-prototype/issues/17).
 
 The human playtest gate in
 [#15](https://github.com/Parz1val1/rhythm-game-prototype/issues/15) approved the
 core conversation cadence and unblocked Phase B. Issue #16 then established two
 authored Luthier Skills, configurable multi-bar Character Performances, a
-single-performance prototype exchange, and a passing hands-on comparison. Continue
+single-performance prototype exchange, and a passing hands-on comparison. Issue
+#17 adds independent in-memory character Inspiration, configurable circulation
+and floors, authored Skill costs, and fresh-encounter persistence. Continue
 validating the smallest useful Skill/performance model:
 
 - Extend the minimal Skill/effect seam without coupling new tactical behavior to
   the combat orchestrator.
 - Continue testing multi-bar performance duration and the pacing between Tactical
   Vamps, active play, and later party-performance ordering.
+- Tune provisional Inspiration circulation through ordinary performance without
+  turning session persistence into durable saves or equating it with Finale/Limit.
 - Preserve distinct Luthier and Beatrice interaction languages.
 - Preserve the committed count-in presentation from
   [#42](https://github.com/Parz1val1/rhythm-game-prototype/issues/42); stronger
@@ -56,7 +61,8 @@ validating the smallest useful Skill/performance model:
 
 ### L1 — Progression and expressive breadth
 
-- Inspiration persistence, floors, generation, and skill costs.
+- Durable progression persistence, production balance, and cross-character
+  Inspiration/support effects beyond the existing in-memory prototype.
 - Skill loadouts and acquisition through progression, story, and exploration.
 - Guided, character-specific improvisation.
 - Duets, Ensembles, and Finale/Limit Performances after their open design questions
