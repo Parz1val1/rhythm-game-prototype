@@ -212,3 +212,30 @@ and export checks. Shipping and every additional target platform require separat
 licensing and platform evidence. Future #25
 calibration applies a signed scoring/input offset; it does not rewrite musical
 position.
+
+## ADR-011 — Author Skills as data and apply effects through Resource adapters
+
+**Status:** Accepted for the Combat V1 prototype
+
+**Decision:** Represent each Combat V1 Skill as a deep-copied Resource that owns
+its player-facing metadata, bar count, timed interaction events, and ordered effect
+Resources. `CombatV1` grades the shared Character Performance schedule and invokes
+each effect through `apply(encounter_state, execution)`. Concrete effect Resources
+adapt execution to encounter-state operations; the orchestrator does not branch on
+Skill IDs or concrete effect types.
+
+**Context:** Issue #16 needs two Skills with different multi-bar interactions and
+tactical outcomes, while later Skills must be addable without editing the central
+cadence for every effect. The final full-game skill schema, party order, loadouts,
+opponent preferences, and effect targeting are still unresolved.
+
+**Rationale:** Authored schedules keep physical interaction beside the Skill that
+defines it. A narrow effect interface makes the module deeper: the cadence owns
+timing and grading once, encounter state owns its formulas, and content composes
+the two without Skill-specific orchestration.
+
+**Consequences:** Loaded Skill templates must be deep-copied before live use.
+Effects must use encounter-state methods rather than mutate public snapshots, and
+their order is observable when effects depend on prior state. The prototype's one
+Character Performance per exchange is a scoped product simplification recorded in
+the combat prototype record, not a technical constraint imposed by this ADR.

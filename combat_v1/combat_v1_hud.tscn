@@ -288,6 +288,60 @@ offset_top = 28.0
 offset_right = 824.0
 offset_bottom = 440.0
 
+[node name="SkillPanel" type="Panel" parent="."]
+visible = false
+layout_mode = 0
+offset_left = 320.0
+offset_top = 28.0
+offset_right = 824.0
+offset_bottom = 440.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleFeedback")
+
+[node name="Header" type="Label" parent="SkillPanel"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 20.0
+offset_right = 480.0
+offset_bottom = 46.0
+theme_override_colors/font_color = Color(0.96, 0.72, 0.36, 1)
+theme_override_font_sizes/font_size = 15
+text = "CHOOSE A SKILL — NO TIME PRESSURE"
+horizontal_alignment = 1
+
+[node name="FirstSkill" type="Label" parent="SkillPanel"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 68.0
+offset_right = 480.0
+offset_bottom = 196.0
+theme_override_colors/font_color = Color(0.9, 0.95, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "BRIGHT MOTIF"
+autowrap_mode = 2
+
+[node name="SecondSkill" type="Label" parent="SkillPanel"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 216.0
+offset_right = 480.0
+offset_bottom = 344.0
+theme_override_colors/font_color = Color(0.9, 0.95, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "STEADYING HARMONY"
+autowrap_mode = 2
+
+[node name="Controls" type="Label" parent="SkillPanel"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 366.0
+offset_right = 480.0
+offset_bottom = 394.0
+theme_override_colors/font_color = Color(0.58, 0.76, 0.94, 1)
+theme_override_font_sizes/font_size = 13
+text = "UP / DOWN TO CHOOSE  •  ENTER / SPACE / A TO CONFIRM"
+horizontal_alignment = 1
+
 [node name="OutcomePanel" type="Panel" parent="."]
 visible = false
 layout_mode = 0

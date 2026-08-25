@@ -35,6 +35,7 @@ const PLAYTEST_TRACKS: Array[AudioStream] = [
 var _combat_v1: CombatV1
 var _resources_started: bool = false
 var _selected_playtest_track_index: int = -1
+var _selected_skill_index: int = 0
 
 ## Player-facing backing-track choices available in the comparison harness.
 func get_playtest_track_options() -> Array[String]:
@@ -65,6 +66,28 @@ func select_playtest_track(index: int) -> bool:
 	])
 	return true
 
+## Commit one visible Tactical Vamp choice through CombatV1's Skill seam.
+func select_skill_choice(index: int) -> bool:
+	if _combat_v1 == null or _combat_v1.get_cadence() != CombatV1.Cadence.TACTICAL_VAMP:
+		return false
+	var choices: Array[Dictionary] = _combat_v1.get_skill_choices()
+	if index < 0 or index >= choices.size():
+		return false
+	_selected_skill_index = index
+	_hud.show_skill_choices(choices, _selected_skill_index)
+	return _combat_v1.select_skill(choices[index][&"skill_id"])
+
+## Move the no-pressure Tactical Vamp highlight without committing a Skill.
+func move_skill_selection(delta: int) -> bool:
+	if _combat_v1 == null or _combat_v1.get_cadence() != CombatV1.Cadence.TACTICAL_VAMP:
+		return false
+	var choices: Array[Dictionary] = _combat_v1.get_skill_choices()
+	if choices.is_empty() or _combat_v1.get_state()[&"selected_skill_id"] != &"":
+		return false
+	_selected_skill_index = wrapi(_selected_skill_index + delta, 0, choices.size())
+	_hud.show_skill_choices(choices, _selected_skill_index)
+	return true
+
 func _ready() -> void:
 	if enable_debug_logging:
 		DebugLog.enable_all()
@@ -90,6 +113,7 @@ func _ready() -> void:
 	_response_feedback.setup(_combat_v1)
 	# Bind after start() so the harness continuously exercises snapshot-first setup.
 	_hud.setup(_combat_v1)
+	_hud.show_skill_choices(_combat_v1.get_skill_choices(), _selected_skill_index)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey:
@@ -136,14 +160,31 @@ func _unhandled_input(event: InputEvent) -> void:
 		should_advance = should_advance \
 			or key_event.keycode == KEY_ENTER \
 			or key_event.keycode == KEY_SPACE
+	if _combat_v1.get_cadence() == CombatV1.Cadence.TACTICAL_VAMP \
+			and _combat_v1.get_state()[&"selected_skill_id"] == &"":
+		if event is InputEventJoypadButton \
+				and (event as InputEventJoypadButton).button_index == JOY_BUTTON_A:
+			select_skill_choice(_selected_skill_index)
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed(&"rhythm_up"):
+			move_skill_selection(-1)
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed(&"rhythm_down"):
+			move_skill_selection(1)
+			get_viewport().set_input_as_handled()
+			return
+		if should_advance and event is InputEventKey:
+			select_skill_choice(_selected_skill_index)
+			get_viewport().set_input_as_handled()
+			return
 	if not should_advance:
 		return
 
 	match _combat_v1.get_cadence():
 		CombatV1.Cadence.RESPONSE:
 			_combat_v1.player_intent(CombatV1.Intent.SUBMIT_RESPONSE)
-		CombatV1.Cadence.TACTICAL_VAMP:
-			_combat_v1.player_intent(CombatV1.Intent.CONTINUE_ROUND)
 		_:
 			pass
 

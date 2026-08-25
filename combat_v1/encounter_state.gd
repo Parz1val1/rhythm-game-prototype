@@ -191,6 +191,20 @@ func apply_performance_result(
 		resolved.emit(terminal_outcome)
 	return true
 
+## Restore the band's shared ability to hold the musical exchange together.
+## Skill-effect adapters use this state seam rather than mutating snapshots.
+func restore_composure(amount: float) -> bool:
+	if _outcome != Outcome.NONE or amount <= 0.0:
+		return false
+	var old_composure := _composure
+	_composure = clampf(_composure + amount, 0.0, _max_composure)
+	DebugLog.combat("[STATE  ] effect=restore_composure  composure=%.1f->%.1f" % [
+		old_composure,
+		_composure,
+	])
+	state_changed.emit(get_state())
+	return true
+
 func _resolve_terminal_outcome() -> Outcome:
 	var jam_reached := _groove >= _jam_threshold
 	var loss_reached := _composure <= 0.0

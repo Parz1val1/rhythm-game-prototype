@@ -9,10 +9,15 @@ const EncounterState = preload("res://combat_v1/encounter_state.gd")
 const OpponentData = preload("res://combat_v1/opponent_data.gd")
 const OpponentPhrase = preload("res://combat_v1/opponent_phrase.gd")
 const PhraseEvent = preload("res://combat_v1/phrase_event.gd")
+const Skill = preload("res://combat_v1/skill.gd")
 const CharacterInputProfile = preload("res://characters/character_input_profile.gd")
 const ResponseGrader = preload("res://combat_v1/response_grader.gd")
 const DEFAULT_OPPONENT: OpponentData = preload("res://combat_v1/opponents/drum_golem.tres")
 const DEFAULT_RESPONSE_PROFILE: CharacterInputProfile = preload("res://characters/luthier_profile.tres")
+const DEFAULT_SKILLS: Array[Skill] = [
+	preload("res://combat_v1/skills/bright_motif.tres"),
+	preload("res://combat_v1/skills/steadying_harmony.tres"),
+]
 
 ## Public aliases keep encounter commands and configuration discoverable at the
 ## CombatV1 seam while EncounterState remains the single owner of their behavior.
@@ -36,8 +41,8 @@ enum Cadence {
 	RESOLUTION,
 }
 
-## Typed commands accepted by player_intent(). Continue Round is the provisional
-## Tactical Vamp choice until skills and party performances exist.
+## Typed commands accepted by player_intent(). Continue Round remains as a legacy
+## test seam; the playable Tactical Vamp selects authored Skills directly.
 enum Intent {
 	SUBMIT_RESPONSE,
 	CONTINUE_ROUND,
@@ -83,6 +88,12 @@ signal response_target_announced(event: PhraseEvent, expected_actions: Array[Str
 signal response_note_graded(result: Dictionary)
 ## Emitted once when Response is submitted, after every target has a note result.
 signal response_phrase_graded(summary: Dictionary)
+## Emitted after Tactical Vamp accepts one authored Skill choice.
+signal skill_selected(skill: Dictionary)
+## Emitted after an accepted Character Performance action is graded.
+signal character_performance_note_graded(result: Dictionary)
+## Emitted once after the selected Skill's authored duration and effects resolve.
+signal character_performance_completed(summary: Dictionary)
 ## Emitted after an accepted performance result changes encounter-wide state.
 signal encounter_state_changed(state: Dictionary)
 ## Emitted exactly once when Groove or Composure makes the encounter terminal.
@@ -104,6 +115,13 @@ signal stopped()
 var _beat_clock: Node = null
 var _rhythm_input: Node = null
 var _opponent: OpponentData = null
+var _skills: Array[Skill] = []
+var _selected_skill: Skill = null
+var _character_performance_targets: Array[Dictionary] = []
+var _character_performance_id: int = 0
+var _character_performance_timeline_origin_beats: float = 0.0
+var _character_performance_grader = ResponseGrader.new()
+var _last_character_performance_summary: Dictionary = {}
 var _response_actions: Array[StringName] = []
 var _response_targets: Array[Dictionary] = []
 var _response_round_id: int = 0
@@ -146,11 +164,20 @@ func setup(
 	_rhythm_input = rhythm_input if rhythm_input != null else _find_dependency(&"RhythmInput")
 	var opponent_template: OpponentData = opponent_data if opponent_data != null else DEFAULT_OPPONENT
 	_opponent = opponent_template.duplicate(true) as OpponentData
+	_skills.clear()
+	for skill_template in DEFAULT_SKILLS:
+		_skills.append(skill_template.duplicate(true) as Skill)
+	_selected_skill = null
 	var profile_template: CharacterInputProfile = \
 		response_profile if response_profile != null else DEFAULT_RESPONSE_PROFILE
 	var live_response_profile := profile_template.duplicate(true) as CharacterInputProfile
 	_response_actions = _get_response_actions(live_response_profile)
 	_response_grader.setup(response_config)
+	_character_performance_grader.setup(response_config)
+	_character_performance_targets.clear()
+	_character_performance_id = 0
+	_character_performance_timeline_origin_beats = 0.0
+	_last_character_performance_summary.clear()
 	_last_response_summary.clear()
 	_response_round_id = 0
 	_response_timeline_origin_beats = 0.0
@@ -181,9 +208,11 @@ func start() -> bool:
 	_last_intent = -1
 	_next_round_pending = false
 	_next_round_count_in_beats_elapsed = 0
+	_selected_skill = null
 	_encounter_state.reset()
 	_prepare_response_targets()
 	_last_response_summary.clear()
+	_last_character_performance_summary.clear()
 	_connect_dependencies()
 	DebugLog.combat("[V1    ] status=started  settle_bars=%d  opponent=%s  phrase=%s" % [
 		settle_bars, _opponent.opponent_id, _opponent.phrase.phrase_id])
@@ -230,6 +259,85 @@ func player_intent(intent: Intent) -> bool:
 		DebugLog.combat("[V1    ] intent=rejected  reason=cadence  value=%d  cadence=%s" % [intent, get_cadence_name()])
 		intent_rejected.emit(intent)
 	return accepted
+
+## Return the authored actions currently available during Tactical Vamp.
+func get_skill_choices() -> Array[Dictionary]:
+	var choices: Array[Dictionary] = []
+	for skill in _skills:
+		choices.append({
+			&"skill_id": skill.skill_id,
+			&"display_name": skill.display_name,
+			&"musical_contribution": skill.musical_contribution,
+			&"interaction_summary": skill.interaction_summary,
+			&"effect_summary": skill.effect_summary,
+			&"bar_count": skill.bar_count,
+			&"duration_beats": skill.get_duration_beats(),
+		})
+	return choices
+
+## Commit one authored Skill from an indefinite Tactical Vamp. Character
+## Performance begins after the existing complete four-beat transition.
+func select_skill(skill_id: StringName) -> bool:
+	if not _running or _cadence != Cadence.TACTICAL_VAMP or _next_round_pending:
+		return false
+	for skill in _skills:
+		if skill.skill_id != skill_id:
+			continue
+		_selected_skill = skill.duplicate(true) as Skill
+		_next_round_pending = true
+		_next_round_count_in_beats_elapsed = 0
+		_suppress_scoring_for_listening()
+		DebugLog.combat("[SKILL  ] selected=%s  count_in_beats=%d" % [
+			_selected_skill.skill_id,
+			_NEXT_ROUND_COUNT_IN_BEATS,
+		])
+		next_round_transition_changed.emit(_get_next_round_transition_state())
+		skill_selected.emit({
+			&"skill_id": _selected_skill.skill_id,
+			&"display_name": _selected_skill.display_name,
+			&"musical_contribution": _selected_skill.musical_contribution,
+			&"interaction_summary": _selected_skill.interaction_summary,
+			&"effect_summary": _selected_skill.effect_summary,
+			&"bar_count": _selected_skill.bar_count,
+			&"duration_beats": _selected_skill.get_duration_beats(),
+		})
+		return true
+	return false
+
+## Record one action at an authored beat offset within Character Performance.
+func submit_character_performance_input(
+	action: StringName,
+	performance_position_beats: float
+) -> bool:
+	if not _running or _cadence != Cadence.CHARACTER_PERFORMANCE:
+		return false
+	var target_index := _find_closest_ungraded_character_performance_target(
+		action,
+		performance_position_beats
+	)
+	if target_index < 0:
+		return false
+	var target: Dictionary = _character_performance_targets[target_index]
+	var offset_ms := (
+		performance_position_beats - float(target[&"due_beat"])
+	) * _get_milliseconds_per_beat()
+	var result: Dictionary = _character_performance_grader.grade_note(
+		target[&"expected_action"],
+		action,
+		offset_ms
+	)
+	result[&"target_index"] = target_index
+	result[&"target_id"] = target[&"target_id"]
+	result[&"lane"] = target[&"expected_action"]
+	result[&"group_id"] = target[&"group_id"]
+	result[&"group_size"] = target[&"group_size"]
+	result[&"beat_offset"] = target[&"beat_offset"]
+	result[&"due_beat"] = target[&"due_beat"]
+	target[&"graded"] = true
+	target[&"result"] = result.duplicate(true)
+	_character_performance_targets[target_index] = target
+	character_performance_note_graded.emit(result.duplicate(true))
+	return true
 
 ## Record one action at an absolute beat offset within the active Response phrase.
 ## Returns false outside Response; grading is owned by the Response grader seam.
@@ -309,11 +417,13 @@ func get_state() -> Dictionary:
 		&"phrase_name": phrase_name,
 		&"phrase_duration_beats": phrase_duration_beats,
 		&"response_summary": _last_response_summary.duplicate(true),
+		&"character_performance_summary": _last_character_performance_summary.duplicate(true),
 		&"running": _running,
 		&"last_intent": _last_intent,
 		&"next_round_pending": _next_round_pending,
 		&"next_round_count_in_beat": _next_round_count_in_beats_elapsed,
 		&"next_round_count_in_beats": _NEXT_ROUND_COUNT_IN_BEATS,
+		&"selected_skill_id": _selected_skill.skill_id if _selected_skill != null else &"",
 	})
 	return state
 
@@ -359,6 +469,33 @@ func get_response_presentation() -> Dictionary:
 		&"targets": presentation_targets,
 	}
 
+## Return the selected Skill's complete Character Performance schedule.
+func get_character_performance_presentation() -> Dictionary:
+	var presentation_targets: Array[Dictionary] = []
+	if _cadence == Cadence.CHARACTER_PERFORMANCE:
+		for target in _character_performance_targets:
+			presentation_targets.append({
+				&"target_id": target[&"target_id"],
+				&"expected_action": target[&"expected_action"],
+				&"group_id": target[&"group_id"],
+				&"group_size": target[&"group_size"],
+				&"beat_offset": target[&"beat_offset"],
+				&"due_beat": target[&"due_beat"],
+			})
+	return {
+		&"active": _running and _cadence == Cadence.CHARACTER_PERFORMANCE,
+		&"timeline_source": &"BeatClock",
+		&"timeline_position_beats": _get_character_performance_timeline_position(),
+		&"visual_lead_beats": 2.0,
+		&"skill_id": _selected_skill.skill_id if _selected_skill != null else &"",
+		&"display_name": _selected_skill.display_name if _selected_skill != null else "",
+		&"duration_beats": _selected_skill.get_duration_beats() \
+			if _selected_skill != null else 0,
+		&"performance_id": _character_performance_id,
+		&"round_id": _character_performance_id,
+		&"targets": presentation_targets,
+	}
+
 ## Return the enum value for consumers that prefer typed branching.
 func get_cadence() -> Cadence:
 	return _cadence
@@ -400,9 +537,29 @@ func _on_beat(_beat_number: int) -> void:
 				return
 			_next_round_pending = false
 			_next_round_count_in_beats_elapsed = 0
+			if _selected_skill != null:
+				_prepare_character_performance_targets()
+				_character_performance_timeline_origin_beats = float(_beat_number)
+				_set_cadence(Cadence.CHARACTER_PERFORMANCE)
+				return
 			_prepare_response_targets()
 			_set_cadence(Cadence.ENEMY_PHRASE)
 			_announce_phrase_events_at(0.0)
+		return
+	if _cadence == Cadence.CHARACTER_PERFORMANCE:
+		_beats_in_cadence += 1
+		if _selected_skill != null \
+				and _beats_in_cadence >= _selected_skill.get_duration_beats():
+			_complete_character_performance()
+		return
+	if _cadence == Cadence.FULL_BAND_VAMP:
+		if _beats_in_cadence < OpponentPhrase.BEATS_PER_BAR:
+			_beats_in_cadence += 1
+			return
+		_selected_skill = null
+		_prepare_response_targets()
+		_set_cadence(Cadence.ENEMY_PHRASE)
+		_announce_phrase_events_at(0.0)
 		return
 	if _cadence != Cadence.SETTLE and _cadence != Cadence.ENEMY_PHRASE \
 		and _cadence != Cadence.RESPONSE:
@@ -487,6 +644,34 @@ func _get_expected_actions_for_event(event_index: int) -> Array[StringName]:
 			expected_actions.append(target[&"expected_action"])
 	return expected_actions
 
+func _prepare_character_performance_targets() -> void:
+	_character_performance_targets.clear()
+	_character_performance_id += 1
+	if _selected_skill == null:
+		return
+	var target_index := 0
+	for event_index in range(_selected_skill.events.size()):
+		var event = _selected_skill.events[event_index]
+		var group_size: int = event.actions.size()
+		for action in event.actions:
+			_character_performance_targets.append({
+				&"target_id": StringName("performance:%d:%d" % [
+					_character_performance_id,
+					target_index,
+				]),
+				&"expected_action": action,
+				&"group_id": StringName("performance:%d:group:%d" % [
+					_character_performance_id,
+					event_index,
+				]),
+				&"group_size": group_size,
+				&"beat_offset": event.beat_offset,
+				&"due_beat": event.beat_offset,
+				&"graded": false,
+				&"result": {},
+			})
+			target_index += 1
+
 func _prepare_response_targets() -> void:
 	_response_targets.clear()
 	_announced_phrase_event_indices.clear()
@@ -526,6 +711,53 @@ func _prepare_response_targets() -> void:
 				],
 				&"graded": false,
 			})
+
+func _complete_character_performance() -> Dictionary:
+	var ordered_results: Array[Dictionary] = []
+	for target_index in range(_character_performance_targets.size()):
+		var target: Dictionary = _character_performance_targets[target_index]
+		var result: Dictionary
+		if bool(target[&"graded"]):
+			result = target[&"result"]
+		else:
+			result = _character_performance_grader.grade_note(
+				target[&"expected_action"],
+				&"",
+				INF
+			)
+			result[&"target_index"] = target_index
+			result[&"target_id"] = target[&"target_id"]
+			result[&"lane"] = target[&"expected_action"]
+			result[&"group_id"] = target[&"group_id"]
+			result[&"group_size"] = target[&"group_size"]
+			result[&"beat_offset"] = target[&"beat_offset"]
+			result[&"due_beat"] = target[&"due_beat"]
+			target[&"graded"] = true
+			target[&"result"] = result.duplicate(true)
+			_character_performance_targets[target_index] = target
+			character_performance_note_graded.emit(result.duplicate(true))
+		ordered_results.append(result.duplicate(true))
+	_last_character_performance_summary = _character_performance_grader.summarize(
+		ordered_results
+	)
+	_last_character_performance_summary[&"skill_id"] = _selected_skill.skill_id
+	var execution := _get_execution_for_response_grade(
+		_last_character_performance_summary[&"grade"]
+	)
+	for effect in _selected_skill.effects:
+		effect.apply(_encounter_state, execution)
+	DebugLog.combat("[PERFORM] skill=%s  grade=%s  notes=%d  broken=%s" % [
+		_selected_skill.skill_id,
+		_last_character_performance_summary[&"grade_name"],
+		_last_character_performance_summary[&"total_notes"],
+		_last_character_performance_summary[&"broken"],
+	])
+	character_performance_completed.emit(
+		_last_character_performance_summary.duplicate(true)
+	)
+	if not bool(_encounter_state.get_state()[&"terminal"]):
+		_set_cadence(Cadence.FULL_BAND_VAMP)
+	return _last_character_performance_summary.duplicate(true)
 
 func _complete_response() -> Dictionary:
 	var ordered_results: Array[Dictionary] = []
@@ -602,6 +834,31 @@ func _find_closest_ungraded_response_target(
 			return target_index
 	return closest_index
 
+func _find_closest_ungraded_character_performance_target(
+	action: StringName,
+	performance_position_beats: float
+) -> int:
+	var closest_index := -1
+	var closest_distance := INF
+	for target_index in range(_character_performance_targets.size()):
+		var target: Dictionary = _character_performance_targets[target_index]
+		if bool(target[&"graded"]):
+			continue
+		var distance := absf(performance_position_beats - float(target[&"due_beat"]))
+		if distance < closest_distance:
+			closest_distance = distance
+			closest_index = target_index
+	if closest_index < 0:
+		return -1
+	for target_index in range(_character_performance_targets.size()):
+		var target: Dictionary = _character_performance_targets[target_index]
+		if bool(target[&"graded"]) or target[&"expected_action"] != action:
+			continue
+		var distance := absf(performance_position_beats - float(target[&"due_beat"]))
+		if is_equal_approx(distance, closest_distance):
+			return target_index
+	return closest_index
+
 func _get_milliseconds_per_beat() -> float:
 	if _beat_clock != null:
 		var raw_bpm: Variant = _beat_clock.get("bpm")
@@ -616,6 +873,22 @@ func _get_response_timeline_position() -> float:
 	var atomic_position := _get_atomic_beat_clock_position()
 	if atomic_position >= 0.0:
 		return maxf(0.0, atomic_position - _response_timeline_origin_beats)
+	var beat_position := 0.0
+	if _beat_clock != null:
+		var raw_position: Variant = _beat_clock.get("beat_position")
+		if typeof(raw_position) == TYPE_FLOAT or typeof(raw_position) == TYPE_INT:
+			beat_position = float(raw_position)
+	return float(_beats_in_cadence) + beat_position
+
+func _get_character_performance_timeline_position() -> float:
+	if not _running or _cadence != Cadence.CHARACTER_PERFORMANCE:
+		return 0.0
+	var atomic_position := _get_atomic_beat_clock_position()
+	if atomic_position >= 0.0:
+		return maxf(
+			0.0,
+			atomic_position - _character_performance_timeline_origin_beats
+		)
 	var beat_position := 0.0
 	if _beat_clock != null:
 		var raw_position: Variant = _beat_clock.get("beat_position")
@@ -662,12 +935,19 @@ func _on_input_scored(
 ) -> void:
 	if not _running:
 		return
-	if _cadence == Cadence.SETTLE or _cadence == Cadence.ENEMY_PHRASE:
+	if _cadence == Cadence.SETTLE or _cadence == Cadence.ENEMY_PHRASE \
+			or _cadence == Cadence.TACTICAL_VAMP \
+			or _cadence == Cadence.FULL_BAND_VAMP:
 		DebugLog.timing("[INPUT  ] v1_direction=%-5s  cadence=%s  ignored=true" % [
 			direction, get_cadence_name()])
 		return
 	if _cadence == Cadence.RESPONSE:
 		submit_response_input(direction, _get_response_timeline_position())
+	elif _cadence == Cadence.CHARACTER_PERFORMANCE:
+		submit_character_performance_input(
+			direction,
+			_get_character_performance_timeline_position()
+		)
 	DebugLog.timing("[INPUT  ] v1_direction=%-5s  score=%-8s  offset=%+.1f ms" % [direction, score, offset_ms])
 	rhythm_input_observed.emit(direction, score, offset_ms)
 
@@ -692,7 +972,9 @@ func _set_cadence(
 		var atomic_position := _get_atomic_beat_clock_position()
 		_response_timeline_origin_beats = response_origin_beats \
 			if response_origin_beats >= 0.0 else maxf(0.0, atomic_position)
-	if _cadence == Cadence.SETTLE or _cadence == Cadence.ENEMY_PHRASE:
+	if _cadence == Cadence.SETTLE or _cadence == Cadence.ENEMY_PHRASE \
+			or _cadence == Cadence.TACTICAL_VAMP \
+			or _cadence == Cadence.FULL_BAND_VAMP:
 		_suppress_scoring_for_listening()
 	elif _cadence != Cadence.RESPONSE or _response_schedule_handoff_beats <= 0.0:
 		_restore_scoring_state()

@@ -57,6 +57,8 @@ func setup(combat_v1: CombatV1) -> void:
 		_combat_v1.cadence_changed.connect(_on_cadence_changed)
 	if not _combat_v1.response_note_graded.is_connected(_on_response_note_graded):
 		_combat_v1.response_note_graded.connect(_on_response_note_graded)
+	if not _combat_v1.character_performance_note_graded.is_connected(_on_response_note_graded):
+		_combat_v1.character_performance_note_graded.connect(_on_response_note_graded)
 	if not _combat_v1.phrase_event_announced.is_connected(_on_phrase_event_announced):
 		_combat_v1.phrase_event_announced.connect(_on_phrase_event_announced)
 	set_process(true)
@@ -104,6 +106,8 @@ func teardown() -> void:
 			_combat_v1.cadence_changed.disconnect(_on_cadence_changed)
 		if _combat_v1.response_note_graded.is_connected(_on_response_note_graded):
 			_combat_v1.response_note_graded.disconnect(_on_response_note_graded)
+		if _combat_v1.character_performance_note_graded.is_connected(_on_response_note_graded):
+			_combat_v1.character_performance_note_graded.disconnect(_on_response_note_graded)
 		if _combat_v1.phrase_event_announced.is_connected(_on_phrase_event_announced):
 			_combat_v1.phrase_event_announced.disconnect(_on_phrase_event_announced)
 	_combat_v1 = null
@@ -195,6 +199,8 @@ func _sync_from_module() -> void:
 	if _combat_v1 == null:
 		return
 	var presentation: Dictionary = _combat_v1.get_response_presentation()
+	if not bool(presentation[&"active"]):
+		presentation = _combat_v1.get_character_performance_presentation()
 	if not bool(presentation[&"active"]):
 		_clear_response_presentation()
 		return

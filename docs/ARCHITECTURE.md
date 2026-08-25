@@ -33,12 +33,14 @@ approach lead and scoreable due time, and current BeatClock-derived timeline
 position. A separate diagnostic `CombatV1HUD` consumes only that public
 state and signal surface, including snapshot-first setup for signals emitted before
 it connects, and hosts a four-lane `ResponseNoteHighway`. After each non-terminal
-Response, an indefinite Tactical Vamp accepts one provisional Continue Round intent
-and holds a full four-beat count-in before beginning the next Enemy Phrase without
-repeating Settle. The public state and transition signal expose that pending bar
-and its BeatClock-derived progress so the HUD immediately replaces Tactical Vamp
-guidance with a four-step listening display. Party ordering, skills, and opponent
-preferences remain unimplemented.
+Response, an indefinite Tactical Vamp presents authored Skills. Confirming one
+holds a full four-beat count-in, runs that Skill's multi-bar Character Performance,
+then inserts one input-free Full-Band Vamp bar before the next Enemy Phrase without
+repeating Settle. Public state and a transition signal expose the pending count-in
+and its BeatClock-derived progress so the HUD can present a four-step listening
+display. The prototype runs one Luthier performance per exchange; party ordering,
+loadouts, multiple performances per exchange, and opponent preferences remain
+unimplemented.
 
 ### Isolated Wwise spike infrastructure
 
@@ -77,6 +79,7 @@ flowchart LR
     NPT -->|same resolved notes| UI
     V1P[combat_v1_prototype.tscn<br/>separate harness] --> V1[CombatV1 module]
     V1O[V1 Opponent .tres<br/>authored phrase + cues] --> V1
+    V1K[V1 Skill .tres<br/>authored events + effects] --> V1
     V1 -->|injected BeatClock| BC
     V1 -->|injected RhythmInput| RI
     V1 -->|same phrase event<br/>audio + visual cues| V1P
@@ -85,7 +88,7 @@ flowchart LR
     V1P --> RF
     V1 -->|typed performance result| V1S[CombatV1EncounterState<br/>Groove / Composure / Multiplier]
     V1S -->|state change / Jam / loss| V1
-    V1 -->|Continue Round<br/>next beat| V1
+    V1 -->|selected Skill<br/>Full-Band Vamp| V1
 ```
 
 ## Major Modules
@@ -100,14 +103,16 @@ flowchart LR
 | `combat/*_evaluator.gd` | Character-specific attack damage/coherence behind `AttackEvaluator` |
 | `combat/neutral_pattern_translator.gd` | Resolves neutral enemy hits into deterministic directional or percussive notes |
 | `combat/combat_ui.gd` and lane scripts | Present state and note approaches through combat signals |
-| `combat_v1/combat_v1.gd` | Isolated Combat V1 seam; owns the repeatable Settle-free conversation cadence plus `CombatV1EncounterState`, schedules an authored opponent phrase and its handoff-plus-lead-adjusted Response, accepts typed intents/results, and exposes combined state, authoritative next-round count-in progress, phrase events, the complete Response presentation snapshot, and terminal signals |
+| `combat_v1/combat_v1.gd` | Isolated Combat V1 seam; owns the repeatable Settle-free conversation cadence plus `CombatV1EncounterState`, schedules an authored opponent phrase and its Response, runs a selected Skill's Character Performance and one-bar Full-Band handoff, and exposes authoritative count-in progress, snapshot-first Response/Performance presentation, and terminal signals |
 | `combat_v1/encounter_state.gd` | Deterministic Issue #10 state module; owns configurable Groove, shared Composure, shared Multiplier math, clamping, and one-shot Jam/loss resolution |
 | `combat_v1/opponent_data.gd`, `opponent_phrase.gd`, and `phrase_event.gd` | V1 authoring model for opponent identity, one-to-four-bar phrases, musical offsets, one-to-four-input Response cues, and symbolic audio/visual cues; it has no legacy enemy statistics |
 | `combat_v1/opponents/drum_golem.tres` | One-bar prototype opponent phrase with whole-, half-, and quarter-beat events |
+| `combat_v1/skill.gd`, `skill_event.gd`, and `skill_effect.gd` | Minimal Skill authoring boundary for player-facing purpose, configurable bar duration, timed one-to-four-action events, and ordered effect adapters; concrete effects apply through encounter-state methods without Skill-specific orchestrator branches |
+| `combat_v1/skills/*.tres` | Two Luthier playtest Skills: a two-bar melodic single-note run that contributes Groove and a three-bar chordal support pattern that restores Composure after correct execution |
 | `combat_v1/response_note_highway.tscn` and `combat_v1/response_note_highway.gd` | Four-lane presentation adapter; flashes grouped, translucent Enemy Phrase previews, connects simultaneous Response targets with a shared pulse, then draws snapshot-first BeatClock-derived target travel and independent lane-local result cues without reading CombatV1 internals or owning chart timing |
 | `combat_v1/response_performance_feedback.tscn` and `combat_v1/response_performance_feedback.gd` | Replaceable performance-audio adapter; plays each mapped Enemy Phrase highlight as a lane-specific synthesized preview, then consumes published note-grade truth and softens or mutes imperfect Response results without observing BeatClock or changing backing playback |
-| `combat_v1/combat_v1_hud.tscn` and `combat_v1/combat_v1_hud.gd` | Diagnostic V1 presentation for cadence, committed next-round count-in progress, Groove, Composure, Multiplier, phrase cues, six-grade note/phrase feedback, nonviolent outcomes, and the active playtest backing track; observes only the public `CombatV1` seam |
-| `combat_v1/combat_v1_prototype.tscn` and `combat_v1/combat_v1_prototype.gd` | Separately runnable harness that injects dependencies, owns symbolic phrase-audio/log handoffs, and hosts `CombatV1HUD` plus the Response feedback adapter; defaults to the restrained Stonebeat loop while offering three same-length procedural backing loops switchable with keys 1–3 or controller shoulders without restarting the clock, accepts controller Start for its provisional cadence intents, and is not the configured main scene |
+| `combat_v1/combat_v1_hud.tscn` and `combat_v1/combat_v1_hud.gd` | Diagnostic V1 presentation for cadence, visible Skill choices, committed count-in progress, Groove, Composure, Multiplier, phrase cues, six-grade note/phrase feedback, nonviolent outcomes, and the active playtest backing track; observes only the public `CombatV1` seam |
+| `combat_v1/combat_v1_prototype.tscn` and `combat_v1/combat_v1_prototype.gd` | Separately runnable harness that injects dependencies, owns symbolic phrase-audio/log handoffs, and hosts `CombatV1HUD` plus the Response feedback adapter; defaults to the restrained Stonebeat loop, switches procedural backing tracks with keys 1–3 or controller shoulders, submits Response with Start, selects vertically stacked Skills with Up/Down plus controller A, and is not the configured main scene |
 | `spikes/wwise/wwise_music_adapter.gd` | Isolated `BeatClock`-compatible timing and arrangement adapter proven by #45; it is not wired into Combat V1 |
 | `spikes/wwise/wwise_runtime_bridge.gd` | Replaceable Wwise boundary that owns middleware event, State, callback, and position-query knowledge |
 | `characters/*.gd/.tres` | Character stats, input behavior, and musical/visual identity |
@@ -171,6 +176,12 @@ short real-time message pause before forced defense.
   `OpponentPhraseEvent` resources.
 - `OpponentPhraseEvent`: beat offset, response prompt identity/copy, and symbolic
   audio and visual cue identifiers.
+- `CombatV1Skill`: player-facing purpose, contribution metadata, fixed-four-beat
+  bar count, timed interaction events, and ordered effects.
+- `CombatV1SkillEvent`: performance beat offset plus one-to-four simultaneous
+  input actions.
+- `CombatV1SkillEffect`: Resource adapter invoked with encounter state and the
+  reduced execution result after Character Performance grading.
 
 `.tres` files are templates. Live character and enemy instances must be deep-copied
 before mutation; `CombatV1.setup()` deep-copies its selected V1 opponent and nested
@@ -192,11 +203,24 @@ There is no durable persistence.
   project InputMap maps Luthier's directions to arrows, D-pad, and positionally
   matching face buttons, and Beatrice's two drum actions to F/J and left/right
   triggers. Harness-only Start and shoulder actions remain in the harness adapter.
-- `CombatV1.player_intent()` currently accepts `SUBMIT_RESPONSE` during Response
-  and one provisional `CONTINUE_ROUND` command during Tactical Vamp. Continue
-  Round queues exactly one full four-beat count-in, then transitions to Enemy
-  Phrase on the following BeatClock beat; all intents are rejected after terminal
-  Resolution.
+- `CombatV1.player_intent()` accepts `SUBMIT_RESPONSE` during Response. The legacy
+  `CONTINUE_ROUND` test seam remains temporarily available, but the runnable V1
+  harness no longer exposes it as player flow.
+- `CombatV1.get_skill_choices()` exposes purpose and interaction metadata for the
+  Tactical Vamp menu. `select_skill(skill_id)` commits one authored Skill, queues
+  the full four-beat count-in, and rejects duplicate or out-of-cadence selection.
+- `CombatV1.get_character_performance_presentation()` is the snapshot-first Skill
+  schedule seam. It exposes selected Skill identity, duration, stable target/group
+  identity, expected actions, authored offsets, and the audio-corrected performance
+  timeline without exposing the mutable runtime target array.
+- `character_performance_note_graded` and `character_performance_completed` publish
+  the same six-level note and phrase truth used by Response. The highway, HUD, and
+  performance-audio adapter consume those signals without owning grading rules.
+- `CombatV1SkillEffect.apply(encounter_state, execution)` is the Skill-effect seam.
+  `CombatV1` invokes configured effects in authored order and contains no branch on
+  Skill identity or effect implementation. Concrete adapters route into the
+  existing performance-result state operation or focused operations such as
+  bounded Composure restoration.
 - `CombatV1.apply_performance_result(execution, effectiveness)` is the V1 state
   seam. Its enum inputs keep execution quality distinct from tactical
   effectiveness; callers do not calculate Multiplier-adjusted Groove.
@@ -250,8 +274,10 @@ There is no durable persistence.
 ## Combat V1 Diagnostic HUD
 
 The standalone harness instances `CombatV1HUD` instead of adapting legacy HP or
-limit-bar nodes. Enemy Phrase and Settle use a listening-only label and color;
-Response uses a distinct active treatment. The HUD displays Groove, shared
+limit-bar nodes. Enemy Phrase, Settle, Tactical Vamp, Character Performance, and
+Full-Band Vamp have distinct copy and treatments. Tactical Vamp shows both Skill
+purposes, interaction summaries, effect summaries, contribution labels, and bar
+counts before confirmation. The HUD displays Groove, shared
 Composure, and shared Multiplier with their public bounds, translates all six
 note and phrase grades into readable feedback, and turns each symbolic phrase
 `visual_cue` into an on-screen cue alongside the placeholder audio handoff.
@@ -269,12 +295,13 @@ highway, and secondary text cue all present those actions as one chord.
 The playtest control panel also names the active temporary backing loop and shows
 the 1–3 comparison controls.
 
-After Continue Round is accepted, the cadence remains internally Tactical Vamp
-until the existing full-bar re-entry completes, but the HUD immediately replaces
-all Tactical Vamp copy with `Next Round Count-In`, listening guidance, and four
-beat markers. The markers advance only from `next_round_transition_changed`; no
-UI timer exists. The following downbeat publishes Enemy Phrase cadence before its
-first phrase preview, and resolution or teardown clears the transition display.
+After a Skill is confirmed, the cadence remains internally Tactical Vamp until the
+existing full-bar re-entry completes, but the HUD immediately replaces the Skill
+menu with `Character Performance Count-In`, listening guidance, and four beat
+markers. The markers advance only from `next_round_transition_changed`; no UI
+timer exists. The retained legacy Continue test seam instead displays `Next Round
+Count-In` before Enemy Phrase. Resolution or teardown clears either transition
+display.
 
 Terminal copy frames `JAM` as musical connection and `LOSS` as the band losing
 the groove. Player-facing V1 labels intentionally avoid legacy damage semantics.
@@ -349,24 +376,32 @@ Response reproduction currently supplies `EFFECTIVE` tactical effectiveness;
 future preferences must change that independent input without rewriting execution
 truth or creating a Composure penalty for correct play.
 
-## Combat V1 Tactical Vamp and Repeated Rounds
+## Combat V1 Skill Selection and Repeated Rounds
 
 A non-terminal Response enters Tactical Vamp while the injected BeatClock,
 backing audio in the standalone harness, and dependency subscriptions remain
-active. Beat and subdivision signals do not drain encounter state or advance the
-cadence while the player waits. Skills do not exist yet, so `CONTINUE_ROUND` is
-the only provisional Tactical Vamp intent.
+active. Beat and subdivision signals do not drain encounter state, select a Skill,
+or advance the cadence while the player waits. The harness presents Bright Motif
+and Steadying Harmony and commits the highlighted choice only on explicit input.
 
-An accepted Continue Round intent leaves the module in Tactical Vamp through one
-complete four-beat count-in. No phrase event is announced during that bar; the
-following whole-beat signal starts Enemy Phrase at phrase offset zero, refreshes
-Response targets, and skips the one-time Settle. Groove, Composure, and Multiplier
-remain encounter-wide across rounds, and the module reuses its existing BeatClock
-and RhythmInput subscriptions. Accepting the intent suppresses scoring through the
-existing listening-phase input seam, publishes zero-of-four progress immediately,
-and then publishes each of the four authoritative BeatClock steps once. A Jam,
-loss, or teardown clears pending transition state; terminal resolution continues
-to reject combat intents and state results.
+An accepted Skill selection leaves the module in Tactical Vamp through one
+complete four-beat count-in. Selection suppresses scoring and publishes
+zero-of-four progress immediately, followed by each authoritative BeatClock step.
+The following whole-beat signal starts the selected Skill's two- or three-bar
+Character Performance. Inputs are graded against that Skill's authored schedule,
+missing targets expire at its duration, and the summary is reduced to the existing
+encounter execution vocabulary before each authored effect is applied. A
+non-terminal result enters one input-free four-beat Full-Band Vamp. Its following
+whole-beat signal refreshes Response targets, starts Enemy Phrase at phrase offset
+zero, and skips the one-time Settle. Groove, Composure, and Multiplier remain
+encounter-wide across rounds, and the module reuses its existing BeatClock and
+RhythmInput subscriptions. A Jam, loss, or teardown clears pending transition
+state; terminal resolution rejects combat intents and state results.
+
+This harness intentionally runs one active Luthier and one Character Performance
+per exchange. That is not the intended full-game party cadence; see the
+[issue #16 prototype record](combat/skill-performance-prototype.md) for the exact
+scope and remaining questions.
 
 ## Combat V1 Encounter State
 

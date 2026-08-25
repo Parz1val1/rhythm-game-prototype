@@ -34,6 +34,8 @@ func setup(combat_v1: CombatV1) -> void:
 		return
 	if not _combat_v1.response_note_graded.is_connected(_on_response_note_graded):
 		_combat_v1.response_note_graded.connect(_on_response_note_graded)
+	if not _combat_v1.character_performance_note_graded.is_connected(_on_response_note_graded):
+		_combat_v1.character_performance_note_graded.connect(_on_response_note_graded)
 	if not _combat_v1.phrase_event_announced.is_connected(_on_phrase_event_announced):
 		_combat_v1.phrase_event_announced.connect(_on_phrase_event_announced)
 	if not _combat_v1.cadence_changed.is_connected(_on_cadence_changed):
@@ -51,6 +53,9 @@ func teardown() -> void:
 	if _combat_v1 != null \
 			and _combat_v1.response_note_graded.is_connected(_on_response_note_graded):
 		_combat_v1.response_note_graded.disconnect(_on_response_note_graded)
+	if _combat_v1 != null \
+			and _combat_v1.character_performance_note_graded.is_connected(_on_response_note_graded):
+		_combat_v1.character_performance_note_graded.disconnect(_on_response_note_graded)
 	if _combat_v1 != null \
 			and _combat_v1.phrase_event_announced.is_connected(_on_phrase_event_announced):
 		_combat_v1.phrase_event_announced.disconnect(_on_phrase_event_announced)
@@ -96,7 +101,10 @@ func _on_phrase_event_announced(
 	])
 
 func _on_response_note_graded(result: Dictionary) -> void:
-	if _combat_v1 == null or _combat_v1.get_cadence() != CombatV1.Cadence.RESPONSE:
+	if _combat_v1 == null or _combat_v1.get_cadence() not in [
+		CombatV1.Cadence.RESPONSE,
+		CombatV1.Cadence.CHARACTER_PERFORMANCE,
+	]:
 		return
 	var lane: StringName = result.get(&"lane", &"")
 	if not LANE_PITCH_HZ.has(lane):

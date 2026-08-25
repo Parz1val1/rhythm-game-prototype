@@ -26,8 +26,13 @@ const ResponseNoteHighway = preload("res://combat_v1/response_note_highway.gd")
 @onready var _count_in_label: Label = $InstructionPanel/CountInLabel
 @onready var _audio_track_label: Label = $InstructionPanel/AudioTrackLabel
 @onready var _response_note_highway: ResponseNoteHighway = $ResponseNoteHighway
+@onready var _skill_panel: Panel = $SkillPanel
+@onready var _first_skill_label: Label = $SkillPanel/FirstSkill
+@onready var _second_skill_label: Label = $SkillPanel/SecondSkill
 
 var _combat_v1: CombatV1 = null
+var _skill_choices: Array[Dictionary] = []
+var _skill_selection_index: int = 0
 
 func show_playtest_track(index: int, track_name: String, option_count: int) -> void:
 	var option_labels: Array[String] = []
@@ -38,6 +43,25 @@ func show_playtest_track(index: int, track_name: String, option_count: int) -> v
 		track_name.to_upper(),
 		" / ".join(option_labels),
 	]
+
+## Update the visible Tactical Vamp menu without owning combat selection rules.
+func show_skill_choices(choices: Array[Dictionary], selected_index: int) -> void:
+	_skill_choices = choices.duplicate(true)
+	_skill_selection_index = clampi(selected_index, 0, maxi(0, _skill_choices.size() - 1))
+	_render_skill_choices()
+	if _combat_v1 != null:
+		_sync_skill_panel(_combat_v1.get_state())
+
+## Return observable menu state for the standalone presentation seam.
+func get_skill_selection_snapshot() -> Dictionary:
+	var choice_ids: Array[StringName] = []
+	for choice in _skill_choices:
+		choice_ids.append(choice[&"skill_id"])
+	return {
+		&"visible": _skill_panel.visible,
+		&"selected_index": _skill_selection_index,
+		&"choice_ids": choice_ids,
+	}
 
 ## Observe one CombatV1 instance and immediately reflect its current snapshot.
 ## This does not depend on setup-time signals still being available.
@@ -54,8 +78,12 @@ func setup(combat_v1: CombatV1) -> void:
 		_combat_v1.next_round_transition_changed.connect(_on_next_round_transition_changed)
 	if not _combat_v1.response_note_graded.is_connected(_on_response_note_graded):
 		_combat_v1.response_note_graded.connect(_on_response_note_graded)
+	if not _combat_v1.character_performance_note_graded.is_connected(_on_response_note_graded):
+		_combat_v1.character_performance_note_graded.connect(_on_response_note_graded)
 	if not _combat_v1.response_phrase_graded.is_connected(_on_response_phrase_graded):
 		_combat_v1.response_phrase_graded.connect(_on_response_phrase_graded)
+	if not _combat_v1.skill_selected.is_connected(_on_skill_selected):
+		_combat_v1.skill_selected.connect(_on_skill_selected)
 	if not _combat_v1.phrase_event_announced.is_connected(_on_phrase_event_announced):
 		_combat_v1.phrase_event_announced.connect(_on_phrase_event_announced)
 	if not _combat_v1.response_target_announced.is_connected(_on_response_target_announced):
@@ -68,6 +96,9 @@ func setup(combat_v1: CombatV1) -> void:
 	_cue_mode_label.text = "PHRASE CUE"
 	_cue_label.text = "WAITING FOR PHRASE"
 	_cue_detail_label.text = "VISUAL CUES MIRROR THE PLACEHOLDER AUDIO"
+	_skill_choices = _combat_v1.get_skill_choices()
+	_skill_selection_index = 0
+	_render_skill_choices()
 	_sync_from_module()
 	_response_note_highway.setup(_combat_v1)
 
@@ -92,6 +123,23 @@ func _on_response_phrase_graded(summary: Dictionary) -> void:
 	var grade_name: StringName = summary[&"grade_name"]
 	_phrase_feedback_label.text = "PHRASE  %s" % _get_grade_display_name(grade_name)
 	_phrase_feedback_label.add_theme_color_override("font_color", _get_grade_color(grade_name))
+
+func _on_skill_selected(skill: Dictionary) -> void:
+	_sync_from_module()
+	_cue_mode_label.text = "SKILL SELECTED"
+	_cue_mode_label.add_theme_color_override(
+		"font_color",
+		_get_mode_color(CombatV1.Cadence.TACTICAL_VAMP)
+	)
+	_cue_label.text = "SELECTED  %s" % String(skill[&"display_name"]).to_upper()
+	_cue_detail_label.text = "%s  |  %d BARS" % [
+		skill[&"effect_summary"],
+		int(skill[&"bar_count"]),
+	]
+	_instruction_label.text = "%s selected. Listen to the four-beat count-in, then play its %d-bar interaction." % [
+		skill[&"display_name"],
+		int(skill[&"bar_count"]),
+	]
 
 func _on_phrase_event_announced(
 	event: PhraseEvent,
@@ -136,15 +184,22 @@ func _sync_from_module() -> void:
 	if _combat_v1 == null:
 		return
 	var state: Dictionary = _combat_v1.get_state()
+	_sync_skill_panel(state)
 	var next_round_pending: bool = state[&"next_round_pending"]
-	_cadence_label.text = "Next Round Count-In" if next_round_pending \
+	var count_in_cadence := "Character Performance Count-In" \
+		if state.get(&"selected_skill_id", &"") != &"" else "Next Round Count-In"
+	_cadence_label.text = count_in_cadence if next_round_pending \
 		else String(state[&"cadence_name"])
 	_mode_label.text = _get_mode_text(state[&"cadence"], next_round_pending)
 	_mode_label.add_theme_color_override(
 		"font_color",
 		_get_mode_color(state[&"cadence"], next_round_pending)
 	)
-	_instruction_label.text = _get_instruction_text(state[&"cadence"], next_round_pending)
+	_instruction_label.text = _get_instruction_text(
+		state[&"cadence"],
+		next_round_pending,
+		state.get(&"selected_skill_id", &"")
+	)
 	_count_in_label.visible = next_round_pending
 	if next_round_pending:
 		_count_in_label.text = _get_count_in_text(
@@ -173,6 +228,33 @@ func _sync_from_module() -> void:
 	_multiplier_bar.value = float(state[&"multiplier"])
 	_multiplier_value.text = "MULTIPLIER  %sx" % _format_number(state[&"multiplier"])
 
+func _sync_skill_panel(state: Dictionary) -> void:
+	_skill_panel.visible = state[&"cadence"] == CombatV1.Cadence.TACTICAL_VAMP \
+		and state.get(&"selected_skill_id", &"") == &""
+
+func _render_skill_choices() -> void:
+	var labels: Array[Label] = [_first_skill_label, _second_skill_label]
+	for choice_index in range(labels.size()):
+		var label := labels[choice_index]
+		if choice_index >= _skill_choices.size():
+			label.visible = false
+			continue
+		label.visible = true
+		var choice: Dictionary = _skill_choices[choice_index]
+		var selection_marker := "> " if choice_index == _skill_selection_index else "  "
+		label.text = "%s%s  ·  %s  ·  %d BARS\n%s\nEffect: %s" % [
+			selection_marker,
+			String(choice[&"display_name"]).to_upper(),
+			String(choice[&"musical_contribution"]).to_upper(),
+			int(choice[&"bar_count"]),
+			choice[&"interaction_summary"],
+			choice[&"effect_summary"],
+		]
+		label.add_theme_color_override(
+			"font_color",
+			Color("f6c85f") if choice_index == _skill_selection_index else Color("dcecff")
+		)
+
 func _get_mode_text(cadence: CombatV1.Cadence, next_round_pending: bool = false) -> String:
 	if next_round_pending:
 		return "COUNT-IN - LISTEN"
@@ -183,6 +265,10 @@ func _get_mode_text(cadence: CombatV1.Cadence, next_round_pending: bool = false)
 			return "RESPOND - INPUT ACTIVE"
 		CombatV1.Cadence.TACTICAL_VAMP:
 			return "TACTICAL VAMP - NO TIME PRESSURE"
+		CombatV1.Cadence.CHARACTER_PERFORMANCE:
+			return "PERFORM - INPUT ACTIVE"
+		CombatV1.Cadence.FULL_BAND_VAMP:
+			return "FULL-BAND VAMP - LISTEN"
 		CombatV1.Cadence.RESOLUTION:
 			return "CONVERSATION COMPLETE"
 		_:
@@ -198,13 +284,23 @@ func _get_mode_color(cadence: CombatV1.Cadence, next_round_pending: bool = false
 			return Color("72f28e")
 		CombatV1.Cadence.TACTICAL_VAMP:
 			return Color("f4b85c")
+		CombatV1.Cadence.CHARACTER_PERFORMANCE:
+			return Color("72f28e")
+		CombatV1.Cadence.FULL_BAND_VAMP:
+			return Color("40d1ff")
 		CombatV1.Cadence.RESOLUTION:
 			return Color("c69cff")
 		_:
 			return Color("8daecf")
 
-func _get_instruction_text(cadence: CombatV1.Cadence, next_round_pending: bool = false) -> String:
+func _get_instruction_text(
+	cadence: CombatV1.Cadence,
+	next_round_pending: bool = false,
+	selected_skill_id: StringName = &""
+) -> String:
 	if next_round_pending:
+		if selected_skill_id != &"":
+			return "Choice locked. Listen for the selected Character Performance."
 		return "Choice locked. Listen for the next Enemy Phrase."
 	match cadence:
 		CombatV1.Cadence.SETTLE:
@@ -214,7 +310,11 @@ func _get_instruction_text(cadence: CombatV1.Cadence, next_round_pending: bool =
 		CombatV1.Cadence.RESPONSE:
 			return "Use arrows, D-pad, or matching face buttons. Press Enter, Space, or Start to submit."
 		CombatV1.Cadence.TACTICAL_VAMP:
-			return "Listen without pressure. Press Enter, Space, or Start when you are ready."
+			return "Listen without pressure. Choose a Skill with Up/Down, then confirm with Enter, Space, or A."
+		CombatV1.Cadence.CHARACTER_PERFORMANCE:
+			return "Play the selected Skill's authored pattern on the four directional lanes."
+		CombatV1.Cadence.FULL_BAND_VAMP:
+			return "Listen as the band carries the result into the next exchange."
 		CombatV1.Cadence.RESOLUTION:
 			return "Conversation complete. Reload the harness to play again."
 		_:
@@ -280,8 +380,12 @@ func teardown() -> void:
 		_combat_v1.next_round_transition_changed.disconnect(_on_next_round_transition_changed)
 	if _combat_v1.response_note_graded.is_connected(_on_response_note_graded):
 		_combat_v1.response_note_graded.disconnect(_on_response_note_graded)
+	if _combat_v1.character_performance_note_graded.is_connected(_on_response_note_graded):
+		_combat_v1.character_performance_note_graded.disconnect(_on_response_note_graded)
 	if _combat_v1.response_phrase_graded.is_connected(_on_response_phrase_graded):
 		_combat_v1.response_phrase_graded.disconnect(_on_response_phrase_graded)
+	if _combat_v1.skill_selected.is_connected(_on_skill_selected):
+		_combat_v1.skill_selected.disconnect(_on_skill_selected)
 	if _combat_v1.phrase_event_announced.is_connected(_on_phrase_event_announced):
 		_combat_v1.phrase_event_announced.disconnect(_on_phrase_event_announced)
 	if _combat_v1.response_target_announced.is_connected(_on_response_target_announced):
@@ -289,6 +393,8 @@ func teardown() -> void:
 	if _combat_v1.resolved.is_connected(_on_resolved):
 		_combat_v1.resolved.disconnect(_on_resolved)
 	_combat_v1 = null
+	_skill_panel.visible = false
+	_skill_choices.clear()
 
 func _exit_tree() -> void:
 	teardown()
