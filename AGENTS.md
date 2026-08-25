@@ -11,14 +11,16 @@ gap between that target and the current implementation explicit.
 3. Inspect the affected implementation and its tests.
 4. Expand into adjacent systems only when evidence requires it.
 
-## Git Work Isolation
+## Git Branch Isolation
 
-Before editing repository files, run `git status --short --branch`.
+Before editing repository files, run `git status --short --branch` in the primary
+repository checkout.
 
-For implementation work, use a dedicated `codex/` branch or isolated worktree. If
-the current branch is `main` or `master`, create and switch to
-`codex/<issue>-<slug>` before editing. Never implement directly on the default
-branch.
+For new implementation work, run `git fetch origin main`, then create and switch
+to `codex/<issue>-<slug>` from the refreshed `origin/main` in the primary
+repository checkout. Resume an existing task branch in that same checkout when
+appropriate. Do not create or use additional Git worktrees. Never implement
+directly on `main` or `master`.
 
 If the working tree already contains changes whose ownership or relationship to
 the task is unclear, stop and ask before creating a branch, moving changes, or

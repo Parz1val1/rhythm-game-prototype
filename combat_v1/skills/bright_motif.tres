@@ -1,0 +1,63 @@
+[gd_resource type="Resource" script_class="CombatV1Skill" load_steps=14 format=3]
+
+[ext_resource type="Script" path="res://combat_v1/skill.gd" id="1_skill"]
+[ext_resource type="Script" path="res://combat_v1/skill_event.gd" id="2_event"]
+[ext_resource type="Script" path="res://combat_v1/performance_result_skill_effect.gd" id="3_effect"]
+
+[sub_resource type="Resource" id="PerformanceResultEffect"]
+script = ExtResource("3_effect")
+
+[sub_resource type="Resource" id="SkillEvent_2"]
+script = ExtResource("2_event")
+beat_offset = 2.0
+actions = Array[StringName]([&"up"])
+
+[sub_resource type="Resource" id="SkillEvent_2_75"]
+script = ExtResource("2_event")
+beat_offset = 2.75
+actions = Array[StringName]([&"right"])
+
+[sub_resource type="Resource" id="SkillEvent_3_5"]
+script = ExtResource("2_event")
+beat_offset = 3.5
+actions = Array[StringName]([&"down"])
+
+[sub_resource type="Resource" id="SkillEvent_4"]
+script = ExtResource("2_event")
+beat_offset = 4.0
+actions = Array[StringName]([&"left"])
+
+[sub_resource type="Resource" id="SkillEvent_4_5"]
+script = ExtResource("2_event")
+beat_offset = 4.5
+actions = Array[StringName]([&"up"])
+
+[sub_resource type="Resource" id="SkillEvent_5"]
+script = ExtResource("2_event")
+beat_offset = 5.0
+actions = Array[StringName]([&"right"])
+
+[sub_resource type="Resource" id="SkillEvent_5_5"]
+script = ExtResource("2_event")
+beat_offset = 5.5
+actions = Array[StringName]([&"down"])
+
+[sub_resource type="Resource" id="SkillEvent_6"]
+script = ExtResource("2_event")
+beat_offset = 6.0
+actions = Array[StringName]([&"left"])
+
+[sub_resource type="Resource" id="SkillEvent_7"]
+script = ExtResource("2_event")
+beat_offset = 7.0
+actions = Array[StringName]([&"up", &"right"])
+
+[resource]
+script = ExtResource("1_skill")
+skill_id = &"bright_motif"
+display_name = "Bright Motif"
+musical_contribution = &"Melody"
+interaction_summary = "Rising single-note run ending in a two-note chord."
+effect_summary = "Contribute Groove from execution."
+events = Array[ExtResource("2_event")]([SubResource("SkillEvent_2"), SubResource("SkillEvent_2_75"), SubResource("SkillEvent_3_5"), SubResource("SkillEvent_4"), SubResource("SkillEvent_4_5"), SubResource("SkillEvent_5"), SubResource("SkillEvent_5_5"), SubResource("SkillEvent_6"), SubResource("SkillEvent_7")])
+effects = Array[ExtResource("3_effect")]([SubResource("PerformanceResultEffect")])

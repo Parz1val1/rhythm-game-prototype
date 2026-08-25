@@ -1,6 +1,6 @@
 # Roadmap
 
-Last reviewed: 2026-08-24. [Combat System v1](combat/COMBAT_SPEC_V1.md) is the
+Last reviewed: 2026-08-25. [Combat System v1](combat/COMBAT_SPEC_V1.md) is the
 north star for combat prototyping. Ordering after the first slice remains
 provisional and should respond to playtest evidence.
 
@@ -13,17 +13,19 @@ beginning with [issue #16](https://github.com/Parz1val1/rhythm-game-prototype/is
 
 The human playtest gate in
 [#15](https://github.com/Parz1val1/rhythm-game-prototype/issues/15) approved the
-core conversation cadence and unblocked Phase B. Start with the smallest useful
-Skill and multi-bar Character Performance model:
+core conversation cadence and unblocked Phase B. Issue #16 then established two
+authored Luthier Skills, configurable multi-bar Character Performances, a
+single-performance prototype exchange, and a passing hands-on comparison. Continue
+validating the smallest useful Skill/performance model:
 
-- Define the smallest skill model that joins a musical effect to a character's
-  rhythm-game interaction.
-- Test multi-bar performance duration and the pacing between Tactical Vamps and
-  active play.
+- Extend the minimal Skill/effect seam without coupling new tactical behavior to
+  the combat orchestrator.
+- Continue testing multi-bar performance duration and the pacing between Tactical
+  Vamps, active play, and later party-performance ordering.
 - Preserve distinct Luthier and Beatrice interaction languages.
-- Allow the count-in presentation cleanup in
-  [#42](https://github.com/Parz1val1/rhythm-game-prototype/issues/42) to land before
-  or alongside early Phase B work.
+- Preserve the committed count-in presentation from
+  [#42](https://github.com/Parz1val1/rhythm-game-prototype/issues/42); stronger
+  lane-adjacent count-in prominence remains optional presentation polish.
 - Add the small Enemy Phrase repertoire in
   [#43](https://github.com/Parz1val1/rhythm-game-prototype/issues/43) before the
   #20 playtest draws conclusions about phrase difficulty or Multiplier pressure;

@@ -99,9 +99,9 @@ A valid test process must:
 The older filtered command that selects only `PASS`, `FAIL`, and `===` lines is
 not sufficient because it hides engine diagnostics.
 
-### Verified green baseline (2026-08-24)
+### Verified green baseline (2026-08-25)
 
-- 56 discovered scripts and 946 visible `PASS` lines.
+- 58 discovered scripts and 964 visible `PASS` lines.
 - 0 visible `FAIL` lines, `SCRIPT ERROR` diagnostics, or line-leading `ERROR:`
   diagnostics.
 - Every script exited `0` and printed the exact `=== done ===` completion marker.
@@ -211,9 +211,11 @@ right to the matching rhythm directions. Beatrice maps the positive left/right
 trigger axes to her left/right drum actions with the InputMap's `0.5` deadzone.
 `RhythmInput` edge-gates analog actions by controller and action so progressive
 axis updates produce one scored input per pull; a release re-arms the action.
-The V1 harness reserves Start for submit/continue and the shoulder buttons for
-temporary backing-track comparison; character profiles still own which rhythm
-actions are valid for a performance.
+The V1 harness reserves Start for Response submission, Up/Down plus controller A
+for Tactical Vamp Skill selection, and the shoulder buttons for temporary
+backing-track comparison. Controller A also maps to Luthier's Down note, so the
+harness must prioritize its confirmation meaning while Tactical Vamp is active;
+character profiles still own which rhythm actions are valid for a performance.
 
 ### Scene and Resource editing
 

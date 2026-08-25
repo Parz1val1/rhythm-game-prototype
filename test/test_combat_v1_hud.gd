@@ -254,7 +254,7 @@ func _run() -> void:
 			_check(
 				"Tactical Vamp guidance preserves no-pressure listening",
 				instruction_label.text,
-				"Listen without pressure. Press Enter, Space, or Start when you are ready."
+				"Listen without pressure. Choose a Skill with Up/Down, then confirm with Enter, Space, or A."
 			)
 		hud.teardown()
 		summary_module.teardown()
@@ -278,7 +278,9 @@ func _run() -> void:
 			&"phrase_event_announced",
 			&"response_target_announced",
 			&"response_note_graded",
+			&"character_performance_note_graded",
 			&"response_phrase_graded",
+			&"skill_selected",
 			&"resolved",
 		]
 		var hud_methods: Array[StringName] = [
@@ -288,7 +290,9 @@ func _run() -> void:
 			&"_on_phrase_event_announced",
 			&"_on_response_target_announced",
 			&"_on_response_note_graded",
+			&"_on_response_note_graded",
 			&"_on_response_phrase_graded",
+			&"_on_skill_selected",
 			&"_on_resolved",
 		]
 		for connection_index in range(hud_signals.size()):
@@ -306,6 +310,9 @@ func _run() -> void:
 			"player-facing V1 labels avoid legacy combat framing",
 			_has_no_forbidden_player_labels(integrated_hud),
 			true
+		)
+		prototype_module.encounter_state_changed.disconnect(
+			Callable(integrated_hud, &"_on_encounter_state_changed")
 		)
 		prototype.teardown()
 		prototype.teardown()

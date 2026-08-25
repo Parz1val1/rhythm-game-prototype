@@ -49,7 +49,7 @@ func _run() -> void:
 		],
 		[
 			"TACTICAL VAMP - NO TIME PRESSURE",
-			"Listen without pressure. Press Enter, Space, or Start when you are ready.",
+			"Listen without pressure. Choose a Skill with Up/Down, then confirm with Enter, Space, or A.",
 		]
 	)
 

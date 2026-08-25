@@ -14,6 +14,8 @@ Use these sources according to the question being answered:
 3. **Current implementation** → [Architecture](../ARCHITECTURE.md), code, and tests
 4. **Accepted technical choices** → [Technical Decisions](../DECISIONS.md)
 5. **Migration status** → [V1 reconciliation](reconciliation-v1.md)
+6. **Issue #16 Skill/Character Performance scope and playtest evidence** →
+   [Skill and Character Performance prototype](skill-performance-prototype.md)
 
 When current behavior conflicts with Combat System v1, preserve the distinction:
 the specification defines the target, while architecture, code, and legacy tests
