@@ -45,7 +45,8 @@ Changing the active member atomically refreshes:
 - the `RhythmInput` profile, scoring mode, and evaluator identity;
 - valid action aliases and the response/performance lane order;
 - the visual interaction treatment and instrument accent;
-- the instrument audio bus and feedback timbre;
+- the instrument audio bus and feedback timbre, with accepted Skill hits receiving
+  a distinct Character Performance playback gain;
 - the visible Skill list, costs, and affordability;
 - the active member's independently owned Inspiration snapshot; and
 - transient targets, note feedback, chord state, and queued `RhythmInput` notes.
@@ -75,6 +76,8 @@ seam; their numbers and tactical breadth are playtest content, not final balance
 - The switch is mechanically legible in the harness: four directional inputs,
   plucked feedback, and travelling notes give way to two drum inputs, percussion
   feedback, and closing circles without stopping the clock.
+- Accepted Skill inputs now play an explicit active-character instrument voice;
+  automatic unplayed-note expiry does not create ghost instrument hits.
 - Automated tests establish state isolation and handoff correctness; they cannot
   determine whether the language switch feels refreshing or disruptive.
 

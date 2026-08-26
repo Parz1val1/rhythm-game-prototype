@@ -1,4 +1,5 @@
-## Replaceable one-shot audio adapter for Enemy Phrase lessons and Response results.
+## Replaceable one-shot audio adapter for Enemy Phrase lessons, Response results,
+## and character-instrument Skill hits.
 class_name CombatV1ResponsePerformanceFeedback
 extends Node
 
@@ -120,6 +121,12 @@ func _on_response_note_graded(result: Dictionary) -> void:
 		CombatV1.Cadence.CHARACTER_PERFORMANCE,
 	]:
 		return
+	var source := &"character_performance" \
+		if _combat_v1.get_cadence() == CombatV1.Cadence.CHARACTER_PERFORMANCE \
+		else &"response"
+	if source == &"character_performance" \
+			and result.get(&"actual_action", &"") == &"":
+		return
 	var lane: StringName = result.get(&"lane", &"")
 	if not LANE_PITCH_HZ.has(lane):
 		return
@@ -131,10 +138,13 @@ func _on_response_note_graded(result: Dictionary) -> void:
 	var timbre := _get_timbre(quality_band, rhythm_language)
 	var player := _players[lane] as AudioStreamPlayer
 	player.bus = audio_bus
-	player.volume_db = _get_volume_db(quality_band)
+	player.volume_db = _get_volume_db(quality_band, source)
 	player.stream = _get_stream(lane, pitch_hz, quality_band)
 	player.play()
 	var routed_event := {
+		&"source": source,
+		&"skill_id": state.get(&"selected_skill_id", &"") \
+			if source == &"character_performance" else &"",
 		&"target_id": result.get(&"target_id", &""),
 		&"expected_action": result.get(&"expected_action", &""),
 		&"actual_action": result.get(&"actual_action", &""),
@@ -149,12 +159,16 @@ func _on_response_note_graded(result: Dictionary) -> void:
 		&"timbre": timbre,
 		&"instrument_name": state.get(&"instrument_name", "Instrument"),
 		&"audio_bus": audio_bus,
+		&"volume_db": player.volume_db,
+		&"voice_started": player.playing,
 	}
 	_routed_events.append(routed_event)
-	DebugLog.audio("[RESPONSE] target=%s  lane=%s  pitch_hz=%.2f  grade=%s" % [
+	DebugLog.audio("[PLAYBACK] source=%s  skill=%s  target=%s  lane=%s  instrument=%s  grade=%s" % [
+		routed_event[&"source"],
+		routed_event[&"skill_id"],
 		routed_event[&"target_id"],
 		lane,
-		pitch_hz,
+		routed_event[&"instrument_name"],
 		routed_event[&"grade_name"],
 	])
 
@@ -275,7 +289,18 @@ func _get_timbre(
 		_:
 			return &"muted_pluck"
 
-func _get_volume_db(quality_band: StringName) -> float:
+func _get_volume_db(
+	quality_band: StringName,
+	source: StringName = &"response"
+) -> float:
+	if source == &"character_performance":
+		match quality_band:
+			&"strong":
+				return -3.0
+			&"shaky":
+				return -5.0
+			_:
+				return -8.0
 	match quality_band:
 		&"preview":
 			return -10.0

@@ -17,6 +17,7 @@ func _run() -> void:
 	var module = prototype.get("_combat_v1")
 	var hud = prototype.get_node("CombatV1HUD")
 	var highway = hud.get_node("ResponseNoteHighway")
+	var feedback_adapter = prototype.get_node("ResponsePerformanceFeedback")
 	var beat_clock: Node = root.get_node("BeatClock")
 	var beat_number := 1
 
@@ -31,7 +32,18 @@ func _run() -> void:
 			and beat_number < 48:
 		beat_clock.beat.emit(beat_number)
 		beat_number += 1
-	for target in module.get_character_performance_presentation()[&"targets"]:
+	var luthier_targets: Array = module.get_character_performance_presentation()[&"targets"]
+	var first_luthier_target: Dictionary = luthier_targets[0]
+	module.submit_character_performance_input(
+		first_luthier_target[&"expected_action"],
+		first_luthier_target[&"due_beat"]
+	)
+	await process_frame
+	var luthier_events: Array = feedback_adapter.get_feedback_snapshot()[&"routed_events"]
+	var luthier_audio_event: Dictionary = luthier_events[-1] \
+		if not luthier_events.is_empty() else {}
+	for target_index in range(1, luthier_targets.size()):
+		var target: Dictionary = luthier_targets[target_index]
 		module.submit_character_performance_input(
 			target[&"expected_action"],
 			target[&"due_beat"]
@@ -110,24 +122,36 @@ func _run() -> void:
 		first_drum_target[&"due_beat"]
 	)
 	await process_frame
-	var feedback_adapter = prototype.get_node("ResponsePerformanceFeedback")
 	var routed_events: Array = feedback_adapter.get_feedback_snapshot()[&"routed_events"]
-	var routed_event: Dictionary = routed_events[-1] if not routed_events.is_empty() else {}
+	var beatrice_audio_event: Dictionary = routed_events[-1] \
+		if not routed_events.is_empty() else {}
 	_check(
-		"Beatrice's accepted input uses her drum voice and instrument bus",
+		"each party member's accepted Skill input starts their instrument voice",
 		{
-			&"lane": routed_event.get(&"lane", &""),
-			&"instrument_name": routed_event.get(&"instrument_name", ""),
-			&"audio_bus": routed_event.get(&"audio_bus", &""),
-			&"timbre": routed_event.get(&"timbre", &""),
-			&"quality": routed_event.get(&"quality_band", &""),
+			&"luthier": _get_skill_audio_facts(luthier_audio_event),
+			&"beatrice": _get_skill_audio_facts(beatrice_audio_event),
 		},
 		{
-			&"lane": &"drum_left",
-			&"instrument_name": "Drums",
-			&"audio_bus": &"Drums",
-			&"timbre": &"drum_hit",
-			&"quality": &"strong",
+			&"luthier": {
+				&"source": &"character_performance",
+				&"skill_id": &"bright_motif",
+				&"instrument_name": "Lute",
+				&"audio_bus": &"Strings",
+				&"timbre": &"clear_pluck",
+				&"quality": &"strong",
+				&"volume_db": -3.0,
+				&"voice_started": true,
+			},
+			&"beatrice": {
+				&"source": &"character_performance",
+				&"skill_id": &"syncopated_fill",
+				&"instrument_name": "Drums",
+				&"audio_bus": &"Drums",
+				&"timbre": &"drum_hit",
+				&"quality": &"strong",
+				&"volume_db": -3.0,
+				&"voice_started": true,
+			},
 		}
 	)
 
@@ -139,6 +163,18 @@ func _run() -> void:
 	highway = null
 	feedback_adapter = null
 	print("=== done ===")
+
+func _get_skill_audio_facts(event: Dictionary) -> Dictionary:
+	return {
+		&"source": event.get(&"source", &""),
+		&"skill_id": event.get(&"skill_id", &""),
+		&"instrument_name": event.get(&"instrument_name", ""),
+		&"audio_bus": event.get(&"audio_bus", &""),
+		&"timbre": event.get(&"timbre", &""),
+		&"quality": event.get(&"quality_band", &""),
+		&"volume_db": event.get(&"volume_db", -INF),
+		&"voice_started": event.get(&"voice_started", false),
+	}
 
 func _check(label: String, got, expected) -> void:
 	if got == expected:
