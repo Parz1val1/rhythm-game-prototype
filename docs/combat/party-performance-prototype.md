@@ -59,7 +59,7 @@ effects, remain caller-owned and unmodified.
 | Character | Working language | Presentation | Playtest Skills |
 |---|---|---|---|
 | Luthier | Four-input melodic strings | Four directional lanes with travelling notes and chords | Bright Motif; Steadying Harmony |
-| Beatrice | Two-input percussion | Left/right spatial targets with closing timing circles | Driving Backbeat; Syncopated Fill |
+| Beatrice | Two-input percussion | Left/right spatial targets with large closing timing circles, color accents, and `1 e & a` subdivision markers | Driving Backbeat; Syncopated Fill |
 
 Driving Backbeat asks for a steady alternating two-hand pulse. Syncopated Fill
 mixes spaced accents with a faster left/right roll and provisionally costs 20

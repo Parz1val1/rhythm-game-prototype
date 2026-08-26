@@ -33,6 +33,10 @@ const APPROACH_START_RATIO := 0.16
 const PREVIEW_LINE_RATIO := 0.47
 const PREVIEW_DURATION_SECONDS := 0.3
 const LATE_TRAVEL_BEATS := 0.5
+const CLOSING_RING_START_RADIUS := 88.0
+const CLOSING_RING_HIT_RADIUS := 18.0
+const SUBDIVISION_MARKERS: Array[String] = ["1", "e", "&", "a"]
+const SUBDIVISION_A_COLOR := Color("ff8fa3")
 
 var _combat_v1: CombatV1 = null
 var _active: bool = false
@@ -87,6 +91,9 @@ func get_presentation_snapshot() -> Dictionary:
 			&"progress": target[&"progress"],
 			&"x": target[&"x"],
 			&"y": target[&"y"],
+			&"radius": target[&"radius"],
+			&"subdivision_marker": target[&"subdivision_marker"],
+			&"subdivision_color": target[&"subdivision_color"],
 			&"grade_name": target[&"grade_name"],
 		})
 	return {
@@ -255,6 +262,9 @@ func _load_schedule(presentation: Dictionary) -> void:
 		var lane_index := _lane_order.find(action)
 		if lane_index < 0:
 			continue
+		var subdivision_marker := _get_subdivision_marker(
+			float(scheduled_target[&"beat_offset"])
+		)
 		_targets.append({
 			&"target_id": scheduled_target[&"target_id"],
 			&"expected_action": action,
@@ -269,7 +279,9 @@ func _load_schedule(presentation: Dictionary) -> void:
 			&"progress": 0.0,
 			&"x": 0.0,
 			&"y": 0.0,
-			&"radius": 18.0,
+			&"radius": CLOSING_RING_START_RADIUS,
+			&"subdivision_marker": subdivision_marker,
+			&"subdivision_color": _get_subdivision_color(subdivision_marker),
 			&"grade_name": &"",
 		})
 	_build_chord_groups()
@@ -318,10 +330,14 @@ func _update_positions(presentation: Dictionary) -> void:
 		target[&"x"] = (float(lane_index) + 0.5) * lane_width
 		if _presentation_style == &"closing_circles":
 			target[&"y"] = hit_line_y
-			target[&"radius"] = lerpf(42.0, 18.0, clampf(progress, 0.0, 1.0))
+			target[&"radius"] = lerpf(
+				CLOSING_RING_START_RADIUS,
+				CLOSING_RING_HIT_RADIUS,
+				clampf(progress, 0.0, 1.0)
+			)
 		else:
 			target[&"y"] = lerpf(approach_start_y, hit_line_y, progress)
-			target[&"radius"] = 18.0
+			target[&"radius"] = CLOSING_RING_HIT_RADIUS
 		var was_visible: bool = target[&"visible"]
 		target[&"visible"] = target[&"grade_name"] == &"" \
 			and beats_until_due <= _visual_lead_beats \
@@ -418,8 +434,22 @@ func _draw() -> void:
 		var note_position := Vector2(float(target[&"x"]), float(target[&"y"]))
 		var note_color := CHORD_COLOR if int(target[&"group_size"]) > 1 else NOTE_COLOR
 		if _presentation_style == &"closing_circles":
+			var ring_color: Color = target[&"subdivision_color"]
+			var ring_radius: float = target[&"radius"]
 			draw_circle(note_position, 10.0, Color(note_color, 0.35))
-			draw_arc(note_position, float(target[&"radius"]), 0.0, TAU, 32, note_color, 4.0)
+			draw_arc(note_position, ring_radius, 0.0, TAU, 48, ring_color, 5.0)
+			var marker_position := note_position + Vector2(0.0, -ring_radius)
+			draw_circle(marker_position, 11.0, Color(BOARD_COLOR, 0.94))
+			draw_arc(marker_position, 11.0, 0.0, TAU, 24, ring_color, 2.0)
+			draw_string(
+				ThemeDB.fallback_font,
+				marker_position + Vector2(-10.0, 6.0),
+				target[&"subdivision_marker"],
+				HORIZONTAL_ALIGNMENT_CENTER,
+				20.0,
+				16,
+				ring_color
+			)
 		else:
 			draw_circle(note_position, 18.0, note_color)
 		var action: StringName = target[&"expected_action"]
@@ -453,6 +483,28 @@ func _draw() -> void:
 			_get_grade_color(grade_name)
 		)
 	draw_rect(board_rect, GRID_COLOR, false, 2.0)
+
+func _get_subdivision_marker(beat_offset: float) -> String:
+	var fraction := fposmod(beat_offset, 1.0)
+	var subdivision_index := roundi(fraction * 4.0)
+	if subdivision_index == 4:
+		subdivision_index = 0
+	if absf(fraction - float(subdivision_index) * 0.25) > 0.01:
+		return "•"
+	return SUBDIVISION_MARKERS[subdivision_index]
+
+func _get_subdivision_color(marker: String) -> Color:
+	match marker:
+		"1":
+			return NOTE_COLOR
+		"e":
+			return CHORD_COLOR
+		"&":
+			return HIT_LINE_COLOR
+		"a":
+			return SUBDIVISION_A_COLOR
+		_:
+			return LABEL_COLOR
 
 func _draw_result_cue(position: Vector2, visual_cue: StringName, color: Color) -> void:
 	match visual_cue:

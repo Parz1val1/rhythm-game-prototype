@@ -42,7 +42,7 @@ func _run() -> void:
 		beat_number += 1
 	if module.get_cadence() == module.Cadence.TACTICAL_VAMP \
 			and module.get_state()[&"active_character_id"] == &"beatrice_styx":
-		prototype.select_skill_choice(0)
+		prototype.select_skill_choice(1)
 	while module.get_cadence() != module.Cadence.CHARACTER_PERFORMANCE \
 			and beat_number < 80:
 		beat_clock.beat.emit(beat_number)
@@ -53,10 +53,16 @@ func _run() -> void:
 	var highway_snapshot: Dictionary = highway.get_presentation_snapshot()
 	var state: Dictionary = module.get_state()
 	var presented_actions: Array[StringName] = []
+	var subdivision_markers: Dictionary = {}
 	for target in highway_snapshot[&"targets"]:
 		var action: StringName = target[&"expected_action"]
 		if action not in presented_actions:
 			presented_actions.append(action)
+		var beat_offset: float = target[&"beat_offset"]
+		if beat_offset >= 4.0 and beat_offset <= 4.75:
+			subdivision_markers[beat_offset] = target.get(&"subdivision_marker", "")
+	var first_ring: Dictionary = highway_snapshot[&"targets"][0] \
+		if not highway_snapshot[&"targets"].is_empty() else {}
 	_check(
 		"switching to Beatrice refreshes identity, choices, controls, and lane presentation",
 		{
@@ -68,6 +74,8 @@ func _run() -> void:
 			&"presentation_style": highway_snapshot.get(&"presentation_style", &""),
 			&"presented_actions": presented_actions,
 			&"target_count": highway_snapshot[&"targets"].size(),
+			&"starting_ring_radius": first_ring.get(&"radius", 0.0),
+			&"subdivision_markers": subdivision_markers,
 			&"stale_feedback": highway_snapshot[&"lane_feedback"].size(),
 			&"note_feedback": hud.get_node("FeedbackPanel/NoteFeedbackLabel").text,
 			&"instruction": hud.get_node("InstructionPanel/InstructionLabel").text,
@@ -80,7 +88,14 @@ func _run() -> void:
 			&"lane_order": [&"drum_left", &"drum_right"],
 			&"presentation_style": &"closing_circles",
 			&"presented_actions": [&"drum_left", &"drum_right"],
-			&"target_count": 11,
+			&"target_count": 13,
+			&"starting_ring_radius": 88.0,
+			&"subdivision_markers": {
+				4.0: "1",
+				4.25: "e",
+				4.5: "&",
+				4.75: "a",
+			},
 			&"stale_feedback": 0,
 			&"note_feedback": "NOTE  WAITING",
 			&"instruction": "Use F/J or the left/right triggers for Beatrice's two-hand drum language.",
