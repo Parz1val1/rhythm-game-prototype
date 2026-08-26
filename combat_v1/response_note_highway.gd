@@ -1,4 +1,4 @@
-## BeatClock-aligned four-lane presentation for the active Combat V1 Response.
+## BeatClock-aligned presentation for the active Combat V1 rhythm language.
 class_name ResponseNoteHighway
 extends Control
 
@@ -6,12 +6,14 @@ const CombatV1 = preload("res://combat_v1/combat_v1.gd")
 const DebugLog = preload("res://autoloads/debug_log.gd")
 const PhraseEvent = preload("res://combat_v1/phrase_event.gd")
 
-const LANE_ORDER: Array[StringName] = [&"left", &"down", &"up", &"right"]
+const DEFAULT_LANE_ORDER: Array[StringName] = [&"left", &"down", &"up", &"right"]
 const LANE_LABELS := {
 	&"left": "<  LEFT",
 	&"down": "v  DOWN",
 	&"up": "^  UP",
 	&"right": ">  RIGHT",
+	&"drum_left": "L  LEFT DRUM",
+	&"drum_right": "R  RIGHT DRUM",
 }
 const BOARD_COLOR := Color("091126")
 const LANE_COLORS: Array[Color] = [
@@ -37,6 +39,8 @@ var _active: bool = false
 var _round_id: int = -1
 var _timeline_position_beats: float = 0.0
 var _visual_lead_beats: float = 2.0
+var _lane_order: Array[StringName] = DEFAULT_LANE_ORDER.duplicate()
+var _presentation_style: StringName = &"directional_highway"
 var _targets: Array[Dictionary] = []
 var _chord_groups: Array[Dictionary] = []
 var _lane_feedback: Dictionary = {}
@@ -55,6 +59,8 @@ func setup(combat_v1: CombatV1) -> void:
 		return
 	if not _combat_v1.cadence_changed.is_connected(_on_cadence_changed):
 		_combat_v1.cadence_changed.connect(_on_cadence_changed)
+	if not _combat_v1.active_character_changed.is_connected(_on_active_character_changed):
+		_combat_v1.active_character_changed.connect(_on_active_character_changed)
 	if not _combat_v1.response_note_graded.is_connected(_on_response_note_graded):
 		_combat_v1.response_note_graded.connect(_on_response_note_graded)
 	if not _combat_v1.character_performance_note_graded.is_connected(_on_response_note_graded):
@@ -85,7 +91,8 @@ func get_presentation_snapshot() -> Dictionary:
 		})
 	return {
 		&"active": _active,
-		&"lane_order": LANE_ORDER.duplicate(),
+		&"lane_order": _lane_order.duplicate(),
+		&"presentation_style": _presentation_style,
 		&"round_id": _round_id,
 		&"timeline_position_beats": _timeline_position_beats,
 		&"visual_lead_beats": _visual_lead_beats,
@@ -104,6 +111,8 @@ func teardown() -> void:
 	if _combat_v1 != null:
 		if _combat_v1.cadence_changed.is_connected(_on_cadence_changed):
 			_combat_v1.cadence_changed.disconnect(_on_cadence_changed)
+		if _combat_v1.active_character_changed.is_connected(_on_active_character_changed):
+			_combat_v1.active_character_changed.disconnect(_on_active_character_changed)
 		if _combat_v1.response_note_graded.is_connected(_on_response_note_graded):
 			_combat_v1.response_note_graded.disconnect(_on_response_note_graded)
 		if _combat_v1.character_performance_note_graded.is_connected(_on_response_note_graded):
@@ -129,6 +138,11 @@ func _on_cadence_changed(cadence: CombatV1.Cadence) -> void:
 		_clear_preview()
 	_sync_from_module()
 
+func _on_active_character_changed(_character_state: Dictionary) -> void:
+	_clear_presentation()
+	_sync_identity()
+	queue_redraw()
+
 func _on_phrase_event_announced(
 	event: PhraseEvent,
 	expected_actions: Array[StringName]
@@ -138,7 +152,7 @@ func _on_phrase_event_announced(
 	var lanes: Array[StringName] = []
 	var lane_indices: Array[int] = []
 	for action in expected_actions:
-		var lane_index := LANE_ORDER.find(action)
+		var lane_index := _lane_order.find(action)
 		if lane_index < 0:
 			continue
 		lanes.append(action)
@@ -198,6 +212,7 @@ func _on_response_note_graded(result: Dictionary) -> void:
 func _sync_from_module() -> void:
 	if _combat_v1 == null:
 		return
+	_sync_identity()
 	var presentation: Dictionary = _combat_v1.get_response_presentation()
 	if not bool(presentation[&"active"]):
 		presentation = _combat_v1.get_character_performance_presentation()
@@ -210,14 +225,34 @@ func _sync_from_module() -> void:
 	_update_positions(presentation)
 	queue_redraw()
 
+func _sync_identity() -> void:
+	if _combat_v1 == null:
+		return
+	var state: Dictionary = _combat_v1.get_state()
+	var next_lane_order: Array[StringName] = []
+	for action in state.get(&"lane_order", DEFAULT_LANE_ORDER):
+		next_lane_order.append(StringName(action))
+	if next_lane_order.is_empty():
+		next_lane_order = DEFAULT_LANE_ORDER.duplicate()
+	if next_lane_order != _lane_order:
+		_clear_presentation()
+		_lane_order = next_lane_order
+	_presentation_style = state.get(&"performance_presentation", &"directional_highway")
+
 func _load_schedule(presentation: Dictionary) -> void:
 	_clear_presentation()
 	_active = true
 	_round_id = presentation[&"round_id"]
+	_presentation_style = presentation.get(&"presentation_style", _presentation_style)
+	var presented_lane_order: Array[StringName] = []
+	for action in presentation.get(&"lane_order", _lane_order):
+		presented_lane_order.append(StringName(action))
+	if not presented_lane_order.is_empty():
+		_lane_order = presented_lane_order
 	_visual_lead_beats = maxf(0.001, float(presentation[&"visual_lead_beats"]))
 	for scheduled_target in presentation[&"targets"]:
 		var action: StringName = scheduled_target[&"expected_action"]
-		var lane_index := LANE_ORDER.find(action)
+		var lane_index := _lane_order.find(action)
 		if lane_index < 0:
 			continue
 		_targets.append({
@@ -234,6 +269,7 @@ func _load_schedule(presentation: Dictionary) -> void:
 			&"progress": 0.0,
 			&"x": 0.0,
 			&"y": 0.0,
+			&"radius": 18.0,
 			&"grade_name": &"",
 		})
 	_build_chord_groups()
@@ -269,7 +305,7 @@ func _build_chord_groups() -> void:
 func _update_positions(presentation: Dictionary) -> void:
 	_timeline_position_beats = float(presentation[&"timeline_position_beats"])
 	_visual_lead_beats = maxf(0.001, float(presentation[&"visual_lead_beats"]))
-	var lane_width := size.x / float(LANE_ORDER.size())
+	var lane_width := size.x / float(_lane_order.size())
 	var approach_start_y := size.y * APPROACH_START_RATIO
 	var hit_line_y := size.y * HIT_LINE_RATIO
 	for target_index in range(_targets.size()):
@@ -280,7 +316,12 @@ func _update_positions(presentation: Dictionary) -> void:
 		var lane_index: int = target[&"lane_index"]
 		target[&"progress"] = progress
 		target[&"x"] = (float(lane_index) + 0.5) * lane_width
-		target[&"y"] = lerpf(approach_start_y, hit_line_y, progress)
+		if _presentation_style == &"closing_circles":
+			target[&"y"] = hit_line_y
+			target[&"radius"] = lerpf(42.0, 18.0, clampf(progress, 0.0, 1.0))
+		else:
+			target[&"y"] = lerpf(approach_start_y, hit_line_y, progress)
+			target[&"radius"] = 18.0
 		var was_visible: bool = target[&"visible"]
 		target[&"visible"] = target[&"grade_name"] == &"" \
 			and beats_until_due <= _visual_lead_beats \
@@ -326,17 +367,17 @@ func _clear_presentation() -> void:
 func _draw() -> void:
 	var board_rect := Rect2(Vector2.ZERO, size)
 	draw_rect(board_rect, BOARD_COLOR)
-	var lane_width := size.x / float(LANE_ORDER.size())
-	for lane_index in range(LANE_ORDER.size()):
+	var lane_width := size.x / float(_lane_order.size())
+	for lane_index in range(_lane_order.size()):
 		var lane_rect := Rect2(lane_index * lane_width, 0.0, lane_width, size.y)
-		draw_rect(lane_rect, LANE_COLORS[lane_index])
+		draw_rect(lane_rect, LANE_COLORS[lane_index % LANE_COLORS.size()])
 		if lane_index > 0:
 			draw_line(Vector2(lane_rect.position.x, 0.0), Vector2(lane_rect.position.x, size.y), GRID_COLOR, 2.0)
-		var action: StringName = LANE_ORDER[lane_index]
+		var action: StringName = _lane_order[lane_index]
 		draw_string(
 			ThemeDB.fallback_font,
 			Vector2(lane_rect.position.x + 12.0, 28.0),
-			LANE_LABELS[action],
+			LANE_LABELS.get(action, String(action).replace("_", " ").to_upper()),
 			HORIZONTAL_ALIGNMENT_LEFT,
 			lane_width - 24.0,
 			16,
@@ -376,19 +417,23 @@ func _draw() -> void:
 			continue
 		var note_position := Vector2(float(target[&"x"]), float(target[&"y"]))
 		var note_color := CHORD_COLOR if int(target[&"group_size"]) > 1 else NOTE_COLOR
-		draw_circle(note_position, 18.0, note_color)
+		if _presentation_style == &"closing_circles":
+			draw_circle(note_position, 10.0, Color(note_color, 0.35))
+			draw_arc(note_position, float(target[&"radius"]), 0.0, TAU, 32, note_color, 4.0)
+		else:
+			draw_circle(note_position, 18.0, note_color)
 		var action: StringName = target[&"expected_action"]
 		draw_string(
 			ThemeDB.fallback_font,
 			note_position + Vector2(-12.0, 6.0),
-			String(LANE_LABELS[action]).left(1),
+			String(LANE_LABELS.get(action, String(action))).left(1),
 			HORIZONTAL_ALIGNMENT_CENTER,
 			24.0,
 			18,
 			BOARD_COLOR
 		)
-	for lane_index in range(LANE_ORDER.size()):
-		var lane: StringName = LANE_ORDER[lane_index]
+	for lane_index in range(_lane_order.size()):
+		var lane: StringName = _lane_order[lane_index]
 		if not _lane_feedback.has(lane):
 			continue
 		var feedback: Dictionary = _lane_feedback[lane]

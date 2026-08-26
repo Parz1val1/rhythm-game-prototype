@@ -33,17 +33,22 @@ mapped action, authored offset, an input-free handoff, independently configured
 approach lead and scoreable due time, and current BeatClock-derived timeline
 position. A separate diagnostic `CombatV1HUD` consumes only that public
 state and signal surface, including snapshot-first setup for signals emitted before
-it connects, and hosts a four-lane `ResponseNoteHighway`. After each non-terminal
+it connects, and hosts a rhythm-language-aware `ResponseNoteHighway`. After each non-terminal
 Response, an indefinite Tactical Vamp presents authored Skills with their
 Inspiration costs and current affordability. Confirming an affordable Skill
-spends its character-owned cost atomically, holds a full four-beat count-in, runs
-that Skill's multi-bar Character Performance, then inserts one input-free
-Full-Band Vamp bar before the next Enemy Phrase without repeating Settle. Public
+spends its character-owned cost atomically, holds a full four-beat count-in, and
+runs that Skill's multi-bar Character Performance. The harness repeats Tactical
+Vamp and Character Performance once for each member in fixed authored order, then
+inserts one input-free Full-Band Vamp bar before the next Enemy Phrase without
+repeating Settle. Public
 state and a transition signal expose the pending count-in and its
 BeatClock-derived progress so the HUD can present a four-step listening display.
-The prototype runs one Luthier performance per exchange; session balances support
-independent party members, but party ordering, loadouts, multiple performances per
-exchange, and opponent preferences remain unimplemented.
+The prototype runs Luthier followed by Beatrice once per exchange. Active-member
+handoffs replace input profiles, Skill loadouts, Inspiration ownership,
+instrument/presentation identity, evaluator metadata, and transient notes without
+restarting the shared timing or music. This fixed order and two-performance count
+remain provisional pending playtesting; runtime reorder, availability, final
+loadout rules, and opponent preferences remain unimplemented.
 
 ### Isolated Wwise spike infrastructure
 
@@ -87,7 +92,7 @@ flowchart LR
     V1 -->|injected RhythmInput| RI
     V1 -->|same phrase event<br/>audio + visual cues| V1P
     V1 -->|Response schedule snapshot<br/>BeatClock timeline| NH[ResponseNoteHighway<br/>left / down / up / right]
-    V1 -->|deterministic note grade| RF[ResponsePerformanceFeedback<br/>lane plucks / result timbre]
+    V1 -->|deterministic note grade| RF[ResponsePerformanceFeedback<br/>instrument bus / result timbre]
     V1P --> RF
     V1 -->|typed performance result| V1S[CombatV1EncounterState<br/>Groove / Composure / Multiplier]
     V1S -->|state change / Jam / loss| V1
@@ -115,11 +120,12 @@ flowchart LR
 | `combat_v1/opponent_data.gd`, `opponent_phrase.gd`, and `phrase_event.gd` | V1 authoring model for opponent identity, one-to-four-bar phrases, musical offsets, one-to-four-input Response cues, and symbolic audio/visual cues; it has no legacy enemy statistics |
 | `combat_v1/opponents/drum_golem.tres` | One-bar prototype opponent phrase with whole-, half-, and quarter-beat events |
 | `combat_v1/skill.gd`, `skill_event.gd`, and `skill_effect.gd` | Minimal Skill authoring boundary for player-facing purpose, Inspiration cost, configurable bar duration, timed one-to-four-action events, and ordered effect adapters; concrete effects apply through encounter-state methods without Skill-specific orchestrator branches |
-| `combat_v1/skills/*.tres` | Two Luthier playtest Skills: a two-bar melodic single-note run that contributes Groove and a three-bar chordal support pattern that restores Composure after correct execution |
-| `combat_v1/response_note_highway.tscn` and `combat_v1/response_note_highway.gd` | Four-lane presentation adapter; flashes grouped, translucent Enemy Phrase previews, connects simultaneous Response targets with a shared pulse, then draws snapshot-first BeatClock-derived target travel and independent lane-local result cues without reading CombatV1 internals or owning chart timing |
-| `combat_v1/response_performance_feedback.tscn` and `combat_v1/response_performance_feedback.gd` | Replaceable performance-audio adapter; plays each mapped Enemy Phrase highlight as a lane-specific synthesized preview, then consumes published note-grade truth and softens or mutes imperfect Response results without observing BeatClock or changing backing playback |
-| `combat_v1/combat_v1_hud.tscn` and `combat_v1/combat_v1_hud.gd` | Diagnostic V1 presentation for cadence, visible Skill choices/costs/affordability, committed count-in progress, Groove, Composure, Multiplier, character-specific Inspiration, phrase cues, six-grade feedback, nonviolent outcomes, and backing track; observes only the public `CombatV1` seam |
-| `combat_v1/combat_v1_prototype.tscn` and `combat_v1/combat_v1_prototype.gd` | Separately runnable harness that owns/injects encounter-independent party progression and dependencies, owns symbolic phrase-audio/log handoffs, and hosts `CombatV1HUD` plus the Response feedback adapter; defaults to Stonebeat, switches procedural backing tracks with keys 1–3 or controller shoulders, submits Response with Start, selects Skills with Up/Down plus controller A, and is not the configured main scene |
+| `combat_v1/party_member.gd` and `combat_v1/party/*.tres` | Ordered V1 party authoring seam for character identity, input profile, rhythm/presentation language, instrument style, and Skill list; live members explicitly copy externally referenced nested Resources |
+| `combat_v1/skills/*.tres` | Two Luthier melodic/harmonic Skills plus two Beatrice percussive Skills with distinct authored schedules and provisional costs/effects |
+| `combat_v1/response_note_highway.tscn` and `combat_v1/response_note_highway.gd` | Active-language presentation adapter; uses four travelling directional lanes for Luthier and two spatial closing-circle targets for Beatrice while retaining grouped cues, snapshot-first BeatClock timing, and lane-local result truth |
+| `combat_v1/response_performance_feedback.tscn` and `combat_v1/response_performance_feedback.gd` | Replaceable performance-audio adapter; plays mapped phrase/results as Luthier plucks or Beatrice drum transients on the active instrument bus, softens or mutes imperfect grades, and never observes BeatClock or changes backing playback |
+| `combat_v1/combat_v1_hud.tscn` and `combat_v1/combat_v1_hud.gd` | Diagnostic V1 presentation for cadence, active character/instrument identity, visible Skill choices/costs/affordability, committed count-in progress, Groove, Composure, Multiplier, character-specific Inspiration, phrase cues, six-grade feedback, nonviolent outcomes, and backing track; observes only the public `CombatV1` seam |
+| `combat_v1/combat_v1_prototype.tscn` and `combat_v1/combat_v1_prototype.gd` | Separately runnable harness that owns/injects fixed-order Luthier/Beatrice party progression and dependencies, owns symbolic phrase-audio/log handoffs, and hosts `CombatV1HUD` plus the Response feedback adapter; defaults to Stonebeat, switches procedural backing tracks with keys 1–3 or controller shoulders, submits Response with Start, selects Skills with Up/Down plus controller A, and is not the configured main scene |
 | `spikes/wwise/wwise_music_adapter.gd` | Isolated `BeatClock`-compatible timing and arrangement adapter proven by #45; it is not wired into Combat V1 |
 | `spikes/wwise/wwise_runtime_bridge.gd` | Replaceable Wwise boundary that owns middleware event, State, callback, and position-query knowledge |
 | `characters/*.gd/.tres` | Character stats, input behavior, and musical/visual identity |
@@ -194,7 +200,8 @@ short real-time message pause before forced defense.
 
 `.tres` files are templates. Live character and enemy instances must be deep-copied
 before mutation; `CombatV1.setup()` deep-copies its selected V1 opponent and nested
-phrase. Replay selection is passed through static variables in
+phrase, while `bind_party()` explicitly copies externally referenced profiles,
+styles, Skills, events, and effects. Replay selection is passed through static variables in
 `test_scene.gd` across `reload_current_scene()`; it resets when the process restarts.
 Inspiration persists only while its separately owned `CombatV1SessionState`
 remains alive. It does not mutate a gameplay Resource or legacy limit gauge, and
@@ -217,9 +224,11 @@ there is no durable persistence.
 - `CombatV1.player_intent()` accepts `SUBMIT_RESPONSE` during Response. The legacy
   `CONTINUE_ROUND` test seam remains temporarily available, but the runnable V1
   harness no longer exposes it as player flow.
-- `CombatV1.bind_session(session_state, character_id)` attaches encounter-
-  independent party progression before setup. Session snapshots and bounds remain
-  separate from live gameplay Resources and encounter-wide state.
+- `CombatV1.bind_party(session_state, party_members)` attaches encounter-
+  independent progression plus a fixed authored party before setup. The prior
+  `bind_session(session_state, character_id)` remains the single-character seam for
+  focused tests. Session snapshots and bounds remain separate from live gameplay
+  Resources and encounter-wide state.
 - `CombatV1.get_skill_choices()` exposes purpose, interaction, authored Inspiration
   cost, and affordability. `select_skill(skill_id)` spends the active character's
   cost atomically, commits one authored Skill, queues the full four-beat count-in,
@@ -240,12 +249,14 @@ there is no durable persistence.
   seam. Its enum inputs keep execution quality distinct from tactical
   effectiveness; callers do not calculate Multiplier-adjusted Groove.
 - `CombatV1.get_state()` exposes the owned encounter snapshot together with
-  active-character Inspiration/bounds, all registered party-member snapshots,
-  cadence, and the pending next-round count-in's current and total beats.
+  active-character rhythm/instrument/evaluator identity, Inspiration/bounds,
+  ordered party and session snapshots, cadence, and the pending next-round
+  count-in's current and total beats.
   `next_round_transition_changed` reports the accepted transition and each
   BeatClock-derived progress step, `encounter_state_changed` reports accepted
   atomic applications, `inspiration_changed` publishes independent character
-  snapshots, and `resolved` carries the typed `JAM` or `LOSS` outcome exactly once.
+  snapshots, `active_character_changed` refreshes every presentation adapter, and
+  `resolved` carries the typed `JAM` or `LOSS` outcome exactly once.
 - `CombatV1.get_response_presentation()` is the complete snapshot-first Response
   presentation seam. While Response is active it exposes stable round-scoped
   target identity, expected action, stable authored-event group identity and size,
@@ -398,8 +409,9 @@ truth or creating a Composure penalty for correct play.
 A non-terminal Response enters Tactical Vamp while the injected BeatClock,
 backing audio in the standalone harness, and dependency subscriptions remain
 active. Beat and subdivision signals do not drain encounter state, select a Skill,
-or advance the cadence while the player waits. The harness presents Bright Motif
-and Steadying Harmony and commits the highlighted choice only on explicit input.
+or advance the cadence while the player waits. The harness presents the active
+member's two authored Skills and commits the highlighted choice only on explicit
+input.
 
 An accepted Skill selection atomically spends its authored Inspiration cost and
 leaves the module in Tactical Vamp through one complete four-beat count-in.
@@ -410,23 +422,26 @@ The following whole-beat signal starts the selected Skill's two- or three-bar
 Character Performance. Inputs are graded against that Skill's authored schedule,
 missing targets expire at its duration, and the summary is reduced to the existing
 encounter execution vocabulary before each authored effect is applied. A
-non-terminal result enters one input-free four-beat Full-Band Vamp. Its following
-whole-beat signal refreshes Response targets, starts Enemy Phrase at phrase offset
-zero, and skips the one-time Settle. Groove, Composure, and Multiplier remain
+non-terminal result either activates the next member's indefinite Tactical Vamp
+or, after the last member, enters one input-free four-beat Full-Band Vamp. The
+vamp's following whole-beat signal resets the first authored member, refreshes
+Response targets, starts Enemy Phrase at phrase offset zero, and skips the one-time
+Settle. Groove, Composure, and Multiplier remain
 encounter-wide across rounds, and the module reuses its existing BeatClock and
 RhythmInput subscriptions. A Jam, loss, or teardown clears pending transition
 state; terminal resolution rejects combat intents and state results.
 
-This harness intentionally runs one active Luthier and one Character Performance
-per exchange. That is not the intended full-game party cadence; see the
-[issue #16 prototype record](combat/skill-performance-prototype.md) for the exact
-scope and remaining questions.
+The harness runs Luthier and Beatrice once each in fixed authored order, with an
+indefinite Tactical Vamp and a full count-in before each performance. One
+Full-Band Vamp follows the second member. These are provisional playtest choices;
+see the [issue #18 prototype record](combat/party-performance-prototype.md) for
+the exact scope and unresolved ordering/cadence questions.
 
 ## Combat V1 Session Inspiration
 
 `CombatV1SessionState` is a deterministic, in-memory owner of character
 progression. The harness keeps its session outside the encounter module and calls
-`CombatV1.bind_session(session, active_character_id)` before setup. Every
+`CombatV1.bind_party(session, party_members)` before setup. Every
 registered character receives independently copied bounds, initial balance, and
 Good/Great/Perfect note and phrase generation values. Starting a new encounter
 with the same session preserves those balances while encounter-wide Groove,
@@ -441,8 +456,8 @@ Inspiration/bounds and independently copied party snapshots, while
 The session never aliases legacy character HP, a limit gauge, a mutable gameplay
 Resource, or encounter-wide Multiplier.
 
-The playable harness still has one active Luthier. Additional party balances are
-supported as state, but party ordering, active-character switching,
+The playable harness switches between Luthier and Beatrice while retaining their
+independent session balances. Runtime reordering, availability changes,
 cross-character support effects, durable save files, final rates, and a separate
 Finale/Limit resource remain outside this slice. See the
 [Inspiration prototype record](combat/inspiration-prototype.md) for provisional

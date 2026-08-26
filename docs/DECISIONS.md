@@ -236,9 +236,10 @@ the two without Skill-specific orchestration.
 
 **Consequences:** Loaded Skill templates must be deep-copied before live use.
 Effects must use encounter-state methods rather than mutate public snapshots, and
-their order is observable when effects depend on prior state. The prototype's one
-Character Performance per exchange is a scoped product simplification recorded in
-the combat prototype record, not a technical constraint imposed by this ADR.
+their order is observable when effects depend on prior state. The issue #18 party
+harness now sources per-character Skill lists through the same interface. Its
+fixed order and two Character Performances per exchange are scoped product
+experiments, not technical constraints imposed by this ADR.
 
 ## ADR-012 — Keep Inspiration in injected, character-owned session state
 
@@ -266,6 +267,7 @@ rule prevents the orchestrator and HUD from disagreeing about minimum floors.
 **Consequences:** The harness or another future composition root must retain the
 session across encounter replacement. Encounter setup/reset must never clear
 registered Inspiration; fight-local state must still reset and gameplay Resources
-must still be deep-copied. The one-active-Luthier harness, party ordering,
-cross-character effects, durable saves, final rates, and any separate
-Finale/Limit resource remain unresolved or out of scope.
+must still be deep-copied. The issue #18 harness now switches two independently
+owned balances in fixed authored order; final party ordering, availability,
+cross-character effects, durable saves, final rates, and any separate Finale/Limit
+resource remain unresolved or out of scope.

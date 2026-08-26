@@ -1,0 +1,73 @@
+[gd_resource type="Resource" script_class="CombatV1Skill" load_steps=15 format=3]
+
+[ext_resource type="Script" path="res://combat_v1/skill.gd" id="1_skill"]
+[ext_resource type="Script" path="res://combat_v1/skill_event.gd" id="2_event"]
+[ext_resource type="Script" path="res://combat_v1/performance_result_skill_effect.gd" id="3_effect"]
+
+[sub_resource type="Resource" id="PerformanceResultEffect"]
+script = ExtResource("3_effect")
+
+[sub_resource type="Resource" id="SkillEvent_2"]
+script = ExtResource("2_event")
+beat_offset = 2.0
+actions = Array[StringName]([&"drum_left"])
+
+[sub_resource type="Resource" id="SkillEvent_2_5"]
+script = ExtResource("2_event")
+beat_offset = 2.5
+actions = Array[StringName]([&"drum_right"])
+
+[sub_resource type="Resource" id="SkillEvent_3"]
+script = ExtResource("2_event")
+beat_offset = 3.0
+actions = Array[StringName]([&"drum_left"])
+
+[sub_resource type="Resource" id="SkillEvent_3_5"]
+script = ExtResource("2_event")
+beat_offset = 3.5
+actions = Array[StringName]([&"drum_right"])
+
+[sub_resource type="Resource" id="SkillEvent_4"]
+script = ExtResource("2_event")
+beat_offset = 4.0
+actions = Array[StringName]([&"drum_left"])
+
+[sub_resource type="Resource" id="SkillEvent_4_5"]
+script = ExtResource("2_event")
+beat_offset = 4.5
+actions = Array[StringName]([&"drum_right"])
+
+[sub_resource type="Resource" id="SkillEvent_5"]
+script = ExtResource("2_event")
+beat_offset = 5.0
+actions = Array[StringName]([&"drum_left"])
+
+[sub_resource type="Resource" id="SkillEvent_5_5"]
+script = ExtResource("2_event")
+beat_offset = 5.5
+actions = Array[StringName]([&"drum_right"])
+
+[sub_resource type="Resource" id="SkillEvent_6"]
+script = ExtResource("2_event")
+beat_offset = 6.0
+actions = Array[StringName]([&"drum_left"])
+
+[sub_resource type="Resource" id="SkillEvent_6_5"]
+script = ExtResource("2_event")
+beat_offset = 6.5
+actions = Array[StringName]([&"drum_right"])
+
+[sub_resource type="Resource" id="SkillEvent_7"]
+script = ExtResource("2_event")
+beat_offset = 7.0
+actions = Array[StringName]([&"drum_left"])
+
+[resource]
+script = ExtResource("1_skill")
+skill_id = &"driving_backbeat"
+display_name = "Driving Backbeat"
+musical_contribution = &"Rhythm"
+interaction_summary = "Alternate left and right drum hits in a steady two-hand pulse."
+effect_summary = "Contribute Groove from execution."
+events = Array[ExtResource("2_event")]([SubResource("SkillEvent_2"), SubResource("SkillEvent_2_5"), SubResource("SkillEvent_3"), SubResource("SkillEvent_3_5"), SubResource("SkillEvent_4"), SubResource("SkillEvent_4_5"), SubResource("SkillEvent_5"), SubResource("SkillEvent_5_5"), SubResource("SkillEvent_6"), SubResource("SkillEvent_6_5"), SubResource("SkillEvent_7")])
+effects = Array[ExtResource("3_effect")]([SubResource("PerformanceResultEffect")])

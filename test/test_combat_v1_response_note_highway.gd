@@ -200,6 +200,16 @@ func _run() -> void:
 		true
 	)
 	_check(
+		"the highway owns one active-character connection",
+		_is_connected(
+			module,
+			&"active_character_changed",
+			highway,
+			&"_on_active_character_changed"
+		),
+		true
+	)
+	_check(
 		"the highway owns one grade connection",
 		_is_connected(module, &"response_note_graded", highway, &"_on_response_note_graded"),
 		true
@@ -221,6 +231,16 @@ func _run() -> void:
 	_check(
 		"guarded teardown disconnects the cadence signal",
 		_is_connected(module, &"cadence_changed", highway, &"_on_cadence_changed"),
+		false
+	)
+	_check(
+		"guarded teardown disconnects the active-character signal",
+		_is_connected(
+			module,
+			&"active_character_changed",
+			highway,
+			&"_on_active_character_changed"
+		),
 		false
 	)
 	_check(

@@ -8,6 +8,7 @@ const ResponseNoteHighway = preload("res://combat_v1/response_note_highway.gd")
 
 @onready var _cadence_label: Label = $CadencePanel/CadenceLabel
 @onready var _mode_label: Label = $CadencePanel/ModeLabel
+@onready var _character_label: Label = $CadencePanel/CharacterLabel
 @onready var _groove_bar: ProgressBar = $MeterPanel/Meters/Groove/GrooveBar
 @onready var _groove_value: Label = $MeterPanel/Meters/Groove/GrooveValue
 @onready var _composure_bar: ProgressBar = $MeterPanel/Meters/Composure/ComposureBar
@@ -78,6 +79,8 @@ func setup(combat_v1: CombatV1) -> void:
 		_combat_v1.encounter_state_changed.connect(_on_encounter_state_changed)
 	if not _combat_v1.inspiration_changed.is_connected(_on_inspiration_changed):
 		_combat_v1.inspiration_changed.connect(_on_inspiration_changed)
+	if not _combat_v1.active_character_changed.is_connected(_on_active_character_changed):
+		_combat_v1.active_character_changed.connect(_on_active_character_changed)
 	if not _combat_v1.next_round_transition_changed.is_connected(_on_next_round_transition_changed):
 		_combat_v1.next_round_transition_changed.connect(_on_next_round_transition_changed)
 	if not _combat_v1.response_note_graded.is_connected(_on_response_note_graded):
@@ -115,6 +118,16 @@ func _on_encounter_state_changed(_state: Dictionary) -> void:
 func _on_inspiration_changed(_character_state: Dictionary) -> void:
 	_skill_choices = _combat_v1.get_skill_choices()
 	_render_skill_choices()
+	_sync_from_module()
+
+func _on_active_character_changed(_character_state: Dictionary) -> void:
+	_skill_choices = _combat_v1.get_skill_choices()
+	_skill_selection_index = 0
+	_render_skill_choices()
+	_note_feedback_label.text = "NOTE  WAITING"
+	_phrase_feedback_label.text = "PHRASE  WAITING"
+	_note_feedback_label.add_theme_color_override("font_color", Color("8daecf"))
+	_phrase_feedback_label.add_theme_color_override("font_color", Color("8daecf"))
 	_sync_from_module()
 
 func _on_next_round_transition_changed(_transition: Dictionary) -> void:
@@ -207,7 +220,16 @@ func _sync_from_module() -> void:
 	_instruction_label.text = _get_instruction_text(
 		state[&"cadence"],
 		next_round_pending,
-		state.get(&"selected_skill_id", &"")
+		state.get(&"selected_skill_id", &""),
+		state.get(&"rhythm_language", &"")
+	)
+	_character_label.text = "%s  •  %s" % [
+		String(state[&"active_character_name"]).to_upper(),
+		String(state.get(&"instrument_name", "Instrument")).to_upper(),
+	]
+	_character_label.add_theme_color_override(
+		"font_color",
+		state.get(&"accent_color", Color("f6c85f"))
 	)
 	_count_in_label.visible = next_round_pending
 	if next_round_pending:
@@ -320,7 +342,8 @@ func _get_mode_color(cadence: CombatV1.Cadence, next_round_pending: bool = false
 func _get_instruction_text(
 	cadence: CombatV1.Cadence,
 	next_round_pending: bool = false,
-	selected_skill_id: StringName = &""
+	selected_skill_id: StringName = &"",
+	rhythm_language: StringName = &""
 ) -> String:
 	if next_round_pending:
 		if selected_skill_id != &"":
@@ -332,10 +355,14 @@ func _get_instruction_text(
 		CombatV1.Cadence.ENEMY_PHRASE:
 			return "Listen to the phrase and watch each visual cue."
 		CombatV1.Cadence.RESPONSE:
+			if rhythm_language == &"percussive_drums":
+				return "Use F/J or the left/right triggers for Beatrice's two-hand drum language."
 			return "Use arrows, D-pad, or matching face buttons. Press Enter, Space, or Start to submit."
 		CombatV1.Cadence.TACTICAL_VAMP:
 			return "Listen without pressure. Choose a Skill with Up/Down, then confirm with Enter, Space, or A."
 		CombatV1.Cadence.CHARACTER_PERFORMANCE:
+			if rhythm_language == &"percussive_drums":
+				return "Use F/J or the left/right triggers for Beatrice's two-hand drum language."
 			return "Play the selected Skill's authored pattern on the four directional lanes."
 		CombatV1.Cadence.FULL_BAND_VAMP:
 			return "Listen as the band carries the result into the next exchange."
@@ -402,6 +429,8 @@ func teardown() -> void:
 		_combat_v1.encounter_state_changed.disconnect(_on_encounter_state_changed)
 	if _combat_v1.inspiration_changed.is_connected(_on_inspiration_changed):
 		_combat_v1.inspiration_changed.disconnect(_on_inspiration_changed)
+	if _combat_v1.active_character_changed.is_connected(_on_active_character_changed):
+		_combat_v1.active_character_changed.disconnect(_on_active_character_changed)
 	if _combat_v1.next_round_transition_changed.is_connected(_on_next_round_transition_changed):
 		_combat_v1.next_round_transition_changed.disconnect(_on_next_round_transition_changed)
 	if _combat_v1.response_note_graded.is_connected(_on_response_note_graded):
