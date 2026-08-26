@@ -6,6 +6,7 @@ extends Node
 
 const DebugLog = preload("res://autoloads/debug_log.gd")
 const EncounterState = preload("res://combat_v1/encounter_state.gd")
+const SessionState = preload("res://combat_v1/session_state.gd")
 const OpponentData = preload("res://combat_v1/opponent_data.gd")
 const OpponentPhrase = preload("res://combat_v1/opponent_phrase.gd")
 const PhraseEvent = preload("res://combat_v1/phrase_event.gd")
@@ -25,6 +26,7 @@ const EncounterConfig = EncounterState.Config
 const Execution = EncounterState.Execution
 const TacticalEffectiveness = EncounterState.TacticalEffectiveness
 const Outcome = EncounterState.Outcome
+const InspirationConfig = SessionState.Config
 const ResponseConfig = ResponseGrader.Config
 const ResponseGrade = ResponseGrader.Grade
 
@@ -65,6 +67,8 @@ const _STABLE_DIRECTION_ACTIONS: Array[StringName] = [
 	&"left",
 ]
 const _NEXT_ROUND_COUNT_IN_BEATS := OpponentPhrase.BEATS_PER_BAR
+const _DEFAULT_CHARACTER_ID: StringName = &"luthier_frett"
+const _DEFAULT_CHARACTER_NAME: String = "Luthier Frett"
 
 ## Emitted whenever the observable cadence changes. The payload is a typed Cadence value;
 ## use get_cadence_name() when a display label is needed.
@@ -96,6 +100,8 @@ signal character_performance_note_graded(result: Dictionary)
 signal character_performance_completed(summary: Dictionary)
 ## Emitted after an accepted performance result changes encounter-wide state.
 signal encounter_state_changed(state: Dictionary)
+## Emitted when one character's persistent Inspiration changes.
+signal inspiration_changed(character_state: Dictionary)
 ## Emitted exactly once when Groove or Composure makes the encounter terminal.
 signal resolved(outcome: EncounterState.Outcome)
 ## Emitted when this module begins listening to its dependencies.
@@ -141,10 +147,22 @@ var _next_round_count_in_beats_elapsed: int = 0
 var _scoring_suppressed: bool = false
 var _previous_scoring_enabled: bool = true
 var _encounter_state = EncounterState.new()
+var _session_state = SessionState.new()
+var _active_character_id: StringName = _DEFAULT_CHARACTER_ID
 
 func _init() -> void:
 	_encounter_state.state_changed.connect(_on_encounter_state_changed)
 	_encounter_state.resolved.connect(_on_encounter_resolved)
+
+## Inject encounter-independent party progression before starting an encounter.
+func bind_session(session_state: SessionState, character_id: StringName) -> bool:
+	if _running or session_state == null or character_id == &"":
+		return false
+	if _session_state.inspiration_changed.is_connected(_on_inspiration_changed):
+		_session_state.inspiration_changed.disconnect(_on_inspiration_changed)
+	_session_state = session_state
+	_active_character_id = character_id
+	return true
 
 ## Bind the module to the existing timing and input infrastructure.
 ## Dependencies are injectable for headless tests; omitted dependencies resolve to
@@ -160,6 +178,11 @@ func setup(
 ) -> void:
 	if _running:
 		teardown()
+	var character_name := _DEFAULT_CHARACTER_NAME if _active_character_id == _DEFAULT_CHARACTER_ID \
+		else String(_active_character_id).capitalize()
+	_session_state.register_character(_active_character_id, character_name)
+	if not _session_state.inspiration_changed.is_connected(_on_inspiration_changed):
+		_session_state.inspiration_changed.connect(_on_inspiration_changed)
 	_beat_clock = beat_clock if beat_clock != null else _find_dependency(&"BeatClock")
 	_rhythm_input = rhythm_input if rhythm_input != null else _find_dependency(&"RhythmInput")
 	var opponent_template: OpponentData = opponent_data if opponent_data != null else DEFAULT_OPPONENT
@@ -203,6 +226,8 @@ func start() -> bool:
 	if _opponent == null or _opponent.phrase == null:
 		push_warning("CombatV1: cannot start without an authored opponent phrase")
 		return false
+	if not _session_state.inspiration_changed.is_connected(_on_inspiration_changed):
+		_session_state.inspiration_changed.connect(_on_inspiration_changed)
 	_running = true
 	_beats_in_cadence = 0
 	_last_intent = -1
@@ -270,6 +295,8 @@ func get_skill_choices() -> Array[Dictionary]:
 			&"musical_contribution": skill.musical_contribution,
 			&"interaction_summary": skill.interaction_summary,
 			&"effect_summary": skill.effect_summary,
+			&"inspiration_cost": skill.inspiration_cost,
+			&"affordable": _session_state.can_afford(_active_character_id, skill.inspiration_cost),
 			&"bar_count": skill.bar_count,
 			&"duration_beats": skill.get_duration_beats(),
 		})
@@ -283,6 +310,12 @@ func select_skill(skill_id: StringName) -> bool:
 	for skill in _skills:
 		if skill.skill_id != skill_id:
 			continue
+		if not _session_state.spend_inspiration(_active_character_id, skill.inspiration_cost):
+			DebugLog.combat("[SKILL  ] rejected=%s  reason=inspiration  cost=%.1f" % [
+				skill.skill_id,
+				skill.inspiration_cost,
+			])
+			return false
 		_selected_skill = skill.duplicate(true) as Skill
 		_next_round_pending = true
 		_next_round_count_in_beats_elapsed = 0
@@ -298,6 +331,7 @@ func select_skill(skill_id: StringName) -> bool:
 			&"musical_contribution": _selected_skill.musical_contribution,
 			&"interaction_summary": _selected_skill.interaction_summary,
 			&"effect_summary": _selected_skill.effect_summary,
+			&"inspiration_cost": _selected_skill.inspiration_cost,
 			&"bar_count": _selected_skill.bar_count,
 			&"duration_beats": _selected_skill.get_duration_beats(),
 		})
@@ -336,6 +370,11 @@ func submit_character_performance_input(
 	target[&"graded"] = true
 	target[&"result"] = result.duplicate(true)
 	_character_performance_targets[target_index] = target
+	_session_state.record_performance_grade(
+		_active_character_id,
+		result[&"grade_name"],
+		&"note"
+	)
 	character_performance_note_graded.emit(result.duplicate(true))
 	return true
 
@@ -370,6 +409,11 @@ func submit_response_input(action: StringName, phrase_position_beats: float) -> 
 	target[&"graded"] = true
 	target[&"result"] = result.duplicate(true)
 	_response_targets[target_index] = target
+	_session_state.record_performance_grade(
+		_active_character_id,
+		result[&"grade_name"],
+		&"note"
+	)
 	DebugLog.timing("[GRADE  ] target=%d  expected=%s  actual=%s  offset=%+.1f ms  grade=%s" % [
 		target_index,
 		target[&"expected_action"],
@@ -393,6 +437,7 @@ func apply_performance_result(
 ## Return a stable, public snapshot for UI and headless tests.
 func get_state() -> Dictionary:
 	var state: Dictionary = _encounter_state.get_state()
+	var character_state: Dictionary = _session_state.get_character_state(_active_character_id)
 	var opponent_id: StringName = &""
 	var opponent_name := ""
 	var phrase_id: StringName = &""
@@ -406,6 +451,12 @@ func get_state() -> Dictionary:
 			phrase_name = _opponent.phrase.display_name
 			phrase_duration_beats = _opponent.phrase.get_duration_beats()
 	state.merge({
+		&"active_character_id": character_state.get(&"character_id", &""),
+		&"active_character_name": character_state.get(&"character_name", ""),
+		&"inspiration": character_state.get(&"inspiration", 0.0),
+		&"min_inspiration": character_state.get(&"min_inspiration", 0.0),
+		&"max_inspiration": character_state.get(&"max_inspiration", 0.0),
+		&"party_inspiration": _session_state.get_party_state(),
 		&"cadence": _cadence,
 		&"cadence_name": get_cadence_name(),
 		&"beat_count": _beats_in_cadence,
@@ -512,6 +563,8 @@ func is_running() -> bool:
 ## also called from _exit_tree().
 func teardown() -> void:
 	_disconnect_dependencies()
+	if _session_state.inspiration_changed.is_connected(_on_inspiration_changed):
+		_session_state.inspiration_changed.disconnect(_on_inspiration_changed)
 	_restore_scoring_state()
 	if not _running:
 		return
@@ -741,6 +794,11 @@ func _complete_character_performance() -> Dictionary:
 		ordered_results
 	)
 	_last_character_performance_summary[&"skill_id"] = _selected_skill.skill_id
+	_session_state.record_performance_grade(
+		_active_character_id,
+		_last_character_performance_summary[&"grade_name"],
+		&"phrase"
+	)
 	var execution := _get_execution_for_response_grade(
 		_last_character_performance_summary[&"grade"]
 	)
@@ -785,6 +843,11 @@ func _complete_response() -> Dictionary:
 			response_note_graded.emit(result.duplicate(true))
 		ordered_results.append(result.duplicate(true))
 	_last_response_summary = _response_grader.summarize(ordered_results)
+	_session_state.record_performance_grade(
+		_active_character_id,
+		_last_response_summary[&"grade_name"],
+		&"phrase"
+	)
 	DebugLog.combat("[RESPONSE] phrase=%s  grade=%d  notes=%d  broken=%s" % [
 		_opponent.phrase.phrase_id,
 		_last_response_summary[&"grade"],
@@ -953,6 +1016,9 @@ func _on_input_scored(
 
 func _on_encounter_state_changed(state: Dictionary) -> void:
 	encounter_state_changed.emit(state)
+
+func _on_inspiration_changed(character_state: Dictionary) -> void:
+	inspiration_changed.emit(character_state)
 
 func _on_encounter_resolved(outcome: EncounterState.Outcome) -> void:
 	_next_round_pending = false

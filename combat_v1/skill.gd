@@ -11,6 +11,7 @@ const BEATS_PER_BAR: int = 4
 @export var musical_contribution: StringName = &""
 @export var interaction_summary: String = ""
 @export var effect_summary: String = ""
+@export_range(0.0, 1000.0, 1.0) var inspiration_cost: float = 0.0
 @export_range(1, 8, 1) var bar_count: int = 2
 @export var events: Array[SkillEvent] = []
 @export var effects: Array[SkillEffect] = []

@@ -16,6 +16,8 @@ Use these sources according to the question being answered:
 5. **Migration status** → [V1 reconciliation](reconciliation-v1.md)
 6. **Issue #16 Skill/Character Performance scope and playtest evidence** →
    [Skill and Character Performance prototype](skill-performance-prototype.md)
+7. **Issue #17 Inspiration ownership, provisional rates, and Skill costs** →
+   [Inspiration prototype](inspiration-prototype.md)
 
 When current behavior conflicts with Combat System v1, preserve the distinction:
 the specification defines the target, while architecture, code, and legacy tests

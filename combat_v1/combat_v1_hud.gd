@@ -14,6 +14,8 @@ const ResponseNoteHighway = preload("res://combat_v1/response_note_highway.gd")
 @onready var _composure_value: Label = $MeterPanel/Meters/Composure/ComposureValue
 @onready var _multiplier_bar: ProgressBar = $MeterPanel/Meters/Multiplier/MultiplierBar
 @onready var _multiplier_value: Label = $MeterPanel/Meters/Multiplier/MultiplierValue
+@onready var _inspiration_bar: ProgressBar = $MeterPanel/Meters/Inspiration/InspirationBar
+@onready var _inspiration_value: Label = $MeterPanel/Meters/Inspiration/InspirationValue
 @onready var _note_feedback_label: Label = $FeedbackPanel/NoteFeedbackLabel
 @onready var _phrase_feedback_label: Label = $FeedbackPanel/PhraseFeedbackLabel
 @onready var _cue_mode_label: Label = $CuePanel/CueModeLabel
@@ -74,6 +76,8 @@ func setup(combat_v1: CombatV1) -> void:
 		_combat_v1.cadence_changed.connect(_on_cadence_changed)
 	if not _combat_v1.encounter_state_changed.is_connected(_on_encounter_state_changed):
 		_combat_v1.encounter_state_changed.connect(_on_encounter_state_changed)
+	if not _combat_v1.inspiration_changed.is_connected(_on_inspiration_changed):
+		_combat_v1.inspiration_changed.connect(_on_inspiration_changed)
 	if not _combat_v1.next_round_transition_changed.is_connected(_on_next_round_transition_changed):
 		_combat_v1.next_round_transition_changed.connect(_on_next_round_transition_changed)
 	if not _combat_v1.response_note_graded.is_connected(_on_response_note_graded):
@@ -106,6 +110,11 @@ func _on_cadence_changed(_cadence: CombatV1.Cadence) -> void:
 	_sync_from_module()
 
 func _on_encounter_state_changed(_state: Dictionary) -> void:
+	_sync_from_module()
+
+func _on_inspiration_changed(_character_state: Dictionary) -> void:
+	_skill_choices = _combat_v1.get_skill_choices()
+	_render_skill_choices()
 	_sync_from_module()
 
 func _on_next_round_transition_changed(_transition: Dictionary) -> void:
@@ -228,6 +237,16 @@ func _sync_from_module() -> void:
 	_multiplier_bar.value = float(state[&"multiplier"])
 	_multiplier_value.text = "MULTIPLIER  %sx" % _format_number(state[&"multiplier"])
 
+	_inspiration_bar.min_value = float(state[&"min_inspiration"])
+	_inspiration_bar.max_value = float(state[&"max_inspiration"])
+	_inspiration_bar.value = float(state[&"inspiration"])
+	var character_name := String(state[&"active_character_name"]).get_slice(" ", 0).to_upper()
+	_inspiration_value.text = "%s INSPIRATION  %s / %s" % [
+		character_name,
+		_format_number(state[&"inspiration"]),
+		_format_number(state[&"max_inspiration"]),
+	]
+
 func _sync_skill_panel(state: Dictionary) -> void:
 	_skill_panel.visible = state[&"cadence"] == CombatV1.Cadence.TACTICAL_VAMP \
 		and state.get(&"selected_skill_id", &"") == &""
@@ -242,17 +261,22 @@ func _render_skill_choices() -> void:
 		label.visible = true
 		var choice: Dictionary = _skill_choices[choice_index]
 		var selection_marker := "> " if choice_index == _skill_selection_index else "  "
-		label.text = "%s%s  ·  %s  ·  %d BARS\n%s\nEffect: %s" % [
+		var affordable: bool = choice.get(&"affordable", true)
+		label.text = "%s%s  ·  %s  ·  %d BARS\n%s\nEffect: %s\nCost: %s INSPIRATION%s" % [
 			selection_marker,
 			String(choice[&"display_name"]).to_upper(),
 			String(choice[&"musical_contribution"]).to_upper(),
 			int(choice[&"bar_count"]),
 			choice[&"interaction_summary"],
 			choice[&"effect_summary"],
+			_format_number(choice.get(&"inspiration_cost", 0.0)),
+			"  ·  UNAVAILABLE" if not affordable else "",
 		]
+		var option_color := Color("f6c85f") if choice_index == _skill_selection_index \
+			else Color("dcecff")
 		label.add_theme_color_override(
 			"font_color",
-			Color("f6c85f") if choice_index == _skill_selection_index else Color("dcecff")
+			option_color if affordable else Color("7890aa")
 		)
 
 func _get_mode_text(cadence: CombatV1.Cadence, next_round_pending: bool = false) -> String:
@@ -376,6 +400,8 @@ func teardown() -> void:
 		_combat_v1.cadence_changed.disconnect(_on_cadence_changed)
 	if _combat_v1.encounter_state_changed.is_connected(_on_encounter_state_changed):
 		_combat_v1.encounter_state_changed.disconnect(_on_encounter_state_changed)
+	if _combat_v1.inspiration_changed.is_connected(_on_inspiration_changed):
+		_combat_v1.inspiration_changed.disconnect(_on_inspiration_changed)
 	if _combat_v1.next_round_transition_changed.is_connected(_on_next_round_transition_changed):
 		_combat_v1.next_round_transition_changed.disconnect(_on_next_round_transition_changed)
 	if _combat_v1.response_note_graded.is_connected(_on_response_note_graded):

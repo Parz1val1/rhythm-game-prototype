@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://combat_v1/combat_v1_hud.gd" id="1_hud"]
 [ext_resource type="PackedScene" path="res://combat_v1/response_note_highway.tscn" id="2_highway"]
@@ -47,6 +47,13 @@ corner_radius_bottom_left = 4
 
 [sub_resource type="StyleBoxFlat" id="StyleMultiplier"]
 bg_color = Color(0.96, 0.65, 0.19, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleInspiration"]
+bg_color = Color(0.72, 0.49, 0.98, 1)
 corner_radius_top_left = 4
 corner_radius_top_right = 4
 corner_radius_bottom_right = 4
@@ -141,13 +148,13 @@ theme_override_styles/panel = SubResource("StyleMeters")
 
 [node name="Meters" type="VBoxContainer" parent="MeterPanel"]
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 7
 
 [node name="Header" type="Label" parent="MeterPanel/Meters"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.55, 0.68, 0.82, 1)
 theme_override_font_sizes/font_size = 13
-text = "SHARED PERFORMANCE STATE"
+text = "PARTY PERFORMANCE STATE"
 
 [node name="Groove" type="VBoxContainer" parent="MeterPanel/Meters"]
 layout_mode = 2
@@ -200,6 +207,26 @@ value = 1.0
 show_percentage = false
 theme_override_styles/background = SubResource("StyleBarBackground")
 theme_override_styles/fill = SubResource("StyleMultiplier")
+
+[node name="Inspiration" type="VBoxContainer" parent="MeterPanel/Meters"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="InspirationValue" type="Label" parent="MeterPanel/Meters/Inspiration"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.79, 0.65, 1, 1)
+theme_override_font_sizes/font_size = 12
+text = "LUTHIER INSPIRATION  50 / 100"
+
+[node name="InspirationBar" type="ProgressBar" parent="MeterPanel/Meters/Inspiration"]
+custom_minimum_size = Vector2(0, 14)
+layout_mode = 2
+min_value = 20.0
+max_value = 100.0
+value = 50.0
+show_percentage = false
+theme_override_styles/background = SubResource("StyleBarBackground")
+theme_override_styles/fill = SubResource("StyleInspiration")
 
 [node name="CuePanel" type="Panel" parent="."]
 layout_mode = 0

@@ -56,6 +56,7 @@ display_name = "Steadying Harmony"
 musical_contribution = &"Harmony"
 interaction_summary = "Measured chord pulses ending in a four-note chord."
 effect_summary = "Restore 20 Composure on a correct performance; no direct Groove."
+inspiration_cost = 30.0
 bar_count = 3
 events = Array[ExtResource("2_event")]([SubResource("SkillEvent_2"), SubResource("SkillEvent_3_5"), SubResource("SkillEvent_5"), SubResource("SkillEvent_6_5"), SubResource("SkillEvent_8"), SubResource("SkillEvent_9_5"), SubResource("SkillEvent_11")])
 effects = Array[ExtResource("3_effect_base")]([SubResource("PerformanceResultEffect"), SubResource("ComposureRecoveryEffect")])

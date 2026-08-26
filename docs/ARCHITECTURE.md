@@ -21,9 +21,10 @@ is technical evidence rather than a production game export.
 `combat_v1/combat_v1_prototype.tscn` is a separately runnable harness for it.
 The harness injects the existing `BeatClock` and `RhythmInput` autoloads into
 `CombatV1`; it does not replace the configured `test_scene.tscn` or its legacy
-combat flow. `CombatV1` owns a deterministic `CombatV1EncounterState` and exposes
-cadence plus encounter-wide Groove, Composure, Multiplier, and terminal outcomes
-through one public seam. It also plays a deep-copied V1 `OpponentData` phrase from
+combat flow. `CombatV1` owns a deterministic `CombatV1EncounterState`, observes
+an injected `CombatV1SessionState`, and exposes cadence plus encounter-wide
+Groove, Composure, Multiplier, character-owned session Inspiration, and terminal
+outcomes through one public seam. It also plays a deep-copied V1 `OpponentData` phrase from
 audio-corrected beat/sub-beat signals and emits one event seam carrying the
 authored cue plus the actions already mapped by the prepared Response schedule.
 Audio, text, and transient lane-preview presentation all consume that seam.
@@ -33,14 +34,16 @@ approach lead and scoreable due time, and current BeatClock-derived timeline
 position. A separate diagnostic `CombatV1HUD` consumes only that public
 state and signal surface, including snapshot-first setup for signals emitted before
 it connects, and hosts a four-lane `ResponseNoteHighway`. After each non-terminal
-Response, an indefinite Tactical Vamp presents authored Skills. Confirming one
-holds a full four-beat count-in, runs that Skill's multi-bar Character Performance,
-then inserts one input-free Full-Band Vamp bar before the next Enemy Phrase without
-repeating Settle. Public state and a transition signal expose the pending count-in
-and its BeatClock-derived progress so the HUD can present a four-step listening
-display. The prototype runs one Luthier performance per exchange; party ordering,
-loadouts, multiple performances per exchange, and opponent preferences remain
-unimplemented.
+Response, an indefinite Tactical Vamp presents authored Skills with their
+Inspiration costs and current affordability. Confirming an affordable Skill
+spends its character-owned cost atomically, holds a full four-beat count-in, runs
+that Skill's multi-bar Character Performance, then inserts one input-free
+Full-Band Vamp bar before the next Enemy Phrase without repeating Settle. Public
+state and a transition signal expose the pending count-in and its
+BeatClock-derived progress so the HUD can present a four-step listening display.
+The prototype runs one Luthier performance per exchange; session balances support
+independent party members, but party ordering, loadouts, multiple performances per
+exchange, and opponent preferences remain unimplemented.
 
 ### Isolated Wwise spike infrastructure
 
@@ -88,6 +91,9 @@ flowchart LR
     V1P --> RF
     V1 -->|typed performance result| V1S[CombatV1EncounterState<br/>Groove / Composure / Multiplier]
     V1S -->|state change / Jam / loss| V1
+    V1P -->|injected party session| V1I[CombatV1SessionState<br/>per-character Inspiration]
+    V1 -->|graded generation / atomic Skill cost| V1I
+    V1I -->|persistent character snapshots| V1
     V1 -->|selected Skill<br/>Full-Band Vamp| V1
 ```
 
@@ -103,16 +109,17 @@ flowchart LR
 | `combat/*_evaluator.gd` | Character-specific attack damage/coherence behind `AttackEvaluator` |
 | `combat/neutral_pattern_translator.gd` | Resolves neutral enemy hits into deterministic directional or percussive notes |
 | `combat/combat_ui.gd` and lane scripts | Present state and note approaches through combat signals |
-| `combat_v1/combat_v1.gd` | Isolated Combat V1 seam; owns the repeatable Settle-free conversation cadence plus `CombatV1EncounterState`, schedules an authored opponent phrase and its Response, runs a selected Skill's Character Performance and one-bar Full-Band handoff, and exposes authoritative count-in progress, snapshot-first Response/Performance presentation, and terminal signals |
+| `combat_v1/combat_v1.gd` | Isolated Combat V1 seam; owns the repeatable Settle-free conversation cadence plus `CombatV1EncounterState`, binds injected per-character session progression, schedules an authored opponent phrase and its Response, spends affordable Skill costs atomically, runs Character Performance and one-bar Full-Band handoff, and exposes count-in progress, snapshot-first presentation, Inspiration, and terminal signals |
 | `combat_v1/encounter_state.gd` | Deterministic Issue #10 state module; owns configurable Groove, shared Composure, shared Multiplier math, clamping, and one-shot Jam/loss resolution |
+| `combat_v1/session_state.gd` | Encounter-independent party progression owner; maintains individually configured Inspiration bounds and generation, atomic floor-protected costs, stable character snapshots, and guarded change notifications |
 | `combat_v1/opponent_data.gd`, `opponent_phrase.gd`, and `phrase_event.gd` | V1 authoring model for opponent identity, one-to-four-bar phrases, musical offsets, one-to-four-input Response cues, and symbolic audio/visual cues; it has no legacy enemy statistics |
 | `combat_v1/opponents/drum_golem.tres` | One-bar prototype opponent phrase with whole-, half-, and quarter-beat events |
-| `combat_v1/skill.gd`, `skill_event.gd`, and `skill_effect.gd` | Minimal Skill authoring boundary for player-facing purpose, configurable bar duration, timed one-to-four-action events, and ordered effect adapters; concrete effects apply through encounter-state methods without Skill-specific orchestrator branches |
+| `combat_v1/skill.gd`, `skill_event.gd`, and `skill_effect.gd` | Minimal Skill authoring boundary for player-facing purpose, Inspiration cost, configurable bar duration, timed one-to-four-action events, and ordered effect adapters; concrete effects apply through encounter-state methods without Skill-specific orchestrator branches |
 | `combat_v1/skills/*.tres` | Two Luthier playtest Skills: a two-bar melodic single-note run that contributes Groove and a three-bar chordal support pattern that restores Composure after correct execution |
 | `combat_v1/response_note_highway.tscn` and `combat_v1/response_note_highway.gd` | Four-lane presentation adapter; flashes grouped, translucent Enemy Phrase previews, connects simultaneous Response targets with a shared pulse, then draws snapshot-first BeatClock-derived target travel and independent lane-local result cues without reading CombatV1 internals or owning chart timing |
 | `combat_v1/response_performance_feedback.tscn` and `combat_v1/response_performance_feedback.gd` | Replaceable performance-audio adapter; plays each mapped Enemy Phrase highlight as a lane-specific synthesized preview, then consumes published note-grade truth and softens or mutes imperfect Response results without observing BeatClock or changing backing playback |
-| `combat_v1/combat_v1_hud.tscn` and `combat_v1/combat_v1_hud.gd` | Diagnostic V1 presentation for cadence, visible Skill choices, committed count-in progress, Groove, Composure, Multiplier, phrase cues, six-grade note/phrase feedback, nonviolent outcomes, and the active playtest backing track; observes only the public `CombatV1` seam |
-| `combat_v1/combat_v1_prototype.tscn` and `combat_v1/combat_v1_prototype.gd` | Separately runnable harness that injects dependencies, owns symbolic phrase-audio/log handoffs, and hosts `CombatV1HUD` plus the Response feedback adapter; defaults to the restrained Stonebeat loop, switches procedural backing tracks with keys 1–3 or controller shoulders, submits Response with Start, selects vertically stacked Skills with Up/Down plus controller A, and is not the configured main scene |
+| `combat_v1/combat_v1_hud.tscn` and `combat_v1/combat_v1_hud.gd` | Diagnostic V1 presentation for cadence, visible Skill choices/costs/affordability, committed count-in progress, Groove, Composure, Multiplier, character-specific Inspiration, phrase cues, six-grade feedback, nonviolent outcomes, and backing track; observes only the public `CombatV1` seam |
+| `combat_v1/combat_v1_prototype.tscn` and `combat_v1/combat_v1_prototype.gd` | Separately runnable harness that owns/injects encounter-independent party progression and dependencies, owns symbolic phrase-audio/log handoffs, and hosts `CombatV1HUD` plus the Response feedback adapter; defaults to Stonebeat, switches procedural backing tracks with keys 1–3 or controller shoulders, submits Response with Start, selects Skills with Up/Down plus controller A, and is not the configured main scene |
 | `spikes/wwise/wwise_music_adapter.gd` | Isolated `BeatClock`-compatible timing and arrangement adapter proven by #45; it is not wired into Combat V1 |
 | `spikes/wwise/wwise_runtime_bridge.gd` | Replaceable Wwise boundary that owns middleware event, State, callback, and position-query knowledge |
 | `characters/*.gd/.tres` | Character stats, input behavior, and musical/visual identity |
@@ -176,8 +183,10 @@ short real-time message pause before forced defense.
   `OpponentPhraseEvent` resources.
 - `OpponentPhraseEvent`: beat offset, response prompt identity/copy, and symbolic
   audio and visual cue identifiers.
-- `CombatV1Skill`: player-facing purpose, contribution metadata, fixed-four-beat
-  bar count, timed interaction events, and ordered effects.
+- `CombatV1SessionState`: in-memory, per-character Inspiration configuration and
+  balances that survive consecutive encounters owned by the same play session.
+- `CombatV1Skill`: player-facing purpose, contribution metadata, Inspiration
+  cost, fixed-four-beat bar count, timed interaction events, and ordered effects.
 - `CombatV1SkillEvent`: performance beat offset plus one-to-four simultaneous
   input actions.
 - `CombatV1SkillEffect`: Resource adapter invoked with encounter state and the
@@ -187,7 +196,9 @@ short real-time message pause before forced defense.
 before mutation; `CombatV1.setup()` deep-copies its selected V1 opponent and nested
 phrase. Replay selection is passed through static variables in
 `test_scene.gd` across `reload_current_scene()`; it resets when the process restarts.
-There is no durable persistence.
+Inspiration persists only while its separately owned `CombatV1SessionState`
+remains alive. It does not mutate a gameplay Resource or legacy limit gauge, and
+there is no durable persistence.
 
 ## Interfaces and Boundaries
 
@@ -206,9 +217,13 @@ There is no durable persistence.
 - `CombatV1.player_intent()` accepts `SUBMIT_RESPONSE` during Response. The legacy
   `CONTINUE_ROUND` test seam remains temporarily available, but the runnable V1
   harness no longer exposes it as player flow.
-- `CombatV1.get_skill_choices()` exposes purpose and interaction metadata for the
-  Tactical Vamp menu. `select_skill(skill_id)` commits one authored Skill, queues
-  the full four-beat count-in, and rejects duplicate or out-of-cadence selection.
+- `CombatV1.bind_session(session_state, character_id)` attaches encounter-
+  independent party progression before setup. Session snapshots and bounds remain
+  separate from live gameplay Resources and encounter-wide state.
+- `CombatV1.get_skill_choices()` exposes purpose, interaction, authored Inspiration
+  cost, and affordability. `select_skill(skill_id)` spends the active character's
+  cost atomically, commits one authored Skill, queues the full four-beat count-in,
+  and rejects unaffordable, duplicate, or out-of-cadence selection.
 - `CombatV1.get_character_performance_presentation()` is the snapshot-first Skill
   schedule seam. It exposes selected Skill identity, duration, stable target/group
   identity, expected actions, authored offsets, and the audio-corrected performance
@@ -225,11 +240,12 @@ There is no durable persistence.
   seam. Its enum inputs keep execution quality distinct from tactical
   effectiveness; callers do not calculate Multiplier-adjusted Groove.
 - `CombatV1.get_state()` exposes the owned encounter snapshot together with
-  cadence and the pending next-round count-in's current and total beats.
+  active-character Inspiration/bounds, all registered party-member snapshots,
+  cadence, and the pending next-round count-in's current and total beats.
   `next_round_transition_changed` reports the accepted transition and each
   BeatClock-derived progress step, `encounter_state_changed` reports accepted
-  atomic applications, and `resolved` carries the typed `JAM` or `LOSS` outcome
-  exactly once.
+  atomic applications, `inspiration_changed` publishes independent character
+  snapshots, and `resolved` carries the typed `JAM` or `LOSS` outcome exactly once.
 - `CombatV1.get_response_presentation()` is the complete snapshot-first Response
   presentation seam. While Response is active it exposes stable round-scoped
   target identity, expected action, stable authored-event group identity and size,
@@ -266,7 +282,7 @@ There is no durable persistence.
   stop voices and clear round-local routing.
 - `CombatV1HUD.setup(combat_v1)` connects presentation signals and immediately
   reads `get_state()`, while its owned `ResponseNoteHighway` reads
-  `get_response_presentation()`. This reconstructs cadence, all three meters, the
+  `get_response_presentation()`. This reconstructs cadence, all four meters, the
   current count-in progress and Response schedule, the latest phrase summary, and
   a terminal Jam/loss even when their signals preceded UI setup. Both adapters
   guard-disconnect every signal they own during teardown.
@@ -276,9 +292,10 @@ There is no durable persistence.
 The standalone harness instances `CombatV1HUD` instead of adapting legacy HP or
 limit-bar nodes. Enemy Phrase, Settle, Tactical Vamp, Character Performance, and
 Full-Band Vamp have distinct copy and treatments. Tactical Vamp shows both Skill
-purposes, interaction summaries, effect summaries, contribution labels, and bar
-counts before confirmation. The HUD displays Groove, shared
-Composure, and shared Multiplier with their public bounds, translates all six
+purposes, interaction summaries, effect summaries, contribution labels, bar
+counts, Inspiration costs, and current affordability before confirmation. The HUD
+displays Groove, shared Composure, shared Multiplier, and the active character's
+Inspiration with their public bounds, translates all six
 note and phrase grades into readable feedback, and turns each symbolic phrase
 `visual_cue` into an on-screen cue alongside the placeholder audio handoff.
 Its central board remains visible during Enemy Phrase and Response. During Enemy
@@ -384,9 +401,11 @@ active. Beat and subdivision signals do not drain encounter state, select a Skil
 or advance the cadence while the player waits. The harness presents Bright Motif
 and Steadying Harmony and commits the highlighted choice only on explicit input.
 
-An accepted Skill selection leaves the module in Tactical Vamp through one
-complete four-beat count-in. Selection suppresses scoring and publishes
-zero-of-four progress immediately, followed by each authoritative BeatClock step.
+An accepted Skill selection atomically spends its authored Inspiration cost and
+leaves the module in Tactical Vamp through one complete four-beat count-in.
+Unaffordable Skills do not spend or begin the transition. Selection suppresses
+scoring and publishes zero-of-four progress immediately, followed by each
+authoritative BeatClock step.
 The following whole-beat signal starts the selected Skill's two- or three-bar
 Character Performance. Inputs are graded against that Skill's authored schedule,
 missing targets expire at its duration, and the summary is reduced to the existing
@@ -402,6 +421,32 @@ This harness intentionally runs one active Luthier and one Character Performance
 per exchange. That is not the intended full-game party cadence; see the
 [issue #16 prototype record](combat/skill-performance-prototype.md) for the exact
 scope and remaining questions.
+
+## Combat V1 Session Inspiration
+
+`CombatV1SessionState` is a deterministic, in-memory owner of character
+progression. The harness keeps its session outside the encounter module and calls
+`CombatV1.bind_session(session, active_character_id)` before setup. Every
+registered character receives independently copied bounds, initial balance, and
+Good/Great/Perfect note and phrase generation values. Starting a new encounter
+with the same session preserves those balances while encounter-wide Groove,
+Composure, and Multiplier reset.
+
+`CombatV1` routes accepted Response and Character Performance grades to the
+active character's session record. Authored Skill costs are checked and spent
+atomically before the committed count-in; rejected selections cannot cross the
+configured minimum floor. The public state includes the active character's
+Inspiration/bounds and independently copied party snapshots, while
+`inspiration_changed` publishes character changes to presentation consumers.
+The session never aliases legacy character HP, a limit gauge, a mutable gameplay
+Resource, or encounter-wide Multiplier.
+
+The playable harness still has one active Luthier. Additional party balances are
+supported as state, but party ordering, active-character switching,
+cross-character support effects, durable save files, final rates, and a separate
+Finale/Limit resource remain outside this slice. See the
+[Inspiration prototype record](combat/inspiration-prototype.md) for provisional
+values and authoring details.
 
 ## Combat V1 Encounter State
 

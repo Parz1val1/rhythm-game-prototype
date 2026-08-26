@@ -33,6 +33,7 @@ const PLAYTEST_TRACKS: Array[AudioStream] = [
 @onready var _response_feedback: ResponsePerformanceFeedback = $ResponsePerformanceFeedback
 
 var _combat_v1: CombatV1
+var _session_state = CombatV1.SessionState.new()
 var _resources_started: bool = false
 var _selected_playtest_track_index: int = -1
 var _selected_skill_index: int = 0
@@ -106,6 +107,7 @@ func _ready() -> void:
 	add_child(_combat_v1)
 	_combat_v1.response_handoff_beats = response_handoff_beats
 	_combat_v1.response_visual_lead_beats = response_visual_lead_beats
+	_combat_v1.bind_session(_session_state, &"luthier_frett")
 	_combat_v1.setup(BeatClock, RhythmInput, opponent, settle_bars)
 	_combat_v1.phrase_event_announced.connect(_on_phrase_event_announced)
 	_combat_v1.response_phrase_graded.connect(_on_response_phrase_graded)
