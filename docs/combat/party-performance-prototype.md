@@ -60,7 +60,7 @@ effects, remain caller-owned and unmodified.
 | Character | Working language | Presentation | Playtest Skills |
 |---|---|---|---|
 | Luthier | Four-input melodic strings | Four directional lanes with travelling notes and chords | Bright Motif; Steadying Harmony |
-| Beatrice | Two-input percussion | Left/right spatial targets with large closing timing circles, color accents, and `1 e & a` subdivision markers | Driving Backbeat; Syncopated Fill |
+| Beatrice | Two-input percussion | Fixed 16-subdivision percussion wheel with a continuous playhead, inner/outer authored hit pips, and large final-beat pad halos | Driving Backbeat; Syncopated Fill |
 
 Driving Backbeat asks for a steady alternating two-hand pulse. Syncopated Fill
 mixes spaced accents with a faster left/right roll and provisionally costs 20
@@ -75,7 +75,15 @@ seam; their numbers and tactical breadth are playtest content, not final balance
   materially longer than the issue #16 single-character loop.
 - The switch is mechanically legible in the harness: four directional inputs,
   plucked feedback, and travelling notes give way to two drum inputs, percussion
-  feedback, and closing circles without stopping the clock.
+  feedback, and a fixed measure wheel without stopping the clock.
+- Beatrice's wheel keeps four strong beat anchors and twelve quieter sub-beat
+  anchors stationary while one playhead continuously exposes the rate of the
+  measure. Beat one has a stronger recovery landmark. Authored left-drum hits use
+  the inner track and right-drum hits use the outer track, redundantly separating
+  them by position and color.
+- Pad-local closing halos no longer carry moving `1 e & a` badges. They appear
+  only during the final beat before a hit, leaving the wheel responsible for
+  tempo and sub-beat phase while the halo communicates which pad is approaching.
 - Accepted Skill inputs now play an explicit active-character instrument voice;
   automatic unplayed-note expiry does not create ghost instrument hits.
 - Automated tests establish state isolation and handoff correctness; they cannot
@@ -89,8 +97,12 @@ seam; their numbers and tactical breadth are playtest content, not final balance
   make the party feel present?
 - Is fixed authored order readable enough for this prototype, and when does the
   player first want to change it?
-- Are Beatrice's closing circles and drum timbre sufficiently distinct while
-  remaining as readable as Luthier's directional highway?
+- Does Beatrice's continuous playhead make tempo and sub-beat phase as readable
+  as Luthier's directional highway?
+- Are the inner/outer authored hit pips understandable without text, including
+  during the dense portion of Syncopated Fill?
+- Do final-beat pad halos provide enough local warning without competing with the
+  fixed wheel?
 
 Record human observations here before changing Combat System v1 or accepting a
 canonical party-order/cadence decision.

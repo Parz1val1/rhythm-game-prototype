@@ -286,6 +286,54 @@ func _run() -> void:
 	four_lane_module.teardown()
 	four_lane_highway.free()
 	four_lane_module.free()
+
+	beat_clock.stop()
+	beat_clock.beat_position = 0.0
+	var beatrice_module = CombatV1Script.new()
+	root.add_child(beatrice_module)
+	var beatrice_session = CombatV1Script.SessionState.new()
+	beatrice_module.bind_party(
+		beatrice_session,
+		[load("res://combat_v1/party/beatrice_styx.tres")]
+	)
+	beatrice_module.setup(
+		beat_clock,
+		root.get_node("RhythmInput"),
+		load("res://combat_v1/opponents/drum_golem.tres"),
+		1
+	)
+	beatrice_module.start()
+	var beatrice_highway = load(highway_path).instantiate()
+	root.add_child(beatrice_highway)
+	beatrice_highway.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	beatrice_highway.size = Vector2(640.0, 300.0)
+	beatrice_highway.setup(beatrice_module)
+	var beatrice_beat_number := 40
+	while beatrice_module.get_cadence() != CombatV1Script.Cadence.RESPONSE \
+			and beatrice_beat_number < 64:
+		beat_clock.beat.emit(beatrice_beat_number)
+		beatrice_beat_number += 1
+	for beat_advance in range(4):
+		beat_clock.beat.emit(beatrice_beat_number + beat_advance)
+	await process_frame
+	var beatrice_authored_slots: Dictionary = {}
+	for slot in beatrice_highway.get_presentation_snapshot()[&"measure_wheel"][&"slots"]:
+		var actions: Array = slot[&"actions"]
+		if not actions.is_empty():
+			beatrice_authored_slots[int(slot[&"slot_index"])] = actions
+	_check(
+		"Beatrice's Response wheel places hits at scoreable due beats after the handoff",
+		beatrice_authored_slots,
+		{
+			8: [&"drum_left"],
+			11: [&"drum_right"],
+			14: [&"drum_left"],
+		}
+	)
+	beatrice_highway.teardown()
+	beatrice_module.teardown()
+	beatrice_highway.free()
+	beatrice_module.free()
 	print("=== done ===")
 
 func _check(label: String, got, expected) -> void:

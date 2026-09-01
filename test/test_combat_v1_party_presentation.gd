@@ -65,16 +65,78 @@ func _run() -> void:
 	var highway_snapshot: Dictionary = highway.get_presentation_snapshot()
 	var state: Dictionary = module.get_state()
 	var presented_actions: Array[StringName] = []
-	var subdivision_markers: Dictionary = {}
 	for target in highway_snapshot[&"targets"]:
 		var action: StringName = target[&"expected_action"]
 		if action not in presented_actions:
 			presented_actions.append(action)
-		var beat_offset: float = target[&"beat_offset"]
-		if beat_offset >= 4.0 and beat_offset <= 4.75:
-			subdivision_markers[beat_offset] = target.get(&"subdivision_marker", "")
 	var first_ring: Dictionary = highway_snapshot[&"targets"][0] \
 		if not highway_snapshot[&"targets"].is_empty() else {}
+	var measure_wheel: Dictionary = highway_snapshot.get(&"measure_wheel", {})
+	var wheel_center: Vector2 = measure_wheel.get(&"center", Vector2.ZERO)
+	var beat_slots: Array[int] = []
+	var authored_slots: Dictionary = {}
+	var slots: Array = measure_wheel.get(&"slots", [])
+	for slot in slots:
+		if bool(slot.get(&"is_beat", false)):
+			beat_slots.append(int(slot.get(&"slot_index", -1)))
+		var actions: Array = slot.get(&"actions", [])
+		if not actions.is_empty():
+			authored_slots[int(slot.get(&"slot_index", -1))] = actions
+	var labeled_ring_count := 0
+	for target in highway_snapshot[&"targets"]:
+		if target.has(&"subdivision_marker"):
+			labeled_ring_count += 1
+	_check(
+		"Beatrice reads timing from a fixed percussion wheel instead of moving text badges",
+		{
+			&"active": measure_wheel.get(&"active", false),
+			&"slot_count": measure_wheel.get(&"slots", []).size(),
+			&"beat_slots": beat_slots,
+			&"downbeat_slot": measure_wheel.get(&"downbeat_slot", -1),
+			&"playhead_phase": measure_wheel.get(&"playhead_phase", -1.0),
+			&"authored_slots": authored_slots,
+			&"labeled_ring_count": labeled_ring_count,
+			&"downbeat_above_center": slots.size() == 16 \
+				and Vector2(slots[0].get(&"position", Vector2.ZERO)).y < wheel_center.y,
+			&"beat_two_right_of_center": slots.size() == 16 \
+				and Vector2(slots[4].get(&"position", Vector2.ZERO)).x > wheel_center.x,
+			&"beat_three_below_center": slots.size() == 16 \
+				and Vector2(slots[8].get(&"position", Vector2.ZERO)).y > wheel_center.y,
+			&"beat_four_left_of_center": slots.size() == 16 \
+				and Vector2(slots[12].get(&"position", Vector2.ZERO)).x < wheel_center.x,
+			&"playhead_starts_at_downbeat": slots.size() == 16 \
+				and measure_wheel.get(&"playhead_position", Vector2.ZERO) \
+				== slots[0].get(&"position", Vector2.INF),
+			&"left_track": measure_wheel.get(&"action_tracks", {}).get(
+				&"drum_left",
+				&""
+			),
+			&"right_track": measure_wheel.get(&"action_tracks", {}).get(
+				&"drum_right",
+				&""
+			),
+		},
+		{
+			&"active": true,
+			&"slot_count": 16,
+			&"beat_slots": [0, 4, 8, 12],
+			&"downbeat_slot": 0,
+			&"playhead_phase": 0.0,
+			&"authored_slots": {
+				8: [&"drum_left"],
+				11: [&"drum_right"],
+				14: [&"drum_left"],
+			},
+			&"labeled_ring_count": 0,
+			&"downbeat_above_center": true,
+			&"beat_two_right_of_center": true,
+			&"beat_three_below_center": true,
+			&"beat_four_left_of_center": true,
+			&"playhead_starts_at_downbeat": true,
+			&"left_track": &"inner",
+			&"right_track": &"outer",
+		}
+	)
 	_check(
 		"switching to Beatrice refreshes identity, choices, controls, and lane presentation",
 		{
@@ -87,7 +149,6 @@ func _run() -> void:
 			&"presented_actions": presented_actions,
 			&"target_count": highway_snapshot[&"targets"].size(),
 			&"starting_ring_radius": first_ring.get(&"radius", 0.0),
-			&"subdivision_markers": subdivision_markers,
 			&"stale_feedback": highway_snapshot[&"lane_feedback"].size(),
 			&"note_feedback": hud.get_node("FeedbackPanel/NoteFeedbackLabel").text,
 			&"instruction": hud.get_node("InstructionPanel/InstructionLabel").text,
@@ -98,19 +159,51 @@ func _run() -> void:
 			&"character_label": "BEATRICE STYX  •  DRUMS",
 			&"skill_ids": [&"driving_backbeat", &"syncopated_fill"],
 			&"lane_order": [&"drum_left", &"drum_right"],
-			&"presentation_style": &"closing_circles",
+			&"presentation_style": &"percussion_wheel",
 			&"presented_actions": [&"drum_left", &"drum_right"],
 			&"target_count": 13,
 			&"starting_ring_radius": 88.0,
-			&"subdivision_markers": {
-				4.0: "1",
-				4.25: "e",
-				4.5: "&",
-				4.75: "a",
-			},
 			&"stale_feedback": 0,
 			&"note_feedback": "NOTE  WAITING",
 			&"instruction": "Use F/J or the left/right triggers for Beatrice's two-hand drum language.",
+		}
+	)
+
+	var initial_clock_snapshot: Dictionary = highway.get_presentation_snapshot()
+	beat_clock.stop()
+	beat_clock.beat_position = 0.5
+	await process_frame
+	var half_beat_clock_snapshot: Dictionary = highway.get_presentation_snapshot()
+	beat_clock.beat_position = 0.0
+	beat_clock.beat.emit(beat_number)
+	beat_number += 1
+	await process_frame
+	var one_beat_clock_snapshot: Dictionary = highway.get_presentation_snapshot()
+	_check(
+		"the percussion playhead shows tempo continuously while pad halos wait for the final beat",
+		{
+			&"initial_phase": initial_clock_snapshot[&"measure_wheel"][&"playhead_phase"],
+			&"initial_slot": initial_clock_snapshot[&"measure_wheel"][&"current_slot"],
+			&"initial_halo_visible": initial_clock_snapshot[&"targets"][0][&"visible"],
+			&"half_beat_phase": half_beat_clock_snapshot[&"measure_wheel"][&"playhead_phase"],
+			&"half_beat_slot": half_beat_clock_snapshot[&"measure_wheel"][&"current_slot"],
+			&"half_beat_halo_visible": half_beat_clock_snapshot[&"targets"][0][&"visible"],
+			&"one_beat_phase": one_beat_clock_snapshot[&"measure_wheel"][&"playhead_phase"],
+			&"one_beat_slot": one_beat_clock_snapshot[&"measure_wheel"][&"current_slot"],
+			&"one_beat_halo_visible": one_beat_clock_snapshot[&"targets"][0][&"visible"],
+			&"one_beat_halo_radius": one_beat_clock_snapshot[&"targets"][0][&"radius"],
+		},
+		{
+			&"initial_phase": 0.0,
+			&"initial_slot": 0,
+			&"initial_halo_visible": false,
+			&"half_beat_phase": 0.125,
+			&"half_beat_slot": 2,
+			&"half_beat_halo_visible": false,
+			&"one_beat_phase": 0.25,
+			&"one_beat_slot": 4,
+			&"one_beat_halo_visible": true,
+			&"one_beat_halo_radius": 88.0,
 		}
 	)
 

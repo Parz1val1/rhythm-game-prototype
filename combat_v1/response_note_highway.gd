@@ -35,8 +35,17 @@ const PREVIEW_DURATION_SECONDS := 0.3
 const LATE_TRAVEL_BEATS := 0.5
 const CLOSING_RING_START_RADIUS := 88.0
 const CLOSING_RING_HIT_RADIUS := 18.0
-const SUBDIVISION_MARKERS: Array[String] = ["1", "e", "&", "a"]
-const SUBDIVISION_A_COLOR := Color("ff8fa3")
+const PERCUSSION_HALO_LEAD_BEATS := 1.0
+const MEASURE_BEATS := 4.0
+const SUBDIVISIONS_PER_BEAT := 4
+const WHEEL_SLOT_COUNT := 16
+const DRUM_LEFT_COLOR := Color("8ffcff")
+const DRUM_RIGHT_COLOR := Color("ff8fa3")
+const WHEEL_RAIL_COLOR := Color("385b8499")
+const WHEEL_SUBDIVISION_COLOR := Color("6f8baa")
+const WHEEL_BEAT_COLOR := Color("dcecff")
+const WHEEL_DOWNBEAT_COLOR := Color("f6c85f")
+const WHEEL_PLAYHEAD_COLOR := Color("ffffff")
 
 var _combat_v1: CombatV1 = null
 var _active: bool = false
@@ -92,8 +101,7 @@ func get_presentation_snapshot() -> Dictionary:
 			&"x": target[&"x"],
 			&"y": target[&"y"],
 			&"radius": target[&"radius"],
-			&"subdivision_marker": target[&"subdivision_marker"],
-			&"subdivision_color": target[&"subdivision_color"],
+			&"cue_color": target[&"cue_color"],
 			&"grade_name": target[&"grade_name"],
 		})
 	return {
@@ -108,6 +116,7 @@ func get_presentation_snapshot() -> Dictionary:
 		&"lane_feedback": _lane_feedback.duplicate(true),
 		&"target_feedback": _target_feedback.duplicate(true),
 		&"preview": _preview.duplicate(true),
+		&"measure_wheel": _get_measure_wheel_snapshot(),
 		&"approach_start_y": size.y * APPROACH_START_RATIO,
 		&"hit_line_y": size.y * HIT_LINE_RATIO,
 	}
@@ -262,9 +271,6 @@ func _load_schedule(presentation: Dictionary) -> void:
 		var lane_index := _lane_order.find(action)
 		if lane_index < 0:
 			continue
-		var subdivision_marker := _get_subdivision_marker(
-			float(scheduled_target[&"beat_offset"])
-		)
 		_targets.append({
 			&"target_id": scheduled_target[&"target_id"],
 			&"expected_action": action,
@@ -280,8 +286,7 @@ func _load_schedule(presentation: Dictionary) -> void:
 			&"x": 0.0,
 			&"y": 0.0,
 			&"radius": CLOSING_RING_START_RADIUS,
-			&"subdivision_marker": subdivision_marker,
-			&"subdivision_color": _get_subdivision_color(subdivision_marker),
+			&"cue_color": _get_drum_color(action),
 			&"grade_name": &"",
 		})
 	_build_chord_groups()
@@ -324,11 +329,13 @@ func _update_positions(presentation: Dictionary) -> void:
 		var target: Dictionary = _targets[target_index]
 		var due_beat := float(target[&"due_beat"])
 		var beats_until_due := due_beat - _timeline_position_beats
-		var progress := 1.0 - (beats_until_due / _visual_lead_beats)
+		var presentation_lead_beats := PERCUSSION_HALO_LEAD_BEATS \
+			if _presentation_style == &"percussion_wheel" else _visual_lead_beats
+		var progress := 1.0 - (beats_until_due / presentation_lead_beats)
 		var lane_index: int = target[&"lane_index"]
 		target[&"progress"] = progress
 		target[&"x"] = (float(lane_index) + 0.5) * lane_width
-		if _presentation_style == &"closing_circles":
+		if _presentation_style == &"percussion_wheel":
 			target[&"y"] = hit_line_y
 			target[&"radius"] = lerpf(
 				CLOSING_RING_START_RADIUS,
@@ -340,7 +347,7 @@ func _update_positions(presentation: Dictionary) -> void:
 			target[&"radius"] = CLOSING_RING_HIT_RADIUS
 		var was_visible: bool = target[&"visible"]
 		target[&"visible"] = target[&"grade_name"] == &"" \
-			and beats_until_due <= _visual_lead_beats \
+			and beats_until_due <= presentation_lead_beats \
 			and beats_until_due >= -LATE_TRAVEL_BEATS
 		if bool(target[&"visible"]) and not was_visible and not bool(target[&"spawn_logged"]):
 			target[&"spawn_logged"] = true
@@ -348,7 +355,7 @@ func _update_positions(presentation: Dictionary) -> void:
 				target[&"target_id"],
 				target[&"lane"],
 				due_beat,
-				_visual_lead_beats,
+				presentation_lead_beats,
 			])
 		_targets[target_index] = target
 
@@ -380,8 +387,232 @@ func _clear_presentation() -> void:
 	_clear_response_presentation()
 	_clear_preview()
 
+func _get_measure_wheel_snapshot() -> Dictionary:
+	if not _active or _presentation_style != &"percussion_wheel":
+		return {
+			&"active": false,
+			&"slots": [],
+		}
+	var center := Vector2(size.x * 0.5, size.y * 0.49)
+	var radii := Vector2(
+		maxf(80.0, size.x * 0.38),
+		maxf(70.0, size.y * 0.34)
+	)
+	var slots: Array[Dictionary] = []
+	for slot_index in range(WHEEL_SLOT_COUNT):
+		var actions: Array[StringName] = []
+		var pips: Array[Dictionary] = []
+		var slot_phase := float(slot_index) / float(WHEEL_SLOT_COUNT)
+		slots.append({
+			&"slot_index": slot_index,
+			&"is_beat": slot_index % SUBDIVISIONS_PER_BEAT == 0,
+			&"is_downbeat": slot_index == 0,
+			&"position": _get_wheel_point(center, radii, slot_phase),
+			&"inner_position": _get_wheel_point(center, radii * 0.90, slot_phase),
+			&"outer_position": _get_wheel_point(center, radii * 1.08, slot_phase),
+			&"actions": actions,
+			&"pips": pips,
+		})
+	var current_measure := floori(maxf(0.0, _timeline_position_beats) / MEASURE_BEATS)
+	for target in _targets:
+		var due_beat := float(target[&"due_beat"])
+		var target_measure := floori(maxf(0.0, due_beat) / MEASURE_BEATS)
+		if target_measure != current_measure:
+			continue
+		var position_in_measure := fposmod(due_beat, MEASURE_BEATS)
+		var slot_index := posmod(
+			roundi(position_in_measure * SUBDIVISIONS_PER_BEAT),
+			WHEEL_SLOT_COUNT
+		)
+		var slot: Dictionary = slots[slot_index]
+		var actions: Array[StringName] = slot[&"actions"]
+		var action: StringName = target[&"expected_action"]
+		if action not in actions:
+			actions.append(action)
+			var pips: Array[Dictionary] = slot[&"pips"]
+			var track := &"inner" if action == &"drum_left" else &"outer"
+			pips.append({
+				&"action": action,
+				&"track": track,
+				&"position": slot[&"inner_position"] \
+					if track == &"inner" else slot[&"outer_position"],
+				&"color": _get_drum_color(action),
+				&"pending": target[&"grade_name"] == &"",
+			})
+			slot[&"pips"] = pips
+		slot[&"actions"] = actions
+		slots[slot_index] = slot
+	var playhead_phase := fposmod(_timeline_position_beats, MEASURE_BEATS) \
+		/ MEASURE_BEATS
+	var beat_fraction := fposmod(_timeline_position_beats, 1.0)
+	return {
+		&"active": true,
+		&"measure_index": current_measure,
+		&"downbeat_slot": 0,
+		&"center": center,
+		&"radii": radii,
+		&"pad_positions": {
+			&"drum_left": Vector2(size.x * 0.25, size.y * HIT_LINE_RATIO),
+			&"drum_right": Vector2(size.x * 0.75, size.y * HIT_LINE_RATIO),
+		},
+		&"action_tracks": {
+			&"drum_left": &"inner",
+			&"drum_right": &"outer",
+		},
+		&"playhead_phase": playhead_phase,
+		&"playhead_position": _get_wheel_point(center, radii, playhead_phase),
+		&"beat_pulse": 1.0 - clampf(beat_fraction / 0.22, 0.0, 1.0),
+		&"current_slot": floori(playhead_phase * WHEEL_SLOT_COUNT) % WHEEL_SLOT_COUNT,
+		&"slots": slots,
+	}
+
+func _get_wheel_point(center: Vector2, radii: Vector2, phase: float) -> Vector2:
+	var angle := -PI * 0.5 + phase * TAU
+	return center + Vector2(cos(angle) * radii.x, sin(angle) * radii.y)
+
+func _draw_percussion_wheel(board_rect: Rect2) -> void:
+	draw_rect(board_rect, BOARD_COLOR)
+	var wheel := _get_measure_wheel_snapshot()
+	if not bool(wheel.get(&"active", false)):
+		draw_rect(board_rect, GRID_COLOR, false, 2.0)
+		return
+	var center: Vector2 = wheel[&"center"]
+	var radii: Vector2 = wheel[&"radii"]
+	var rail_points := PackedVector2Array()
+	for point_index in range(65):
+		rail_points.append(_get_wheel_point(
+			center,
+			radii,
+			float(point_index) / 64.0
+		))
+	draw_polyline(rail_points, WHEEL_RAIL_COLOR, 3.0, true)
+	var current_slot: int = wheel[&"current_slot"]
+	var beat_pulse: float = wheel[&"beat_pulse"]
+	var slots: Array = wheel[&"slots"]
+	for slot in slots:
+		var slot_position: Vector2 = slot[&"position"]
+		var is_beat: bool = slot[&"is_beat"]
+		var is_downbeat: bool = slot[&"is_downbeat"]
+		var marker_radius := 3.5
+		var marker_color := WHEEL_SUBDIVISION_COLOR
+		if is_beat:
+			marker_radius = 7.0
+			marker_color = WHEEL_BEAT_COLOR
+		if is_downbeat:
+			marker_radius = 10.0
+			marker_color = WHEEL_DOWNBEAT_COLOR
+		draw_circle(slot_position, marker_radius, Color(BOARD_COLOR, 0.96))
+		draw_arc(slot_position, marker_radius, 0.0, TAU, 24, marker_color, 2.5)
+		if int(slot[&"slot_index"]) == current_slot:
+			var active_radius := marker_radius + 4.0 + beat_pulse * 3.0
+			draw_arc(
+				slot_position,
+				active_radius,
+				0.0,
+				TAU,
+				24,
+				Color(marker_color, 0.55 + beat_pulse * 0.35),
+				2.0
+			)
+		for pip in slot[&"pips"]:
+			var pip_color: Color = pip[&"color"]
+			var pip_alpha := 1.0 if bool(pip[&"pending"]) else 0.28
+			var pip_position: Vector2 = pip[&"position"]
+			draw_circle(pip_position, 5.5, Color(pip_color, pip_alpha))
+			draw_arc(pip_position, 8.0, 0.0, TAU, 20, Color(pip_color, pip_alpha), 2.0)
+	var downbeat_position: Vector2 = slots[0][&"position"]
+	for spoke_offset in [-12.0, 0.0, 12.0]:
+		draw_line(
+			downbeat_position + Vector2(spoke_offset * 0.4, -13.0),
+			downbeat_position + Vector2(spoke_offset, -22.0),
+			WHEEL_DOWNBEAT_COLOR,
+			2.0
+		)
+	var playhead_position: Vector2 = wheel[&"playhead_position"]
+	draw_circle(
+		playhead_position,
+		6.0 + beat_pulse * 2.5,
+		Color(WHEEL_PLAYHEAD_COLOR, 0.95)
+	)
+	draw_arc(
+		playhead_position,
+		11.0 + beat_pulse * 3.0,
+		0.0,
+		TAU,
+		24,
+		Color(HIT_LINE_COLOR, 0.75),
+		2.5
+	)
+	var pad_positions: Dictionary = wheel[&"pad_positions"]
+	for lane_index in range(_lane_order.size()):
+		var action: StringName = _lane_order[lane_index]
+		if not pad_positions.has(action):
+			continue
+		var pad_position: Vector2 = pad_positions[action]
+		var pad_color := _get_drum_color(action)
+		draw_circle(pad_position, 31.0, Color("0e1b31"))
+		draw_arc(pad_position, 33.0, 0.0, TAU, 40, Color(pad_color, 0.55), 4.0)
+		draw_arc(pad_position, 24.0, 0.0, TAU, 40, Color(pad_color, 0.22), 2.0)
+		draw_string(
+			ThemeDB.fallback_font,
+			pad_position + Vector2(-12.0, 7.0),
+			"L" if action == &"drum_left" else "R",
+			HORIZONTAL_ALIGNMENT_CENTER,
+			24.0,
+			18,
+			pad_color
+		)
+	if not _preview.is_empty():
+		for lane_index in _preview[&"lane_indices"]:
+			var action: StringName = _lane_order[int(lane_index)]
+			if not pad_positions.has(action):
+				continue
+			var preview_position: Vector2 = pad_positions[action]
+			draw_circle(preview_position, 38.0, Color(PREVIEW_COLOR, 0.18))
+			draw_arc(preview_position, 41.0, 0.0, TAU, 32, PREVIEW_COLOR, 3.0)
+	for chord_group in _chord_groups:
+		var group_positions: Array[Vector2] = []
+		for target in _targets:
+			if target[&"group_id"] == chord_group[&"group_id"] \
+					and bool(target[&"visible"]):
+				group_positions.append(Vector2(float(target[&"x"]), float(target[&"y"])))
+		if group_positions.size() >= 2:
+			group_positions.sort_custom(
+				func(first: Vector2, second: Vector2) -> bool: return first.x < second.x
+			)
+			draw_line(group_positions[0], group_positions[-1], CHORD_COLOR, 5.0)
+	for target in _targets:
+		if not bool(target[&"visible"]):
+			continue
+		var note_position := Vector2(float(target[&"x"]), float(target[&"y"]))
+		var ring_color: Color = target[&"cue_color"]
+		var ring_radius: float = target[&"radius"]
+		draw_circle(note_position, 11.0, Color(ring_color, 0.25))
+		draw_arc(note_position, ring_radius, 0.0, TAU, 48, ring_color, 5.0)
+	for lane_index in range(_lane_order.size()):
+		var lane: StringName = _lane_order[lane_index]
+		if not pad_positions.has(lane) or not _lane_feedback.has(lane):
+			continue
+		var feedback: Dictionary = _lane_feedback[lane]
+		var pad_position: Vector2 = pad_positions[lane]
+		var grade_name: StringName = feedback[&"grade_name"]
+		_draw_result_cue(pad_position, feedback[&"visual_cue"], feedback[&"color"])
+		draw_string(
+			ThemeDB.fallback_font,
+			pad_position + Vector2(-70.0, 54.0),
+			String(grade_name).replace("_", " ").to_upper(),
+			HORIZONTAL_ALIGNMENT_CENTER,
+			140.0,
+			15,
+			_get_grade_color(grade_name)
+		)
+	draw_rect(board_rect, GRID_COLOR, false, 2.0)
+
 func _draw() -> void:
 	var board_rect := Rect2(Vector2.ZERO, size)
+	if _presentation_style == &"percussion_wheel":
+		_draw_percussion_wheel(board_rect)
+		return
 	draw_rect(board_rect, BOARD_COLOR)
 	var lane_width := size.x / float(_lane_order.size())
 	for lane_index in range(_lane_order.size()):
@@ -433,25 +664,7 @@ func _draw() -> void:
 			continue
 		var note_position := Vector2(float(target[&"x"]), float(target[&"y"]))
 		var note_color := CHORD_COLOR if int(target[&"group_size"]) > 1 else NOTE_COLOR
-		if _presentation_style == &"closing_circles":
-			var ring_color: Color = target[&"subdivision_color"]
-			var ring_radius: float = target[&"radius"]
-			draw_circle(note_position, 10.0, Color(note_color, 0.35))
-			draw_arc(note_position, ring_radius, 0.0, TAU, 48, ring_color, 5.0)
-			var marker_position := note_position + Vector2(0.0, -ring_radius)
-			draw_circle(marker_position, 11.0, Color(BOARD_COLOR, 0.94))
-			draw_arc(marker_position, 11.0, 0.0, TAU, 24, ring_color, 2.0)
-			draw_string(
-				ThemeDB.fallback_font,
-				marker_position + Vector2(-10.0, 6.0),
-				target[&"subdivision_marker"],
-				HORIZONTAL_ALIGNMENT_CENTER,
-				20.0,
-				16,
-				ring_color
-			)
-		else:
-			draw_circle(note_position, 18.0, note_color)
+		draw_circle(note_position, 18.0, note_color)
 		var action: StringName = target[&"expected_action"]
 		draw_string(
 			ThemeDB.fallback_font,
@@ -484,27 +697,14 @@ func _draw() -> void:
 		)
 	draw_rect(board_rect, GRID_COLOR, false, 2.0)
 
-func _get_subdivision_marker(beat_offset: float) -> String:
-	var fraction := fposmod(beat_offset, 1.0)
-	var subdivision_index := roundi(fraction * 4.0)
-	if subdivision_index == 4:
-		subdivision_index = 0
-	if absf(fraction - float(subdivision_index) * 0.25) > 0.01:
-		return "•"
-	return SUBDIVISION_MARKERS[subdivision_index]
-
-func _get_subdivision_color(marker: String) -> Color:
-	match marker:
-		"1":
-			return NOTE_COLOR
-		"e":
-			return CHORD_COLOR
-		"&":
-			return HIT_LINE_COLOR
-		"a":
-			return SUBDIVISION_A_COLOR
+func _get_drum_color(action: StringName) -> Color:
+	match action:
+		&"drum_left":
+			return DRUM_LEFT_COLOR
+		&"drum_right":
+			return DRUM_RIGHT_COLOR
 		_:
-			return LABEL_COLOR
+			return NOTE_COLOR
 
 func _draw_result_cue(position: Vector2, visual_cue: StringName, color: Color) -> void:
 	match visual_cue:
