@@ -71,70 +71,47 @@ func _run() -> void:
 			presented_actions.append(action)
 	var first_ring: Dictionary = highway_snapshot[&"targets"][0] \
 		if not highway_snapshot[&"targets"].is_empty() else {}
-	var measure_wheel: Dictionary = highway_snapshot.get(&"measure_wheel", {})
-	var wheel_center: Vector2 = measure_wheel.get(&"center", Vector2.ZERO)
-	var beat_slots: Array[int] = []
-	var authored_slots: Dictionary = {}
-	var slots: Array = measure_wheel.get(&"slots", [])
-	for slot in slots:
-		if bool(slot.get(&"is_beat", false)):
-			beat_slots.append(int(slot.get(&"slot_index", -1)))
-		var actions: Array = slot.get(&"actions", [])
-		if not actions.is_empty():
-			authored_slots[int(slot.get(&"slot_index", -1))] = actions
-	var labeled_ring_count := 0
+	var beat_strip: Dictionary = highway_snapshot.get(&"beat_strip", {})
+	var cue_role_counts := {
+		&"active": 0,
+		&"preview": 0,
+		&"hidden": 0,
+	}
 	for target in highway_snapshot[&"targets"]:
-		if target.has(&"subdivision_marker"):
-			labeled_ring_count += 1
+		var cue_role: StringName = target.get(&"cue_role", &"hidden")
+		cue_role_counts[cue_role] = int(cue_role_counts.get(cue_role, 0)) + 1
 	_check(
-		"Beatrice reads timing from a fixed percussion wheel instead of moving text badges",
+		"Beatrice exposes one clear drum cue, one preview, and a compact four-beat pulse",
 		{
-			&"active": measure_wheel.get(&"active", false),
-			&"slot_count": measure_wheel.get(&"slots", []).size(),
-			&"beat_slots": beat_slots,
-			&"downbeat_slot": measure_wheel.get(&"downbeat_slot", -1),
-			&"playhead_phase": measure_wheel.get(&"playhead_phase", -1.0),
-			&"authored_slots": authored_slots,
-			&"labeled_ring_count": labeled_ring_count,
-			&"downbeat_above_center": slots.size() == 16 \
-				and Vector2(slots[0].get(&"position", Vector2.ZERO)).y < wheel_center.y,
-			&"beat_two_right_of_center": slots.size() == 16 \
-				and Vector2(slots[4].get(&"position", Vector2.ZERO)).x > wheel_center.x,
-			&"beat_three_below_center": slots.size() == 16 \
-				and Vector2(slots[8].get(&"position", Vector2.ZERO)).y > wheel_center.y,
-			&"beat_four_left_of_center": slots.size() == 16 \
-				and Vector2(slots[12].get(&"position", Vector2.ZERO)).x < wheel_center.x,
-			&"playhead_starts_at_downbeat": slots.size() == 16 \
-				and measure_wheel.get(&"playhead_position", Vector2.ZERO) \
-				== slots[0].get(&"position", Vector2.INF),
-			&"left_track": measure_wheel.get(&"action_tracks", {}).get(
-				&"drum_left",
-				&""
+			&"active": beat_strip.get(&"active", false),
+			&"cell_count": beat_strip.get(&"cells", []).size(),
+			&"downbeat_cell": beat_strip.get(&"downbeat_cell", -1),
+			&"current_cell": beat_strip.get(&"current_cell", -1),
+			&"beat_fraction": beat_strip.get(&"beat_fraction", -1.0),
+			&"current_action": beat_strip.get(&"current_action", &""),
+			&"next_action": beat_strip.get(&"next_action", &""),
+			&"subdivision_visible": beat_strip.get(&"subdivision", {}).get(
+				&"visible",
+				false
 			),
-			&"right_track": measure_wheel.get(&"action_tracks", {}).get(
-				&"drum_right",
-				&""
-			),
+			&"cue_role_counts": cue_role_counts,
+			&"wheel_removed": not highway_snapshot.has(&"measure_wheel"),
 		},
 		{
 			&"active": true,
-			&"slot_count": 16,
-			&"beat_slots": [0, 4, 8, 12],
-			&"downbeat_slot": 0,
-			&"playhead_phase": 0.0,
-			&"authored_slots": {
-				8: [&"drum_left"],
-				11: [&"drum_right"],
-				14: [&"drum_left"],
+			&"cell_count": 4,
+			&"downbeat_cell": 0,
+			&"current_cell": 0,
+			&"beat_fraction": 0.0,
+			&"current_action": &"drum_left",
+			&"next_action": &"drum_right",
+			&"subdivision_visible": false,
+			&"cue_role_counts": {
+				&"active": 1,
+				&"preview": 1,
+				&"hidden": 11,
 			},
-			&"labeled_ring_count": 0,
-			&"downbeat_above_center": true,
-			&"beat_two_right_of_center": true,
-			&"beat_three_below_center": true,
-			&"beat_four_left_of_center": true,
-			&"playhead_starts_at_downbeat": true,
-			&"left_track": &"inner",
-			&"right_track": &"outer",
+			&"wheel_removed": true,
 		}
 	)
 	_check(
@@ -159,7 +136,7 @@ func _run() -> void:
 			&"character_label": "BEATRICE STYX  •  DRUMS",
 			&"skill_ids": [&"driving_backbeat", &"syncopated_fill"],
 			&"lane_order": [&"drum_left", &"drum_right"],
-			&"presentation_style": &"percussion_wheel",
+			&"presentation_style": &"percussion_pulse",
 			&"presented_actions": [&"drum_left", &"drum_right"],
 			&"target_count": 13,
 			&"starting_ring_radius": 88.0,
@@ -180,30 +157,30 @@ func _run() -> void:
 	await process_frame
 	var one_beat_clock_snapshot: Dictionary = highway.get_presentation_snapshot()
 	_check(
-		"the percussion playhead shows tempo continuously while pad halos wait for the final beat",
+		"the four-beat pulse advances while one active halo contracts",
 		{
-			&"initial_phase": initial_clock_snapshot[&"measure_wheel"][&"playhead_phase"],
-			&"initial_slot": initial_clock_snapshot[&"measure_wheel"][&"current_slot"],
+			&"initial_cell": initial_clock_snapshot[&"beat_strip"][&"current_cell"],
+			&"initial_fraction": initial_clock_snapshot[&"beat_strip"][&"beat_fraction"],
 			&"initial_halo_visible": initial_clock_snapshot[&"targets"][0][&"visible"],
-			&"half_beat_phase": half_beat_clock_snapshot[&"measure_wheel"][&"playhead_phase"],
-			&"half_beat_slot": half_beat_clock_snapshot[&"measure_wheel"][&"current_slot"],
-			&"half_beat_halo_visible": half_beat_clock_snapshot[&"targets"][0][&"visible"],
-			&"one_beat_phase": one_beat_clock_snapshot[&"measure_wheel"][&"playhead_phase"],
-			&"one_beat_slot": one_beat_clock_snapshot[&"measure_wheel"][&"current_slot"],
-			&"one_beat_halo_visible": one_beat_clock_snapshot[&"targets"][0][&"visible"],
+			&"initial_halo_radius": initial_clock_snapshot[&"targets"][0][&"radius"],
+			&"half_beat_cell": half_beat_clock_snapshot[&"beat_strip"][&"current_cell"],
+			&"half_beat_fraction": half_beat_clock_snapshot[&"beat_strip"][&"beat_fraction"],
+			&"half_beat_halo_radius": half_beat_clock_snapshot[&"targets"][0][&"radius"],
+			&"one_beat_cell": one_beat_clock_snapshot[&"beat_strip"][&"current_cell"],
+			&"one_beat_fraction": one_beat_clock_snapshot[&"beat_strip"][&"beat_fraction"],
 			&"one_beat_halo_radius": one_beat_clock_snapshot[&"targets"][0][&"radius"],
 		},
 		{
-			&"initial_phase": 0.0,
-			&"initial_slot": 0,
-			&"initial_halo_visible": false,
-			&"half_beat_phase": 0.125,
-			&"half_beat_slot": 2,
-			&"half_beat_halo_visible": false,
-			&"one_beat_phase": 0.25,
-			&"one_beat_slot": 4,
-			&"one_beat_halo_visible": true,
-			&"one_beat_halo_radius": 88.0,
+			&"initial_cell": 0,
+			&"initial_fraction": 0.0,
+			&"initial_halo_visible": true,
+			&"initial_halo_radius": 88.0,
+			&"half_beat_cell": 0,
+			&"half_beat_fraction": 0.5,
+			&"half_beat_halo_radius": 70.5,
+			&"one_beat_cell": 1,
+			&"one_beat_fraction": 0.0,
+			&"one_beat_halo_radius": 53.0,
 		}
 	)
 
@@ -215,6 +192,8 @@ func _run() -> void:
 		first_drum_target[&"due_beat"]
 	)
 	await process_frame
+	var subdivided_cue_snapshot: Dictionary = highway.get_presentation_snapshot()
+	var subdivision: Dictionary = subdivided_cue_snapshot[&"beat_strip"][&"subdivision"]
 	var routed_events: Array = feedback_adapter.get_feedback_snapshot()[&"routed_events"]
 	var beatrice_audio_event: Dictionary = routed_events[-1] \
 		if not routed_events.is_empty() else {}
@@ -245,6 +224,21 @@ func _run() -> void:
 				&"volume_db": -3.0,
 				&"voice_started": true,
 			},
+		}
+	)
+	_check(
+		"subdivision timing appears only when the current drum cue needs it",
+		{
+			&"current_action": subdivided_cue_snapshot[&"beat_strip"][&"current_action"],
+			&"visible": subdivision[&"visible"],
+			&"cell_index": subdivision.get(&"cell_index", -1),
+			&"fraction": subdivision.get(&"fraction", -1.0),
+		},
+		{
+			&"current_action": &"drum_right",
+			&"visible": true,
+			&"cell_index": 2,
+			&"fraction": 0.75,
 		}
 	)
 

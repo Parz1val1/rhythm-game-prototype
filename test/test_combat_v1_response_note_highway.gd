@@ -316,18 +316,29 @@ func _run() -> void:
 	for beat_advance in range(4):
 		beat_clock.beat.emit(beatrice_beat_number + beat_advance)
 	await process_frame
-	var beatrice_authored_slots: Dictionary = {}
-	for slot in beatrice_highway.get_presentation_snapshot()[&"measure_wheel"][&"slots"]:
-		var actions: Array = slot[&"actions"]
-		if not actions.is_empty():
-			beatrice_authored_slots[int(slot[&"slot_index"])] = actions
+	var beatrice_snapshot: Dictionary = beatrice_highway.get_presentation_snapshot()
+	var beatrice_cue_due_beats := {
+		&"active": [],
+		&"preview": [],
+	}
+	for target in beatrice_snapshot[&"targets"]:
+		var cue_role: StringName = target[&"cue_role"]
+		if beatrice_cue_due_beats.has(cue_role):
+			beatrice_cue_due_beats[cue_role].append(target[&"due_beat"])
 	_check(
-		"Beatrice's Response wheel places hits at scoreable due beats after the handoff",
-		beatrice_authored_slots,
+		"Beatrice's focused cues remain aligned to scoreable due beats after the handoff",
 		{
-			8: [&"drum_left"],
-			11: [&"drum_right"],
-			14: [&"drum_left"],
+			&"current_action": beatrice_snapshot[&"beat_strip"][&"current_action"],
+			&"next_action": beatrice_snapshot[&"beat_strip"][&"next_action"],
+			&"due_beats": beatrice_cue_due_beats,
+		},
+		{
+			&"current_action": &"drum_left",
+			&"next_action": &"drum_right",
+			&"due_beats": {
+				&"active": [6.0],
+				&"preview": [6.75],
+			},
 		}
 	)
 	beatrice_highway.teardown()

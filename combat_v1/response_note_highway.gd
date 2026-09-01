@@ -35,17 +35,16 @@ const PREVIEW_DURATION_SECONDS := 0.3
 const LATE_TRAVEL_BEATS := 0.5
 const CLOSING_RING_START_RADIUS := 88.0
 const CLOSING_RING_HIT_RADIUS := 18.0
-const PERCUSSION_HALO_LEAD_BEATS := 1.0
+const PERCUSSION_HALO_LEAD_BEATS := 2.0
+const PERCUSSION_PREVIEW_LEAD_BEATS := 3.0
+const PERCUSSION_PREVIEW_RADIUS := 9.0
+const PERCUSSION_PREVIEW_OFFSET_Y := 58.0
 const MEASURE_BEATS := 4.0
-const SUBDIVISIONS_PER_BEAT := 4
-const WHEEL_SLOT_COUNT := 16
 const DRUM_LEFT_COLOR := Color("8ffcff")
 const DRUM_RIGHT_COLOR := Color("ff8fa3")
-const WHEEL_RAIL_COLOR := Color("385b8499")
-const WHEEL_SUBDIVISION_COLOR := Color("6f8baa")
-const WHEEL_BEAT_COLOR := Color("dcecff")
-const WHEEL_DOWNBEAT_COLOR := Color("f6c85f")
-const WHEEL_PLAYHEAD_COLOR := Color("ffffff")
+const PULSE_RAIL_COLOR := Color("385b8470")
+const PULSE_CELL_COLOR := Color("7892b0")
+const PULSE_ACTIVE_COLOR := Color("f2f7ff")
 
 var _combat_v1: CombatV1 = null
 var _active: bool = false
@@ -102,6 +101,7 @@ func get_presentation_snapshot() -> Dictionary:
 			&"y": target[&"y"],
 			&"radius": target[&"radius"],
 			&"cue_color": target[&"cue_color"],
+			&"cue_role": target[&"cue_role"],
 			&"grade_name": target[&"grade_name"],
 		})
 	return {
@@ -116,7 +116,7 @@ func get_presentation_snapshot() -> Dictionary:
 		&"lane_feedback": _lane_feedback.duplicate(true),
 		&"target_feedback": _target_feedback.duplicate(true),
 		&"preview": _preview.duplicate(true),
-		&"measure_wheel": _get_measure_wheel_snapshot(),
+		&"beat_strip": _get_beat_strip_snapshot(),
 		&"approach_start_y": size.y * APPROACH_START_RATIO,
 		&"hit_line_y": size.y * HIT_LINE_RATIO,
 	}
@@ -287,6 +287,7 @@ func _load_schedule(presentation: Dictionary) -> void:
 			&"y": 0.0,
 			&"radius": CLOSING_RING_START_RADIUS,
 			&"cue_color": _get_drum_color(action),
+			&"cue_role": &"hidden",
 			&"grade_name": &"",
 		})
 	_build_chord_groups()
@@ -325,30 +326,43 @@ func _update_positions(presentation: Dictionary) -> void:
 	var lane_width := size.x / float(_lane_order.size())
 	var approach_start_y := size.y * APPROACH_START_RATIO
 	var hit_line_y := size.y * HIT_LINE_RATIO
+	var percussion_cue_roles: Dictionary = {}
+	if _presentation_style == &"percussion_pulse":
+		percussion_cue_roles = _get_percussion_cue_roles()
 	for target_index in range(_targets.size()):
 		var target: Dictionary = _targets[target_index]
 		var due_beat := float(target[&"due_beat"])
 		var beats_until_due := due_beat - _timeline_position_beats
-		var presentation_lead_beats := PERCUSSION_HALO_LEAD_BEATS \
-			if _presentation_style == &"percussion_wheel" else _visual_lead_beats
+		var presentation_lead_beats := _visual_lead_beats
+		var cue_role: StringName = &"hidden"
+		if _presentation_style == &"percussion_pulse":
+			cue_role = percussion_cue_roles.get(target_index, &"hidden")
+			presentation_lead_beats = PERCUSSION_HALO_LEAD_BEATS
 		var progress := 1.0 - (beats_until_due / presentation_lead_beats)
 		var lane_index: int = target[&"lane_index"]
+		var was_visible: bool = target[&"visible"]
 		target[&"progress"] = progress
 		target[&"x"] = (float(lane_index) + 0.5) * lane_width
-		if _presentation_style == &"percussion_wheel":
-			target[&"y"] = hit_line_y
-			target[&"radius"] = lerpf(
-				CLOSING_RING_START_RADIUS,
-				CLOSING_RING_HIT_RADIUS,
-				clampf(progress, 0.0, 1.0)
-			)
+		if _presentation_style == &"percussion_pulse":
+			target[&"y"] = hit_line_y - PERCUSSION_PREVIEW_OFFSET_Y \
+				if cue_role == &"preview" else hit_line_y
+			if cue_role == &"active":
+				target[&"radius"] = lerpf(
+					CLOSING_RING_START_RADIUS,
+					CLOSING_RING_HIT_RADIUS,
+					clampf(progress, 0.0, 1.0)
+				)
+			else:
+				target[&"radius"] = PERCUSSION_PREVIEW_RADIUS
+			target[&"visible"] = cue_role == &"active" or cue_role == &"preview"
+			target[&"cue_role"] = cue_role
 		else:
 			target[&"y"] = lerpf(approach_start_y, hit_line_y, progress)
 			target[&"radius"] = CLOSING_RING_HIT_RADIUS
-		var was_visible: bool = target[&"visible"]
-		target[&"visible"] = target[&"grade_name"] == &"" \
-			and beats_until_due <= presentation_lead_beats \
-			and beats_until_due >= -LATE_TRAVEL_BEATS
+			target[&"visible"] = target[&"grade_name"] == &"" \
+				and beats_until_due <= presentation_lead_beats \
+				and beats_until_due >= -LATE_TRAVEL_BEATS
+			target[&"cue_role"] = &"active" if bool(target[&"visible"]) else &"hidden"
 		if bool(target[&"visible"]) and not was_visible and not bool(target[&"spawn_logged"]):
 			target[&"spawn_logged"] = true
 			DebugLog.visual("[SPAWN  ] target=%s  lane=%s  due=%.2f  lead=%.2f beats" % [
@@ -358,6 +372,48 @@ func _update_positions(presentation: Dictionary) -> void:
 				presentation_lead_beats,
 			])
 		_targets[target_index] = target
+
+func _get_percussion_cue_roles() -> Dictionary:
+	var candidates: Array[int] = []
+	for target_index in range(_targets.size()):
+		var target: Dictionary = _targets[target_index]
+		var beats_until_due := float(target[&"due_beat"]) - _timeline_position_beats
+		if target[&"grade_name"] == &"" \
+				and beats_until_due >= -LATE_TRAVEL_BEATS \
+				and beats_until_due <= PERCUSSION_PREVIEW_LEAD_BEATS:
+			candidates.append(target_index)
+	candidates.sort_custom(func(first_index: int, second_index: int) -> bool:
+		return float(_targets[first_index][&"due_beat"]) \
+			< float(_targets[second_index][&"due_beat"])
+	)
+	var roles: Dictionary = {}
+	if candidates.is_empty():
+		return roles
+	var first_index: int = candidates[0]
+	var first_due_beat := float(_targets[first_index][&"due_beat"])
+	var first_beats_until_due := float(_targets[first_index][&"due_beat"]) \
+		- _timeline_position_beats
+	if first_beats_until_due <= PERCUSSION_HALO_LEAD_BEATS:
+		for target_index in candidates:
+			if is_equal_approx(float(_targets[target_index][&"due_beat"]), first_due_beat):
+				roles[target_index] = &"active"
+		var next_due_beat := INF
+		for target_index in candidates:
+			var due_beat := float(_targets[target_index][&"due_beat"])
+			if due_beat > first_due_beat and due_beat < next_due_beat:
+				next_due_beat = due_beat
+		if next_due_beat < INF:
+			for target_index in candidates:
+				if is_equal_approx(
+					float(_targets[target_index][&"due_beat"]),
+					next_due_beat
+				):
+					roles[target_index] = &"preview"
+	else:
+		for target_index in candidates:
+			if is_equal_approx(float(_targets[target_index][&"due_beat"]), first_due_beat):
+				roles[target_index] = &"preview"
+	return roles
 
 func _clear_response_presentation() -> void:
 	var had_presentation := _active or not _targets.is_empty() \
@@ -387,172 +443,128 @@ func _clear_presentation() -> void:
 	_clear_response_presentation()
 	_clear_preview()
 
-func _get_measure_wheel_snapshot() -> Dictionary:
-	if not _active or _presentation_style != &"percussion_wheel":
+func _get_beat_strip_snapshot() -> Dictionary:
+	if not _active or _presentation_style != &"percussion_pulse":
 		return {
 			&"active": false,
-			&"slots": [],
+			&"cells": [],
 		}
-	var center := Vector2(size.x * 0.5, size.y * 0.49)
-	var radii := Vector2(
-		maxf(80.0, size.x * 0.38),
-		maxf(70.0, size.y * 0.34)
-	)
-	var slots: Array[Dictionary] = []
-	for slot_index in range(WHEEL_SLOT_COUNT):
-		var actions: Array[StringName] = []
-		var pips: Array[Dictionary] = []
-		var slot_phase := float(slot_index) / float(WHEEL_SLOT_COUNT)
-		slots.append({
-			&"slot_index": slot_index,
-			&"is_beat": slot_index % SUBDIVISIONS_PER_BEAT == 0,
-			&"is_downbeat": slot_index == 0,
-			&"position": _get_wheel_point(center, radii, slot_phase),
-			&"inner_position": _get_wheel_point(center, radii * 0.90, slot_phase),
-			&"outer_position": _get_wheel_point(center, radii * 1.08, slot_phase),
-			&"actions": actions,
-			&"pips": pips,
+	var cell_spacing := minf(62.0, size.x * 0.12)
+	var strip_center := Vector2(size.x * 0.5, size.y * 0.20)
+	var cells: Array[Dictionary] = []
+	for cell_index in range(int(MEASURE_BEATS)):
+		cells.append({
+			&"cell_index": cell_index,
+			&"is_downbeat": cell_index == 0,
+			&"position": strip_center + Vector2(
+				(float(cell_index) - 1.5) * cell_spacing,
+				0.0
+			),
+			&"radius": 8.0 if cell_index == 0 else 6.0,
 		})
-	var current_measure := floori(maxf(0.0, _timeline_position_beats) / MEASURE_BEATS)
-	for target in _targets:
-		var due_beat := float(target[&"due_beat"])
-		var target_measure := floori(maxf(0.0, due_beat) / MEASURE_BEATS)
-		if target_measure != current_measure:
-			continue
-		var position_in_measure := fposmod(due_beat, MEASURE_BEATS)
-		var slot_index := posmod(
-			roundi(position_in_measure * SUBDIVISIONS_PER_BEAT),
-			WHEEL_SLOT_COUNT
-		)
-		var slot: Dictionary = slots[slot_index]
-		var actions: Array[StringName] = slot[&"actions"]
-		var action: StringName = target[&"expected_action"]
-		if action not in actions:
-			actions.append(action)
-			var pips: Array[Dictionary] = slot[&"pips"]
-			var track := &"inner" if action == &"drum_left" else &"outer"
-			pips.append({
-				&"action": action,
-				&"track": track,
-				&"position": slot[&"inner_position"] \
-					if track == &"inner" else slot[&"outer_position"],
-				&"color": _get_drum_color(action),
-				&"pending": target[&"grade_name"] == &"",
-			})
-			slot[&"pips"] = pips
-		slot[&"actions"] = actions
-		slots[slot_index] = slot
-	var playhead_phase := fposmod(_timeline_position_beats, MEASURE_BEATS) \
-		/ MEASURE_BEATS
+	var position_in_measure := fposmod(_timeline_position_beats, MEASURE_BEATS)
+	var current_cell := floori(position_in_measure) % int(MEASURE_BEATS)
 	var beat_fraction := fposmod(_timeline_position_beats, 1.0)
+	var active_targets: Array[Dictionary] = []
+	var preview_targets: Array[Dictionary] = []
+	for target in _targets:
+		var cue_role: StringName = target.get(&"cue_role", &"hidden")
+		if cue_role == &"active":
+			active_targets.append(target)
+		elif cue_role == &"preview":
+			preview_targets.append(target)
+	var current_actions: Array[StringName] = []
+	for target in active_targets:
+		current_actions.append(target[&"expected_action"])
+	var next_actions: Array[StringName] = []
+	for target in preview_targets:
+		next_actions.append(target[&"expected_action"])
+	var subdivision := {
+		&"visible": false,
+	}
+	if not active_targets.is_empty():
+		var active_due_beat := float(active_targets[0][&"due_beat"])
+		var subdivision_fraction := fposmod(active_due_beat, 1.0)
+		if not is_zero_approx(subdivision_fraction):
+			var subdivision_cell := floori(fposmod(active_due_beat, MEASURE_BEATS))
+			var next_cell := (subdivision_cell + 1) % int(MEASURE_BEATS)
+			var start_position: Vector2 = cells[subdivision_cell][&"position"]
+			var end_position: Vector2 = cells[next_cell][&"position"]
+			if next_cell == 0:
+				end_position = start_position + Vector2(cell_spacing, 0.0)
+			subdivision = {
+				&"visible": true,
+				&"cell_index": subdivision_cell,
+				&"fraction": subdivision_fraction,
+				&"position": start_position.lerp(end_position, subdivision_fraction),
+				&"actions": current_actions.duplicate(),
+			}
 	return {
 		&"active": true,
-		&"measure_index": current_measure,
-		&"downbeat_slot": 0,
-		&"center": center,
-		&"radii": radii,
+		&"cells": cells,
+		&"downbeat_cell": 0,
+		&"current_cell": current_cell,
+		&"beat_fraction": beat_fraction,
+		&"beat_pulse": 1.0 - clampf(beat_fraction / 0.22, 0.0, 1.0),
+		&"current_action": current_actions[0] if not current_actions.is_empty() else &"",
+		&"current_actions": current_actions,
+		&"next_action": next_actions[0] if not next_actions.is_empty() else &"",
+		&"next_actions": next_actions,
+		&"subdivision": subdivision,
 		&"pad_positions": {
 			&"drum_left": Vector2(size.x * 0.25, size.y * HIT_LINE_RATIO),
 			&"drum_right": Vector2(size.x * 0.75, size.y * HIT_LINE_RATIO),
 		},
-		&"action_tracks": {
-			&"drum_left": &"inner",
-			&"drum_right": &"outer",
-		},
-		&"playhead_phase": playhead_phase,
-		&"playhead_position": _get_wheel_point(center, radii, playhead_phase),
-		&"beat_pulse": 1.0 - clampf(beat_fraction / 0.22, 0.0, 1.0),
-		&"current_slot": floori(playhead_phase * WHEEL_SLOT_COUNT) % WHEEL_SLOT_COUNT,
-		&"slots": slots,
 	}
 
-func _get_wheel_point(center: Vector2, radii: Vector2, phase: float) -> Vector2:
-	var angle := -PI * 0.5 + phase * TAU
-	return center + Vector2(cos(angle) * radii.x, sin(angle) * radii.y)
-
-func _draw_percussion_wheel(board_rect: Rect2) -> void:
+func _draw_percussion_pulse(board_rect: Rect2) -> void:
 	draw_rect(board_rect, BOARD_COLOR)
-	var wheel := _get_measure_wheel_snapshot()
-	if not bool(wheel.get(&"active", false)):
+	var beat_strip := _get_beat_strip_snapshot()
+	if not bool(beat_strip.get(&"active", false)):
 		draw_rect(board_rect, GRID_COLOR, false, 2.0)
 		return
-	var center: Vector2 = wheel[&"center"]
-	var radii: Vector2 = wheel[&"radii"]
-	var rail_points := PackedVector2Array()
-	for point_index in range(65):
-		rail_points.append(_get_wheel_point(
-			center,
-			radii,
-			float(point_index) / 64.0
-		))
-	draw_polyline(rail_points, WHEEL_RAIL_COLOR, 3.0, true)
-	var current_slot: int = wheel[&"current_slot"]
-	var beat_pulse: float = wheel[&"beat_pulse"]
-	var slots: Array = wheel[&"slots"]
-	for slot in slots:
-		var slot_position: Vector2 = slot[&"position"]
-		var is_beat: bool = slot[&"is_beat"]
-		var is_downbeat: bool = slot[&"is_downbeat"]
-		var marker_radius := 3.5
-		var marker_color := WHEEL_SUBDIVISION_COLOR
-		if is_beat:
-			marker_radius = 7.0
-			marker_color = WHEEL_BEAT_COLOR
-		if is_downbeat:
-			marker_radius = 10.0
-			marker_color = WHEEL_DOWNBEAT_COLOR
-		draw_circle(slot_position, marker_radius, Color(BOARD_COLOR, 0.96))
-		draw_arc(slot_position, marker_radius, 0.0, TAU, 24, marker_color, 2.5)
-		if int(slot[&"slot_index"]) == current_slot:
-			var active_radius := marker_radius + 4.0 + beat_pulse * 3.0
+	var cells: Array = beat_strip[&"cells"]
+	var beat_pulse: float = beat_strip[&"beat_pulse"]
+	var current_cell: int = beat_strip[&"current_cell"]
+	if cells.size() >= 2:
+		draw_line(cells[0][&"position"], cells[-1][&"position"], PULSE_RAIL_COLOR, 3.0)
+	for cell in cells:
+		var cell_position: Vector2 = cell[&"position"]
+		var cell_radius: float = cell[&"radius"]
+		var is_current := int(cell[&"cell_index"]) == current_cell
+		draw_circle(cell_position, cell_radius, Color(BOARD_COLOR, 0.98))
+		draw_arc(cell_position, cell_radius, 0.0, TAU, 24, PULSE_CELL_COLOR, 2.0)
+		if is_current:
+			var active_radius := cell_radius + 3.0 + beat_pulse * 2.5
+			draw_circle(cell_position, cell_radius - 1.5, PULSE_ACTIVE_COLOR)
 			draw_arc(
-				slot_position,
+				cell_position,
 				active_radius,
 				0.0,
 				TAU,
 				24,
-				Color(marker_color, 0.55 + beat_pulse * 0.35),
+				Color(PULSE_ACTIVE_COLOR, 0.55 + beat_pulse * 0.35),
 				2.0
 			)
-		for pip in slot[&"pips"]:
-			var pip_color: Color = pip[&"color"]
-			var pip_alpha := 1.0 if bool(pip[&"pending"]) else 0.28
-			var pip_position: Vector2 = pip[&"position"]
-			draw_circle(pip_position, 5.5, Color(pip_color, pip_alpha))
-			draw_arc(pip_position, 8.0, 0.0, TAU, 20, Color(pip_color, pip_alpha), 2.0)
-	var downbeat_position: Vector2 = slots[0][&"position"]
-	for spoke_offset in [-12.0, 0.0, 12.0]:
+	var subdivision: Dictionary = beat_strip[&"subdivision"]
+	if bool(subdivision.get(&"visible", false)):
+		var subdivision_position: Vector2 = subdivision[&"position"]
 		draw_line(
-			downbeat_position + Vector2(spoke_offset * 0.4, -13.0),
-			downbeat_position + Vector2(spoke_offset, -22.0),
-			WHEEL_DOWNBEAT_COLOR,
+			subdivision_position + Vector2(0.0, -7.0),
+			subdivision_position + Vector2(0.0, 7.0),
+			PULSE_ACTIVE_COLOR,
 			2.0
 		)
-	var playhead_position: Vector2 = wheel[&"playhead_position"]
-	draw_circle(
-		playhead_position,
-		6.0 + beat_pulse * 2.5,
-		Color(WHEEL_PLAYHEAD_COLOR, 0.95)
-	)
-	draw_arc(
-		playhead_position,
-		11.0 + beat_pulse * 3.0,
-		0.0,
-		TAU,
-		24,
-		Color(HIT_LINE_COLOR, 0.75),
-		2.5
-	)
-	var pad_positions: Dictionary = wheel[&"pad_positions"]
+	var pad_positions: Dictionary = beat_strip[&"pad_positions"]
 	for lane_index in range(_lane_order.size()):
 		var action: StringName = _lane_order[lane_index]
 		if not pad_positions.has(action):
 			continue
 		var pad_position: Vector2 = pad_positions[action]
 		var pad_color := _get_drum_color(action)
-		draw_circle(pad_position, 31.0, Color("0e1b31"))
-		draw_arc(pad_position, 33.0, 0.0, TAU, 40, Color(pad_color, 0.55), 4.0)
-		draw_arc(pad_position, 24.0, 0.0, TAU, 40, Color(pad_color, 0.22), 2.0)
+		draw_circle(pad_position, 37.0, Color("0e1b31"))
+		draw_arc(pad_position, 39.0, 0.0, TAU, 40, Color(pad_color, 0.65), 4.0)
+		draw_arc(pad_position, 28.0, 0.0, TAU, 40, Color(pad_color, 0.18), 2.0)
 		draw_string(
 			ThemeDB.fallback_font,
 			pad_position + Vector2(-12.0, 7.0),
@@ -574,7 +586,7 @@ func _draw_percussion_wheel(board_rect: Rect2) -> void:
 		var group_positions: Array[Vector2] = []
 		for target in _targets:
 			if target[&"group_id"] == chord_group[&"group_id"] \
-					and bool(target[&"visible"]):
+					and target[&"cue_role"] == &"active":
 				group_positions.append(Vector2(float(target[&"x"]), float(target[&"y"])))
 		if group_positions.size() >= 2:
 			group_positions.sort_custom(
@@ -587,8 +599,12 @@ func _draw_percussion_wheel(board_rect: Rect2) -> void:
 		var note_position := Vector2(float(target[&"x"]), float(target[&"y"]))
 		var ring_color: Color = target[&"cue_color"]
 		var ring_radius: float = target[&"radius"]
-		draw_circle(note_position, 11.0, Color(ring_color, 0.25))
-		draw_arc(note_position, ring_radius, 0.0, TAU, 48, ring_color, 5.0)
+		if target[&"cue_role"] == &"preview":
+			draw_circle(note_position, ring_radius - 2.0, Color(ring_color, 0.22))
+			draw_arc(note_position, ring_radius, 0.0, TAU, 24, Color(ring_color, 0.62), 2.0)
+		else:
+			draw_circle(note_position, 13.0, Color(ring_color, 0.30))
+			draw_arc(note_position, ring_radius, 0.0, TAU, 48, ring_color, 5.0)
 	for lane_index in range(_lane_order.size()):
 		var lane: StringName = _lane_order[lane_index]
 		if not pad_positions.has(lane) or not _lane_feedback.has(lane):
@@ -610,8 +626,8 @@ func _draw_percussion_wheel(board_rect: Rect2) -> void:
 
 func _draw() -> void:
 	var board_rect := Rect2(Vector2.ZERO, size)
-	if _presentation_style == &"percussion_wheel":
-		_draw_percussion_wheel(board_rect)
+	if _presentation_style == &"percussion_pulse":
+		_draw_percussion_pulse(board_rect)
 		return
 	draw_rect(board_rect, BOARD_COLOR)
 	var lane_width := size.x / float(_lane_order.size())

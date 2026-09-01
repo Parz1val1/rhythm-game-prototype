@@ -60,7 +60,7 @@ effects, remain caller-owned and unmodified.
 | Character | Working language | Presentation | Playtest Skills |
 |---|---|---|---|
 | Luthier | Four-input melodic strings | Four directional lanes with travelling notes and chords | Bright Motif; Steadying Harmony |
-| Beatrice | Two-input percussion | Fixed 16-subdivision percussion wheel with a continuous playhead, inner/outer authored hit pips, and large final-beat pad halos | Driving Backbeat; Syncopated Fill |
+| Beatrice | Two-input percussion | Two fixed drum pads, one contracting current-hit halo, one restrained next-hit preview, and a neutral four-beat timing pulse | Driving Backbeat; Syncopated Fill |
 
 Driving Backbeat asks for a steady alternating two-hand pulse. Syncopated Fill
 mixes spaced accents with a faster left/right roll and provisionally costs 20
@@ -75,15 +75,18 @@ seam; their numbers and tactical breadth are playtest content, not final balance
   materially longer than the issue #16 single-character loop.
 - The switch is mechanically legible in the harness: four directional inputs,
   plucked feedback, and travelling notes give way to two drum inputs, percussion
-  feedback, and a fixed measure wheel without stopping the clock.
-- Beatrice's wheel keeps four strong beat anchors and twelve quieter sub-beat
-  anchors stationary while one playhead continuously exposes the rate of the
-  measure. Beat one has a stronger recovery landmark. Authored left-drum hits use
-  the inner track and right-drum hits use the outer track, redundantly separating
-  them by position and color.
-- Pad-local closing halos no longer carry moving `1 e & a` badges. They appear
-  only during the final beat before a hit, leaving the wheel responsible for
-  tempo and sub-beat phase while the halo communicates which pad is approaching.
+  feedback, and fixed left/right pads without stopping the clock.
+- Beatrice's timing reference is intentionally limited to four neutral beat
+  cells. The active cell brightens and pulses on each beat, with beat one slightly
+  larger as the measure landmark. There are no persistent subdivision nodes,
+  authored-note pips, orbit, or moving text badges.
+- One current hit owns the only strong contracting halo, while the next distinct
+  hit appears as a small dim preview above its pad. Simultaneous components of a
+  two-hand hit share that current or preview role.
+- A single neutral tick appears on the beat strip only while the current hit has
+  a fractional beat offset. Cyan and pink remain exclusive left/right identity
+  signals; brightness and scale carry tempo so timing does not compete with hand
+  selection.
 - Accepted Skill inputs now play an explicit active-character instrument voice;
   automatic unplayed-note expiry does not create ghost instrument hits.
 - Automated tests establish state isolation and handoff correctness; they cannot
@@ -97,12 +100,13 @@ seam; their numbers and tactical breadth are playtest content, not final balance
   make the party feel present?
 - Is fixed authored order readable enough for this prototype, and when does the
   player first want to change it?
-- Does Beatrice's continuous playhead make tempo and sub-beat phase as readable
-  as Luthier's directional highway?
-- Are the inner/outer authored hit pips understandable without text, including
-  during the dense portion of Syncopated Fill?
-- Do final-beat pad halos provide enough local warning without competing with the
-  fixed wheel?
+- Does the four-cell pulse make the closing rate legible without drawing attention
+  away from the current pad?
+- Is one dim next-hit preview enough preparation during the dense portion of
+  Syncopated Fill?
+- Does the transient subdivision tick clarify off-beat timing, or is another
+  neutral motion cue still needed?
+- Can the player always distinguish hand identity from timing at a glance?
 
 Record human observations here before changing Combat System v1 or accepting a
 canonical party-order/cadence decision.
