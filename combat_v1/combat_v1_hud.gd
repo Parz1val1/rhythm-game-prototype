@@ -259,7 +259,7 @@ func _sync_from_module() -> void:
 	_multiplier_bar.value = float(state[&"multiplier"])
 	_multiplier_value.text = "MULTIPLIER  %sx" % _format_number(state[&"multiplier"])
 
-	_inspiration_bar.min_value = float(state[&"min_inspiration"])
+	_inspiration_bar.min_value = 0.0
 	_inspiration_bar.max_value = float(state[&"max_inspiration"])
 	_inspiration_bar.value = float(state[&"inspiration"])
 	var character_name := String(state[&"active_character_name"]).get_slice(" ", 0).to_upper()

@@ -263,6 +263,8 @@ func start() -> bool:
 		return false
 	if not _session_state.inspiration_changed.is_connected(_on_inspiration_changed):
 		_session_state.inspiration_changed.connect(_on_inspiration_changed)
+	for character_state in _session_state.get_party_state():
+		_session_state.restore_encounter_floor(character_state[&"character_id"])
 	_running = true
 	_beats_in_cadence = 0
 	_last_intent = -1

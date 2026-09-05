@@ -116,7 +116,7 @@ flowchart LR
 | `combat/combat_ui.gd` and lane scripts | Present state and note approaches through combat signals |
 | `combat_v1/combat_v1.gd` | Isolated Combat V1 seam; owns the repeatable Settle-free conversation cadence plus `CombatV1EncounterState`, binds injected per-character session progression, schedules an authored opponent phrase and its Response, spends affordable Skill costs atomically, runs Character Performance and one-bar Full-Band handoff, and exposes count-in progress, snapshot-first presentation, Inspiration, and terminal signals |
 | `combat_v1/encounter_state.gd` | Deterministic Issue #10 state module; owns configurable Groove, shared Composure, shared Multiplier math, clamping, and one-shot Jam/loss resolution |
-| `combat_v1/session_state.gd` | Encounter-independent party progression owner; maintains individually configured Inspiration bounds and generation, atomic floor-protected costs, stable character snapshots, and guarded change notifications |
+| `combat_v1/session_state.gd` | Encounter-independent party progression owner; maintains individually configured Inspiration bounds and generation, encounter-start floor restoration, atomic costs against the visible balance, stable character snapshots, and guarded change notifications |
 | `combat_v1/opponent_data.gd`, `opponent_phrase.gd`, and `phrase_event.gd` | V1 authoring model for opponent identity, one-to-four-bar phrases, musical offsets, one-to-four-input Response cues, and symbolic audio/visual cues; it has no legacy enemy statistics |
 | `combat_v1/opponents/drum_golem.tres` | One-bar prototype opponent phrase with whole-, half-, and quarter-beat events |
 | `combat_v1/skill.gd`, `skill_event.gd`, and `skill_effect.gd` | Minimal Skill authoring boundary for player-facing purpose, Inspiration cost, configurable bar duration, timed one-to-four-action events, and ordered effect adapters; concrete effects apply through encounter-state methods without Skill-specific orchestrator branches |
@@ -444,14 +444,15 @@ progression. The harness keeps its session outside the encounter module and call
 `CombatV1.bind_party(session, party_members)` before setup. Every
 registered character receives independently copied bounds, initial balance, and
 Good/Great/Perfect note and phrase generation values. Starting a new encounter
-with the same session preserves those balances while encounter-wide Groove,
-Composure, and Multiplier reset.
+with the same session preserves each balance or restores it to its configured
+floor when lower, while encounter-wide Groove, Composure, and Multiplier reset.
 
 `CombatV1` routes accepted Response and Character Performance grades to the
 active character's session record. Authored Skill costs are checked and spent
-atomically before the committed count-in; rejected selections cannot cross the
-configured minimum floor. The public state includes the active character's
-Inspiration/bounds and independently copied party snapshots, while
+atomically before the committed count-in. Every point shown in the meter is
+spendable down to zero; the configured floor is an encounter-start recovery rule,
+not a hidden current-encounter reserve. The public state includes the active
+character's Inspiration/bounds and independently copied party snapshots, while
 `inspiration_changed` publishes character changes to presentation consumers.
 The session never aliases legacy character HP, a limit gauge, a mutable gameplay
 Resource, or encounter-wide Multiplier.

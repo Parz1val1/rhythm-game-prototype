@@ -52,14 +52,35 @@ func _run() -> void:
 			and beat_number < 64:
 		beat_clock.beat.emit(beat_number)
 		beat_number += 1
+	var beatrice_selection_facts: Dictionary = {}
 	if module.get_cadence() == module.Cadence.TACTICAL_VAMP \
 			and module.get_state()[&"active_character_id"] == &"beatrice_styx":
-		prototype.select_skill_choice(1)
+		var playtest_session = prototype.get("_session_state")
+		playtest_session.spend_inspiration(&"beatrice_styx", 11.0)
+		var beatrice_choices: Array = module.get_skill_choices()
+		beatrice_selection_facts = {
+			&"inspiration": module.get_state()[&"inspiration"],
+			&"cost": beatrice_choices[1][&"inspiration_cost"],
+			&"affordable": beatrice_choices[1][&"affordable"],
+			&"selected": prototype.select_skill_choice(1),
+			&"remaining": module.get_state()[&"inspiration"],
+		}
 	while module.get_cadence() != module.Cadence.CHARACTER_PERFORMANCE \
 			and beat_number < 80:
 		beat_clock.beat.emit(beat_number)
 		beat_number += 1
 	await process_frame
+	_check(
+		"39 visible Inspiration can commit the 20-cost Syncopated Fill",
+		beatrice_selection_facts,
+		{
+			&"inspiration": 39.0,
+			&"cost": 20.0,
+			&"affordable": true,
+			&"selected": true,
+			&"remaining": 19.0,
+		}
+	)
 
 	var character_label: Label = hud.get_node_or_null("CadencePanel/CharacterLabel")
 	var highway_snapshot: Dictionary = highway.get_presentation_snapshot()

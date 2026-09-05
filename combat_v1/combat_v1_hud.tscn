@@ -105,7 +105,7 @@ layout_mode = 0
 offset_left = 32.0
 offset_top = 28.0
 offset_right = 300.0
-offset_bottom = 132.0
+offset_bottom = 152.0
 theme_override_styles/panel = SubResource("StyleCadence")
 
 [node name="EyebrowLabel" type="Label" parent="CadencePanel"]
@@ -241,9 +241,9 @@ theme_override_styles/fill = SubResource("StyleInspiration")
 [node name="CuePanel" type="Panel" parent="."]
 layout_mode = 0
 offset_left = 32.0
-offset_top = 154.0
+offset_top = 160.0
 offset_right = 300.0
-offset_bottom = 272.0
+offset_bottom = 278.0
 theme_override_styles/panel = SubResource("StyleFeedback")
 
 [node name="CueModeLabel" type="Label" parent="CuePanel"]
