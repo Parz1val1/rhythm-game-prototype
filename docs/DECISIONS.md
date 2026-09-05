@@ -236,9 +236,10 @@ the two without Skill-specific orchestration.
 
 **Consequences:** Loaded Skill templates must be deep-copied before live use.
 Effects must use encounter-state methods rather than mutate public snapshots, and
-their order is observable when effects depend on prior state. The prototype's one
-Character Performance per exchange is a scoped product simplification recorded in
-the combat prototype record, not a technical constraint imposed by this ADR.
+their order is observable when effects depend on prior state. The issue #18 party
+harness now sources per-character Skill lists through the same interface. Its
+fixed order and two Character Performances per exchange are scoped product
+experiments, not technical constraints imposed by this ADR.
 
 ## ADR-012 — Keep Inspiration in injected, character-owned session state
 
@@ -248,9 +249,10 @@ the combat prototype record, not a technical constraint imposed by this ADR.
 inject that session plus an active character identity into each `CombatV1`
 encounter. Give each registered character independently copied Inspiration
 bounds, starting value, and grade/source generation settings. Route graded
-performance into that owner and check/spend authored Skill costs atomically at
-commitment without crossing the configured floor. Publish copied character and
-party snapshots through the public Combat V1 state/presentation boundary.
+performance into that owner, restore the configured safety floor when an encounter
+starts, and check/spend authored Skill costs atomically against the visible balance
+down to zero. Publish copied character and party snapshots through the public
+Combat V1 state/presentation boundary.
 
 **Context:** Issue #17 requires Inspiration to persist between encounters while
 Groove, Composure, and shared Multiplier remain encounter-local. Legacy
@@ -261,11 +263,14 @@ conflate an unresolved Finale/Limit concept with the new character economy.
 **Rationale:** An injected in-memory owner gives character progression a longer
 lifetime than an encounter without introducing save files, an autoload, or a
 production world-state architecture prematurely. One session-owned affordability
-rule prevents the orchestrator and HUD from disagreeing about minimum floors.
+rule prevents the orchestrator and HUD from disagreeing about spendable balance.
 
 **Consequences:** The harness or another future composition root must retain the
-session across encounter replacement. Encounter setup/reset must never clear
-registered Inspiration; fight-local state must still reset and gameplay Resources
-must still be deep-copied. The one-active-Luthier harness, party ordering,
-cross-character effects, durable saves, final rates, and any separate
-Finale/Limit resource remain unresolved or out of scope.
+session across encounter replacement. Encounter restart preserves each registered
+balance while restoring values below the configured safety floor; fight-local state
+must still reset and gameplay Resources must still be deep-copied. The HUD shows
+the full zero-to-maximum spendable range rather than treating the floor as a hidden
+reserve. The issue #18 harness now switches two independently
+owned balances in fixed authored order; final party ordering, availability,
+cross-character effects, durable saves, final rates, and any separate Finale/Limit
+resource remain unresolved or out of scope.

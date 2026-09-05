@@ -69,7 +69,7 @@ func record_performance_grade(
 	var previous: float = character[&"inspiration"]
 	character[&"inspiration"] = clampf(
 		previous + amount,
-		float(character[&"min_inspiration"]),
+		0.0,
 		float(character[&"max_inspiration"])
 	)
 	if not is_equal_approx(previous, float(character[&"inspiration"])):
@@ -83,7 +83,8 @@ func record_performance_grade(
 		inspiration_changed.emit(get_character_state(character_id))
 	return true
 
-## Commit a cost only when the character remains at or above their floor.
+## Commit a cost when the visible balance covers it. The encounter-start floor is
+## restored separately so every displayed Inspiration point remains spendable.
 func spend_inspiration(character_id: StringName, cost: float) -> bool:
 	if not can_afford(character_id, cost):
 		return false
@@ -100,12 +101,30 @@ func spend_inspiration(character_id: StringName, cost: float) -> bool:
 		inspiration_changed.emit(get_character_state(character_id))
 	return true
 
-## Evaluate a Skill cost without changing the session or crossing its floor.
+## Evaluate a Skill cost without changing the session.
 func can_afford(character_id: StringName, cost: float) -> bool:
 	if not _characters.has(character_id) or cost < 0.0:
 		return false
 	var character: Dictionary = _characters[character_id]
-	return float(character[&"inspiration"]) - cost >= float(character[&"min_inspiration"])
+	return float(character[&"inspiration"]) >= cost
+
+## Restore the configured safety floor at the start of a new encounter without
+## reserving that amount from Skills during the encounter itself.
+func restore_encounter_floor(character_id: StringName) -> bool:
+	if not _characters.has(character_id):
+		return false
+	var character: Dictionary = _characters[character_id]
+	var previous: float = character[&"inspiration"]
+	var restored := maxf(previous, float(character[&"min_inspiration"]))
+	character[&"inspiration"] = restored
+	if not is_equal_approx(previous, restored):
+		DebugLog.combat("[INSPIRE] character=%s  source=encounter_floor  amount=%.1f->%.1f" % [
+			character_id,
+			previous,
+			restored,
+		])
+		inspiration_changed.emit(get_character_state(character_id))
+	return true
 
 ## Return an independently owned public snapshot for one party member.
 func get_character_state(character_id: StringName) -> Dictionary:

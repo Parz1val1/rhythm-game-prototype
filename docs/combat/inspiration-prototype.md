@@ -19,10 +19,9 @@ Inspiration is not stored in `CharacterData`, mutable live-combat HP, an authore
 state lasts only as long as its in-memory owner; durable save files and an
 eventual production world-state owner remain out of scope.
 
-The runnable harness still performs as Luthier only. Registering additional party
-members and exposing their independent snapshots prepares the seam for issue #18;
-party ordering, character switching, and support effects targeting other members
-are not implemented here.
+The runnable harness registers Luthier and Beatrice as independent session owners
+and switches the active balance with the current party member. Runtime party
+ordering and support effects targeting other members are not implemented here.
 
 ## Provisional Configuration
 
@@ -44,13 +43,19 @@ state. Defaults are:
 Great and Perfect values are calculated by adding their configurable bonus to
 the ordinary successful note or phrase gain. Near Miss, Miss, and Major Mistake
 do not generate Inspiration. Both Response and Character Performance apply these
-rules to accepted note grades and the final phrase grade; gains clamp at the
-character's configured maximum.
+rules to accepted note grades and the final phrase grade; gains clamp between zero
+and the character's configured maximum.
 
 A six-note all-Good Response generates 30 Inspiration. Starting from the default
 floor of 20, that ordinary successful exchange restores enough to use the
 provisional 30-cost support Skill while remaining at the floor. This is a
 circulation test, not a final economy contract.
+
+The configured floor is restored when a new encounter starts. It is not a hidden
+reserve inside the current encounter: every point shown in the Inspiration meter
+is spendable, down to zero. This distinction was clarified by issue #18
+playtesting after a visible balance of 39 incorrectly rejected Beatrice's 20-cost
+Skill under the earlier reserve rule.
 
 ## Skill Commitment and Presentation
 
@@ -58,12 +63,14 @@ Each authored `CombatV1Skill` declares `inspiration_cost`:
 
 - Bright Motif costs 0 Inspiration.
 - Steadying Harmony costs 30 Inspiration.
+- Driving Backbeat costs 0 Inspiration.
+- Syncopated Fill costs 20 Inspiration.
 
 `get_skill_choices()` publishes the authored cost and current affordability.
 `select_skill()` checks and spends atomically before beginning its committed
 four-beat count-in. Unaffordable, negative-cost, duplicate, and out-of-cadence
-actions do not spend or start a performance; spending can never cross the
-character's configured floor.
+actions do not spend or start a performance. A Skill is affordable whenever the
+visible balance covers its authored cost.
 
 `CombatV1.get_state()` publishes the active character's identity, current
 Inspiration, bounds, and complete party snapshots alongside the encounter-wide

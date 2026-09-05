@@ -47,6 +47,13 @@ func _run() -> void:
 	hud.setup(module)
 	var response_highway = hud.get_node_or_null("ResponseNoteHighway")
 	_check("the diagnostic HUD includes the Response note highway", response_highway != null, true)
+	var cadence_panel: Control = hud.get_node("CadencePanel")
+	var character_label: Control = hud.get_node("CadencePanel/CharacterLabel")
+	_check(
+		"the current character and instrument stay inside the cadence panel",
+		Rect2(Vector2.ZERO, cadence_panel.size).encloses(character_label.get_rect()),
+		true
+	)
 	if response_highway != null:
 		var highway_rect: Rect2 = response_highway.get_global_rect()
 		for panel_path in [
@@ -85,7 +92,7 @@ func _run() -> void:
 		"MeterPanel/Meters/Inspiration/InspirationValue"
 	)
 	_check(
-		"late setup presents the active character's Inspiration and configured floor",
+		"late setup presents the active character's full spendable Inspiration range",
 		{
 			&"minimum": inspiration_bar.min_value if inspiration_bar != null else -1.0,
 			&"maximum": inspiration_bar.max_value if inspiration_bar != null else -1.0,
@@ -93,7 +100,7 @@ func _run() -> void:
 			&"label": inspiration_value.text if inspiration_value != null else "",
 		},
 		{
-			&"minimum": 20.0,
+			&"minimum": 0.0,
 			&"maximum": 100.0,
 			&"value": 50.0,
 			&"label": "LUTHIER INSPIRATION  50 / 100",
@@ -340,6 +347,7 @@ func _run() -> void:
 			&"cadence_changed",
 			&"encounter_state_changed",
 			&"inspiration_changed",
+			&"active_character_changed",
 			&"next_round_transition_changed",
 			&"phrase_event_announced",
 			&"response_target_announced",
@@ -353,6 +361,7 @@ func _run() -> void:
 			&"_on_cadence_changed",
 			&"_on_encounter_state_changed",
 			&"_on_inspiration_changed",
+			&"_on_active_character_changed",
 			&"_on_next_round_transition_changed",
 			&"_on_phrase_event_announced",
 			&"_on_response_target_announced",

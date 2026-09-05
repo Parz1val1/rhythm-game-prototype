@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CombatV1PartyMember" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://combat_v1/party_member.gd" id="1_member"]
+[ext_resource type="Resource" path="res://characters/luthier_profile.tres" id="2_profile"]
+[ext_resource type="Resource" path="res://characters/luthier_solo_style.tres" id="3_style"]
+[ext_resource type="Resource" path="res://combat_v1/skills/bright_motif.tres" id="4_bright"]
+[ext_resource type="Resource" path="res://combat_v1/skills/steadying_harmony.tres" id="5_steady"]
+[ext_resource type="Script" path="res://combat_v1/skill.gd" id="6_skill"]
+
+[resource]
+script = ExtResource("1_member")
+character_id = &"luthier_frett"
+display_name = "Luthier Frett"
+rhythm_language = &"melodic_strings"
+performance_presentation = &"directional_highway"
+input_profile = ExtResource("2_profile")
+presentation_style = ExtResource("3_style")
+skills = Array[ExtResource("6_skill")]([ExtResource("4_bright"), ExtResource("5_steady")])

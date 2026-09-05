@@ -92,21 +92,21 @@ func _run() -> void:
 	)
 	var affordable_spend := false
 	var inspiration_after_spend := -1.0
-	var below_floor_spend := true
+	var crossing_floor_spend := true
 	var negative_spend := true
 	if party_session.has_method("spend_inspiration"):
 		affordable_spend = party_session.spend_inspiration(&"luthier_frett", 15.0)
 		inspiration_after_spend = party_session.get_character_state(
 			&"luthier_frett"
 		)[&"inspiration"]
-		below_floor_spend = party_session.spend_inspiration(&"luthier_frett", 6.0)
+		crossing_floor_spend = party_session.spend_inspiration(&"luthier_frett", 6.0)
 		negative_spend = party_session.spend_inspiration(&"luthier_frett", -1.0)
 	_check(
-		"spending is atomic, honors the configured floor, and never changes another character",
+		"visible Inspiration pays costs atomically without changing another character",
 		{
 			&"accepted": affordable_spend,
 			&"after_spend": inspiration_after_spend,
-			&"below_floor_accepted": below_floor_spend,
+			&"crossing_floor_accepted": crossing_floor_spend,
 			&"negative_accepted": negative_spend,
 			&"after_rejection": party_session.get_character_state(
 				&"luthier_frett"
@@ -118,11 +118,55 @@ func _run() -> void:
 		{
 			&"accepted": true,
 			&"after_spend": 15.0,
-			&"below_floor_accepted": false,
+			&"crossing_floor_accepted": true,
 			&"negative_accepted": false,
-			&"after_rejection": 15.0,
+			&"after_rejection": 9.0,
 			&"other_character": 12.0,
 		}
+	)
+	var beatrice_playtest_session = CombatV1Script.SessionState.new()
+	var beatrice_playtest_config = CombatV1Script.InspirationConfig.new()
+	beatrice_playtest_config.initial_inspiration = 39.0
+	beatrice_playtest_session.register_character(
+		&"beatrice_styx",
+		"Beatrice Styx",
+		beatrice_playtest_config
+	)
+	var syncopated_fill = load("res://combat_v1/skills/syncopated_fill.tres")
+	var syncopated_fill_cost: float = syncopated_fill.inspiration_cost
+	var syncopated_fill_affordable: bool = beatrice_playtest_session.can_afford(
+		&"beatrice_styx",
+		syncopated_fill_cost
+	)
+	var syncopated_fill_spent: bool = beatrice_playtest_session.spend_inspiration(
+		&"beatrice_styx",
+		syncopated_fill_cost
+	)
+	_check(
+		"Beatrice can use Syncopated Fill when her visible Inspiration covers its cost",
+		{
+			&"inspiration": 39.0,
+			&"cost": syncopated_fill_cost,
+			&"affordable": syncopated_fill_affordable,
+			&"spent": syncopated_fill_spent,
+			&"remaining": beatrice_playtest_session.get_character_state(
+				&"beatrice_styx"
+			)[&"inspiration"],
+		},
+		{
+			&"inspiration": 39.0,
+			&"cost": 20.0,
+			&"affordable": true,
+			&"spent": true,
+			&"remaining": 19.0,
+		}
+	)
+	beatrice_playtest_session.spend_inspiration(&"beatrice_styx", 19.0)
+	beatrice_playtest_session.record_performance_grade(&"beatrice_styx", &"good", &"note")
+	_check(
+		"a fully spent balance rebuilds from zero without a hidden floor jump",
+		beatrice_playtest_session.get_character_state(&"beatrice_styx")[&"inspiration"],
+		3.0
 	)
 	var inspiration_updates: Array[float] = []
 	if module.has_signal("inspiration_changed"):
@@ -196,9 +240,10 @@ func _run() -> void:
 		1
 	)
 	unaffordable_module.start()
+	var restored_at_encounter_start: float = unaffordable_module.get_state()[&"inspiration"]
 	for beat_number in range(1, 9):
 		root.get_node("BeatClock").beat.emit(beat_number)
-	for target in unaffordable_module.get_response_presentation()[&"targets"]:
+	for target in unaffordable_module.get_response_presentation()[&"targets"].slice(0, 3):
 		unaffordable_module.submit_response_input(
 			target[&"expected_action"],
 			target[&"due_beat"]
@@ -209,6 +254,7 @@ func _run() -> void:
 	_check(
 		"an unaffordable Skill never commits, spends, or leaves Tactical Vamp",
 		{
+			&"restored_at_encounter_start": restored_at_encounter_start,
 			&"inspiration": unaffordable_module.get_state()[&"inspiration"],
 			&"stronger_affordable": unavailable_choices[1].get(&"affordable", true),
 			&"selected": unavailable_selected,
@@ -220,7 +266,8 @@ func _run() -> void:
 			)[&"inspiration"],
 		},
 		{
-			&"inspiration": 30.0,
+			&"restored_at_encounter_start": 10.0,
+			&"inspiration": 25.0,
 			&"stronger_affordable": false,
 			&"selected": false,
 			&"selected_skill": &"",
@@ -258,8 +305,8 @@ func _run() -> void:
 			&"legacy_limit": legacy_character.limit_break_gauge,
 		},
 		{
-			&"inspiration": 30.0,
-			&"party": {&"luthier_frett": 30.0, &"beatrice_styx": 12.0},
+			&"inspiration": 25.0,
+			&"party": {&"luthier_frett": 25.0, &"beatrice_styx": 12.0},
 			&"groove": 0.0,
 			&"composure": 100.0,
 			&"multiplier": 1.0,
@@ -298,7 +345,7 @@ func _run() -> void:
 				&"min_inspiration": 5.0,
 				&"max_inspiration": 50.0,
 			}],
-			&"luthier": 30.0,
+			&"luthier": 25.0,
 			&"beatrice": 18.0,
 		}
 	)

@@ -66,6 +66,12 @@ const _STABLE_DIRECTION_ACTIONS: Array[StringName] = [
 	&"down",
 	&"left",
 ]
+const _STABLE_PRESENTATION_ACTIONS: Array[StringName] = [
+	&"left",
+	&"down",
+	&"up",
+	&"right",
+]
 const _NEXT_ROUND_COUNT_IN_BEATS := OpponentPhrase.BEATS_PER_BAR
 const _DEFAULT_CHARACTER_ID: StringName = &"luthier_frett"
 const _DEFAULT_CHARACTER_NAME: String = "Luthier Frett"
@@ -94,6 +100,9 @@ signal response_note_graded(result: Dictionary)
 signal response_phrase_graded(summary: Dictionary)
 ## Emitted after Tactical Vamp accepts one authored Skill choice.
 signal skill_selected(skill: Dictionary)
+## Emitted after party cadence activates a different member and synchronizes the
+## member's input, presentation, Skill, and Inspiration identity.
+signal active_character_changed(character_state: Dictionary)
 ## Emitted after an accepted Character Performance action is graded.
 signal character_performance_note_graded(result: Dictionary)
 ## Emitted once after the selected Skill's authored duration and effects resolve.
@@ -121,6 +130,8 @@ signal stopped()
 var _beat_clock: Node = null
 var _rhythm_input: Node = null
 var _opponent: OpponentData = null
+var _party: Array[Resource] = []
+var _active_party_index: int = 0
 var _skills: Array[Skill] = []
 var _selected_skill: Skill = null
 var _character_performance_targets: Array[Dictionary] = []
@@ -161,7 +172,36 @@ func bind_session(session_state: SessionState, character_id: StringName) -> bool
 	if _session_state.inspiration_changed.is_connected(_on_inspiration_changed):
 		_session_state.inspiration_changed.disconnect(_on_inspiration_changed)
 	_session_state = session_state
+	_party.clear()
+	_active_party_index = 0
 	_active_character_id = character_id
+	return true
+
+## Inject encounter-independent progression and an ordered authored party before
+## setup. Party Resources are deep-copied so live selection never mutates templates.
+func bind_party(session_state: SessionState, party_members: Array) -> bool:
+	if _running or session_state == null or party_members.is_empty():
+		return false
+	var live_party: Array[Resource] = []
+	var seen_character_ids: Array[StringName] = []
+	for member_template in party_members:
+		if not member_template is Resource \
+				or not member_template.has_method(&"create_live_copy"):
+			return false
+		var member: Resource = member_template.call(&"create_live_copy")
+		if member.character_id == &"" or member.input_profile == null \
+				or member.character_id in seen_character_ids:
+			return false
+		seen_character_ids.append(member.character_id)
+		live_party.append(member)
+	if _session_state.inspiration_changed.is_connected(_on_inspiration_changed):
+		_session_state.inspiration_changed.disconnect(_on_inspiration_changed)
+	_session_state = session_state
+	_party = live_party
+	_active_party_index = 0
+	_active_character_id = _party[0].character_id
+	for member in _party:
+		_session_state.register_character(member.character_id, member.display_name)
 	return true
 
 ## Bind the module to the existing timing and input infrastructure.
@@ -178,23 +218,18 @@ func setup(
 ) -> void:
 	if _running:
 		teardown()
-	var character_name := _DEFAULT_CHARACTER_NAME if _active_character_id == _DEFAULT_CHARACTER_ID \
-		else String(_active_character_id).capitalize()
-	_session_state.register_character(_active_character_id, character_name)
+	if _party.is_empty():
+		var character_name := _DEFAULT_CHARACTER_NAME if _active_character_id == _DEFAULT_CHARACTER_ID \
+			else String(_active_character_id).capitalize()
+		_session_state.register_character(_active_character_id, character_name)
 	if not _session_state.inspiration_changed.is_connected(_on_inspiration_changed):
 		_session_state.inspiration_changed.connect(_on_inspiration_changed)
 	_beat_clock = beat_clock if beat_clock != null else _find_dependency(&"BeatClock")
 	_rhythm_input = rhythm_input if rhythm_input != null else _find_dependency(&"RhythmInput")
 	var opponent_template: OpponentData = opponent_data if opponent_data != null else DEFAULT_OPPONENT
 	_opponent = opponent_template.duplicate(true) as OpponentData
-	_skills.clear()
-	for skill_template in DEFAULT_SKILLS:
-		_skills.append(skill_template.duplicate(true) as Skill)
 	_selected_skill = null
-	var profile_template: CharacterInputProfile = \
-		response_profile if response_profile != null else DEFAULT_RESPONSE_PROFILE
-	var live_response_profile := profile_template.duplicate(true) as CharacterInputProfile
-	_response_actions = _get_response_actions(live_response_profile)
+	_configure_active_character(response_profile)
 	_response_grader.setup(response_config)
 	_character_performance_grader.setup(response_config)
 	_character_performance_targets.clear()
@@ -228,6 +263,8 @@ func start() -> bool:
 		return false
 	if not _session_state.inspiration_changed.is_connected(_on_inspiration_changed):
 		_session_state.inspiration_changed.connect(_on_inspiration_changed)
+	for character_state in _session_state.get_party_state():
+		_session_state.restore_encounter_floor(character_state[&"character_id"])
 	_running = true
 	_beats_in_cadence = 0
 	_last_intent = -1
@@ -438,6 +475,7 @@ func apply_performance_result(
 func get_state() -> Dictionary:
 	var state: Dictionary = _encounter_state.get_state()
 	var character_state: Dictionary = _session_state.get_character_state(_active_character_id)
+	var active_member := _get_active_party_member()
 	var opponent_id: StringName = &""
 	var opponent_name := ""
 	var phrase_id: StringName = &""
@@ -457,6 +495,22 @@ func get_state() -> Dictionary:
 		&"min_inspiration": character_state.get(&"min_inspiration", 0.0),
 		&"max_inspiration": character_state.get(&"max_inspiration", 0.0),
 		&"party_inspiration": _session_state.get_party_state(),
+		&"party_order": _get_party_order_state(),
+		&"active_party_index": _active_party_index,
+		&"rhythm_language": active_member.rhythm_language if active_member != null else &"melodic_strings",
+		&"performance_presentation": active_member.performance_presentation \
+			if active_member != null else &"directional_highway",
+		&"instrument_name": active_member.presentation_style.instrument_name \
+			if active_member != null and active_member.presentation_style != null else "Lute",
+		&"audio_bus": StringName(active_member.presentation_style.audio_bus) \
+			if active_member != null and active_member.presentation_style != null else &"Strings",
+		&"accent_color": active_member.presentation_style.accent_color \
+			if active_member != null and active_member.presentation_style != null else Color("f6c85f"),
+		&"lane_order": _get_active_lane_order(),
+		&"scoring_mode": active_member.input_profile.scoring_mode \
+			if active_member != null and active_member.input_profile != null else &"pitch",
+		&"evaluator_id": active_member.input_profile.get_performance_evaluator_id() \
+			if active_member != null and active_member.input_profile != null else &"luthier_pitch",
 		&"cadence": _cadence,
 		&"cadence_name": get_cadence_name(),
 		&"beat_count": _beats_in_cadence,
@@ -477,6 +531,60 @@ func get_state() -> Dictionary:
 		&"selected_skill_id": _selected_skill.skill_id if _selected_skill != null else &"",
 	})
 	return state
+
+func _configure_active_character(response_profile_override: CharacterInputProfile = null) -> void:
+	_skills.clear()
+	var profile_template: CharacterInputProfile = response_profile_override
+	var active_member := _get_active_party_member()
+	if active_member != null:
+		_active_character_id = active_member.character_id
+		for skill_template in active_member.skills:
+			_skills.append(skill_template.duplicate(true) as Skill)
+		if profile_template == null:
+			profile_template = active_member.input_profile
+	else:
+		for skill_template in DEFAULT_SKILLS:
+			_skills.append(skill_template.duplicate(true) as Skill)
+	if profile_template == null:
+		profile_template = DEFAULT_RESPONSE_PROFILE
+	var live_response_profile := profile_template.duplicate(true) as CharacterInputProfile
+	_response_actions = _get_response_actions(live_response_profile)
+	if _rhythm_input != null and _rhythm_input.has_method(&"clear_notes"):
+		_rhythm_input.call(&"clear_notes")
+	if _rhythm_input != null and _rhythm_input.has_method(&"set_active_profile"):
+		_rhythm_input.call(&"set_active_profile", live_response_profile)
+
+func _get_active_party_member() -> Resource:
+	if _active_party_index < 0 or _active_party_index >= _party.size():
+		return null
+	return _party[_active_party_index]
+
+func _get_party_order_state() -> Array[Dictionary]:
+	var party_order: Array[Dictionary] = []
+	for member in _party:
+		party_order.append({
+			&"character_id": member.character_id,
+			&"character_name": member.display_name,
+			&"rhythm_language": member.rhythm_language,
+			&"performance_presentation": member.performance_presentation,
+			&"instrument_name": member.presentation_style.instrument_name \
+				if member.presentation_style != null else "Instrument",
+		})
+	return party_order
+
+func _get_active_lane_order() -> Array[StringName]:
+	var lane_order: Array[StringName] = []
+	for stable_action in _STABLE_PRESENTATION_ACTIONS:
+		if stable_action in _response_actions:
+			lane_order.append(stable_action)
+	var remaining_actions: Array[String] = []
+	for action in _response_actions:
+		if action not in lane_order:
+			remaining_actions.append(String(action))
+	remaining_actions.sort()
+	for action in remaining_actions:
+		lane_order.append(StringName(action))
+	return lane_order
 
 func _get_next_round_transition_state() -> Dictionary:
 	return {
@@ -517,6 +625,8 @@ func get_response_presentation() -> Dictionary:
 		&"timeline_duration_beats": _response_schedule_handoff_beats \
 			+ _response_schedule_lead_beats + phrase_duration_beats,
 		&"round_id": _response_round_id,
+		&"lane_order": _get_active_lane_order(),
+		&"presentation_style": get_state()[&"performance_presentation"],
 		&"targets": presentation_targets,
 	}
 
@@ -544,6 +654,8 @@ func get_character_performance_presentation() -> Dictionary:
 			if _selected_skill != null else 0,
 		&"performance_id": _character_performance_id,
 		&"round_id": _character_performance_id,
+		&"lane_order": _get_active_lane_order(),
+		&"presentation_style": get_state()[&"performance_presentation"],
 		&"targets": presentation_targets,
 	}
 
@@ -558,14 +670,18 @@ func get_cadence_name() -> StringName:
 func is_running() -> bool:
 	return _running
 
-## Disconnect only this module's listeners and restore the prior shared scoring
-## state without changing the active input profile. Safe to call repeatedly and
-## also called from _exit_tree().
+## Disconnect only this module's listeners, clear its live notes/profile, and
+## restore the prior shared scoring state. Safe to call repeatedly and also called
+## from _exit_tree().
 func teardown() -> void:
 	_disconnect_dependencies()
 	if _session_state.inspiration_changed.is_connected(_on_inspiration_changed):
 		_session_state.inspiration_changed.disconnect(_on_inspiration_changed)
 	_restore_scoring_state()
+	if _rhythm_input != null and _rhythm_input.has_method(&"clear_notes"):
+		_rhythm_input.call(&"clear_notes")
+	if _rhythm_input != null and _rhythm_input.has_method(&"clear_profile"):
+		_rhythm_input.call(&"clear_profile")
 	if not _running:
 		return
 	_running = false
@@ -610,6 +726,15 @@ func _on_beat(_beat_number: int) -> void:
 			_beats_in_cadence += 1
 			return
 		_selected_skill = null
+		_character_performance_targets.clear()
+		if not _party.is_empty():
+			_active_party_index = 0
+			_configure_active_character()
+			DebugLog.combat("[PARTY  ] active=%s  order=1/%d  cycle=reset" % [
+				_active_character_id,
+				_party.size(),
+			])
+			active_character_changed.emit(get_state())
 		_prepare_response_targets()
 		_set_cadence(Cadence.ENEMY_PHRASE)
 		_announce_phrase_events_at(0.0)
@@ -814,7 +939,20 @@ func _complete_character_performance() -> Dictionary:
 		_last_character_performance_summary.duplicate(true)
 	)
 	if not bool(_encounter_state.get_state()[&"terminal"]):
-		_set_cadence(Cadence.FULL_BAND_VAMP)
+		if not _party.is_empty() and _active_party_index + 1 < _party.size():
+			_selected_skill = null
+			_character_performance_targets.clear()
+			_active_party_index += 1
+			_configure_active_character()
+			DebugLog.combat("[PARTY  ] active=%s  order=%d/%d" % [
+				_active_character_id,
+				_active_party_index + 1,
+				_party.size(),
+			])
+			active_character_changed.emit(get_state())
+			_set_cadence(Cadence.TACTICAL_VAMP)
+		else:
+			_set_cadence(Cadence.FULL_BAND_VAMP)
 	return _last_character_performance_summary.duplicate(true)
 
 func _complete_response() -> Dictionary:

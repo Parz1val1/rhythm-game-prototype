@@ -200,6 +200,16 @@ func _run() -> void:
 		true
 	)
 	_check(
+		"the highway owns one active-character connection",
+		_is_connected(
+			module,
+			&"active_character_changed",
+			highway,
+			&"_on_active_character_changed"
+		),
+		true
+	)
+	_check(
 		"the highway owns one grade connection",
 		_is_connected(module, &"response_note_graded", highway, &"_on_response_note_graded"),
 		true
@@ -221,6 +231,16 @@ func _run() -> void:
 	_check(
 		"guarded teardown disconnects the cadence signal",
 		_is_connected(module, &"cadence_changed", highway, &"_on_cadence_changed"),
+		false
+	)
+	_check(
+		"guarded teardown disconnects the active-character signal",
+		_is_connected(
+			module,
+			&"active_character_changed",
+			highway,
+			&"_on_active_character_changed"
+		),
 		false
 	)
 	_check(
@@ -266,6 +286,65 @@ func _run() -> void:
 	four_lane_module.teardown()
 	four_lane_highway.free()
 	four_lane_module.free()
+
+	beat_clock.stop()
+	beat_clock.beat_position = 0.0
+	var beatrice_module = CombatV1Script.new()
+	root.add_child(beatrice_module)
+	var beatrice_session = CombatV1Script.SessionState.new()
+	beatrice_module.bind_party(
+		beatrice_session,
+		[load("res://combat_v1/party/beatrice_styx.tres")]
+	)
+	beatrice_module.setup(
+		beat_clock,
+		root.get_node("RhythmInput"),
+		load("res://combat_v1/opponents/drum_golem.tres"),
+		1
+	)
+	beatrice_module.start()
+	var beatrice_highway = load(highway_path).instantiate()
+	root.add_child(beatrice_highway)
+	beatrice_highway.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	beatrice_highway.size = Vector2(640.0, 300.0)
+	beatrice_highway.setup(beatrice_module)
+	var beatrice_beat_number := 40
+	while beatrice_module.get_cadence() != CombatV1Script.Cadence.RESPONSE \
+			and beatrice_beat_number < 64:
+		beat_clock.beat.emit(beatrice_beat_number)
+		beatrice_beat_number += 1
+	for beat_advance in range(4):
+		beat_clock.beat.emit(beatrice_beat_number + beat_advance)
+	await process_frame
+	var beatrice_snapshot: Dictionary = beatrice_highway.get_presentation_snapshot()
+	var beatrice_cue_due_beats := {
+		&"active": [],
+		&"preview": [],
+	}
+	for target in beatrice_snapshot[&"targets"]:
+		var cue_role: StringName = target[&"cue_role"]
+		if beatrice_cue_due_beats.has(cue_role):
+			beatrice_cue_due_beats[cue_role].append(target[&"due_beat"])
+	_check(
+		"Beatrice's focused cues remain aligned to scoreable due beats after the handoff",
+		{
+			&"current_action": beatrice_snapshot[&"beat_strip"][&"current_action"],
+			&"next_action": beatrice_snapshot[&"beat_strip"][&"next_action"],
+			&"due_beats": beatrice_cue_due_beats,
+		},
+		{
+			&"current_action": &"drum_left",
+			&"next_action": &"drum_right",
+			&"due_beats": {
+				&"active": [6.0],
+				&"preview": [6.75],
+			},
+		}
+	)
+	beatrice_highway.teardown()
+	beatrice_module.teardown()
+	beatrice_highway.free()
+	beatrice_module.free()
 	print("=== done ===")
 
 func _check(label: String, got, expected) -> void:
