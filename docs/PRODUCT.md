@@ -64,6 +64,9 @@ before investing in overworld, story, and production content.
 - Initial standardized controller bindings: Luthier supports D-pad and positional
   face-button directions, while Beatrice supports left/right triggers. Remapping,
   glyph adaptation, and calibration are not implemented.
+- An isolated Combat V1 harness that runs fixed-order Luthier and Beatrice
+  Character Performances in one continuous encounter, with separate Skills,
+  Inspiration, instrument feedback, and rhythm-language presentation.
 
 See the [V1 reconciliation ledger](combat/reconciliation-v1.md) for the exact
 current/target gap and reusable foundations.
@@ -72,17 +75,18 @@ current/target gap and reusable foundations.
 
 - The Combat System v1 cadence, Groove, Composure, shared Multiplier,
   character-specific Inspiration, skills, and musical preferences.
-- Multi-character party performances, evolving arrangement feedback, input/audio
-  calibration, controller remapping and glyph adaptation, and real instrument
-  samples.
+- Runtime party reordering/availability, evolving arrangement feedback,
+  input/audio calibration, controller remapping and glyph adaptation, and real
+  instrument samples.
 - A vertical slice with beat-locked music stems, overworld exploration, a dungeon,
   musical puzzles, a boss encounter, world state, and save/load.
 
 ### Explicitly outside the current prototype
 
 - A complete overworld, story campaign, production art/audio pass, or shipping UI.
-- Multi-character party orchestration in the current implementation. Combat
-  System v1 requires it eventually, but current play uses one active character.
+- Final party ordering/cadence, runtime substitutions, Duets, or simultaneous
+  multi-character input. The current V1 harness only prototypes fixed sequential
+  performances.
 - Online play, accounts, authentication, telemetry, or cloud persistence.
 
 See [ROADMAP.md](ROADMAP.md) for ordering and [ARCHITECTURE.md](ARCHITECTURE.md)

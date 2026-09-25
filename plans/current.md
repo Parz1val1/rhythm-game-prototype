@@ -16,8 +16,13 @@ The playtest's vertical-navigation/controller-A correction is in place.
 [#17](https://github.com/Parz1val1/rhythm-game-prototype/issues/17) extends that
 slice with session-owned per-character Inspiration, provisional grade-based
 circulation, atomic floor-protected Skill costs, encounter persistence, and
-diagnostic presentation. Later Phase B slices must revisit party ordering and the
-full-game performance count. Keep the legacy
+diagnostic presentation.
+[#18](https://github.com/Parz1val1/rhythm-game-prototype/issues/18) now prototypes
+fixed authored Luthier-to-Beatrice order, one Character Performance per configured
+member, distinct four-input and two-input presentation/audio languages, and one
+Full-Band Vamp after both members. Human playtesting must evaluate that order,
+count-in pacing, and performance count before any canonical cadence decision.
+Keep the legacy
 prototype runnable while the V1 replacement gate remains open. Preserve the
 count-in presentation cleanup already merged through
 [#42](https://github.com/Parz1val1/rhythm-game-prototype/issues/42). The Enemy

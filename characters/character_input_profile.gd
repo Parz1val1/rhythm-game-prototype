@@ -39,6 +39,11 @@ extends Resource
 ## Matched by name in CombatScene._create_evaluator().
 @export var attack_evaluator: StringName = &"passthrough"
 
+## Neutral accessor used by cadence-owned systems that do not inherit the legacy
+## Attack/Defend phase vocabulary retained by the current CombatScene.
+func get_performance_evaluator_id() -> StringName:
+	return attack_evaluator
+
 ## How the DEFEND phase interprets incoming notes.
 ## &"directional" — arrow-matching (current default).
 ## &"percussive"  — timing-only (Beatrice's path).

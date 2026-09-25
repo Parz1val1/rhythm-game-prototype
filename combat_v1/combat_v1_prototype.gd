@@ -8,6 +8,12 @@ const OpponentData = preload("res://combat_v1/opponent_data.gd")
 const PhraseEvent = preload("res://combat_v1/phrase_event.gd")
 const CombatV1HUD = preload("res://combat_v1/combat_v1_hud.gd")
 const ResponsePerformanceFeedback = preload("res://combat_v1/response_performance_feedback.gd")
+const PartyMember = preload("res://combat_v1/party_member.gd")
+
+const DEFAULT_PARTY: Array[PartyMember] = [
+	preload("res://combat_v1/party/luthier_frett.tres"),
+	preload("res://combat_v1/party/beatrice_styx.tres"),
+]
 
 const PLAYTEST_TRACK_NAMES: Array[String] = [
 	"Campfire Strings",
@@ -107,8 +113,9 @@ func _ready() -> void:
 	add_child(_combat_v1)
 	_combat_v1.response_handoff_beats = response_handoff_beats
 	_combat_v1.response_visual_lead_beats = response_visual_lead_beats
-	_combat_v1.bind_session(_session_state, &"luthier_frett")
+	_combat_v1.bind_party(_session_state, DEFAULT_PARTY)
 	_combat_v1.setup(BeatClock, RhythmInput, opponent, settle_bars)
+	_combat_v1.active_character_changed.connect(_on_active_character_changed)
 	_combat_v1.phrase_event_announced.connect(_on_phrase_event_announced)
 	_combat_v1.response_phrase_graded.connect(_on_response_phrase_graded)
 	_combat_v1.start()
@@ -203,6 +210,10 @@ func _on_response_phrase_graded(summary: Dictionary) -> void:
 	DebugLog.combat("[SUMMARY] grade=%s  average=%.2f  broken=%s" % [
 		summary[&"grade_name"], summary[&"average_score"], summary[&"broken"]])
 
+func _on_active_character_changed(_character_state: Dictionary) -> void:
+	_selected_skill_index = 0
+	_hud.show_skill_choices(_combat_v1.get_skill_choices(), _selected_skill_index)
+
 func _configure_loop(stream: AudioStream) -> void:
 	if not stream is AudioStreamWAV:
 		return
@@ -216,6 +227,8 @@ func teardown() -> void:
 	_hud.teardown()
 	_response_feedback.teardown()
 	if _combat_v1 != null:
+		if _combat_v1.active_character_changed.is_connected(_on_active_character_changed):
+			_combat_v1.active_character_changed.disconnect(_on_active_character_changed)
 		if _combat_v1.phrase_event_announced.is_connected(_on_phrase_event_announced):
 			_combat_v1.phrase_event_announced.disconnect(_on_phrase_event_announced)
 		if _combat_v1.response_phrase_graded.is_connected(_on_response_phrase_graded):

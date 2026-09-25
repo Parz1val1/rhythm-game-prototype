@@ -18,6 +18,8 @@ Use these sources according to the question being answered:
    [Skill and Character Performance prototype](skill-performance-prototype.md)
 7. **Issue #17 Inspiration ownership, provisional rates, and Skill costs** →
    [Inspiration prototype](inspiration-prototype.md)
+8. **Issue #18 party order, active-character handoffs, and rhythm-language evidence** →
+   [Party Character Performance prototype](party-performance-prototype.md)
 
 When current behavior conflicts with Combat System v1, preserve the distinction:
 the specification defines the target, while architecture, code, and legacy tests

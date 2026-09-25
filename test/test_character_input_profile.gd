@@ -27,6 +27,7 @@ func _run() -> void:
 	_check("chord_window_ms default 30",    is_equal_approx(p.chord_window_ms, 30.0), true)
 	_check("scoring_mode default",          p.scoring_mode == &"rhythm",              true)
 	_check("attack_evaluator default",      p.attack_evaluator == &"passthrough",     true)
+	_check("neutral evaluator accessor",    p.get_performance_evaluator_id() == &"passthrough", true)
 	_check("defense_pattern_type default",  p.defense_pattern_type == &"directional", true)
 
 	# input_map stores action → alias pairs with StringName keys and values

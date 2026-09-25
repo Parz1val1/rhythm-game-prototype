@@ -6,11 +6,12 @@ provisional and should respond to playtest evidence.
 
 ## Now
 
-### C2 — Skills and character performances
+### C2 — Skills and party character performances
 
 Tracking: [Combat V1 epic #8](https://github.com/Parz1val1/rhythm-game-prototype/issues/8),
 including [issue #16](https://github.com/Parz1val1/rhythm-game-prototype/issues/16)
-and [issue #17](https://github.com/Parz1val1/rhythm-game-prototype/issues/17).
+[issue #17](https://github.com/Parz1val1/rhythm-game-prototype/issues/17), and
+[issue #18](https://github.com/Parz1val1/rhythm-game-prototype/issues/18).
 
 The human playtest gate in
 [#15](https://github.com/Parz1val1/rhythm-game-prototype/issues/15) approved the
@@ -18,13 +19,15 @@ core conversation cadence and unblocked Phase B. Issue #16 then established two
 authored Luthier Skills, configurable multi-bar Character Performances, a
 single-performance prototype exchange, and a passing hands-on comparison. Issue
 #17 adds independent in-memory character Inspiration, configurable circulation
-and floors, authored Skill costs, and fresh-encounter persistence. Continue
-validating the smallest useful Skill/performance model:
+and floors, authored Skill costs, and fresh-encounter persistence. Issue #18 adds
+fixed-order Luthier and Beatrice performances, synchronized rhythm/instrument
+identity, and a provisional two-performance exchange pending human playtesting.
+Continue validating the smallest useful Skill/performance model:
 
 - Extend the minimal Skill/effect seam without coupling new tactical behavior to
   the combat orchestrator.
-- Continue testing multi-bar performance duration and the pacing between Tactical
-  Vamps, active play, and later party-performance ordering.
+- Playtest the fixed Luthier-to-Beatrice order, a full count-in per member, and two
+  Character Performances before Full-Band Vamp without treating them as final.
 - Tune provisional Inspiration circulation through ordinary performance without
   turning session persistence into durable saves or equating it with Finale/Limit.
 - Preserve distinct Luthier and Beatrice interaction languages.
@@ -38,12 +41,12 @@ validating the smallest useful Skill/performance model:
 
 ## Next
 
-### C3 — Party tactics and opponent preferences
+### C3 — Opponent preferences and party tactics
 
-- Add multiple character performance opportunities to the cadence.
 - Test the working Rhythm, Melody, and Harmony contributions against discoverable
   opponent preferences.
-- Validate that support choices keep every party member useful.
+- Validate that support choices keep every party member useful, then revisit
+  runtime party ordering and availability with playtest evidence.
 
 ### C4 — Arrangement as feedback and reward
 

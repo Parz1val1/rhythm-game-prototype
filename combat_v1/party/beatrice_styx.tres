@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CombatV1PartyMember" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://combat_v1/party_member.gd" id="1_member"]
+[ext_resource type="Resource" path="res://characters/beatrice_profile.tres" id="2_profile"]
+[ext_resource type="Resource" path="res://characters/beatrice_solo_style.tres" id="3_style"]
+[ext_resource type="Resource" path="res://combat_v1/skills/driving_backbeat.tres" id="4_backbeat"]
+[ext_resource type="Resource" path="res://combat_v1/skills/syncopated_fill.tres" id="5_fill"]
+[ext_resource type="Script" path="res://combat_v1/skill.gd" id="6_skill"]
+
+[resource]
+script = ExtResource("1_member")
+character_id = &"beatrice_styx"
+display_name = "Beatrice Styx"
+rhythm_language = &"percussive_drums"
+performance_presentation = &"percussion_pulse"
+input_profile = ExtResource("2_profile")
+presentation_style = ExtResource("3_style")
+skills = Array[ExtResource("6_skill")]([ExtResource("4_backbeat"), ExtResource("5_fill")])
