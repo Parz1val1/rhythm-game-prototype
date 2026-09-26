@@ -277,6 +277,54 @@ theme_override_font_sizes/font_size = 12
 text = "VISUAL CUES MIRROR THE PLACEHOLDER AUDIO"
 autowrap_mode = 2
 
+[node name="PreferencePanel" type="Panel" parent="."]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 286.0
+offset_right = 300.0
+offset_bottom = 440.0
+theme_override_styles/panel = SubResource("StyleFeedback")
+
+[node name="Header" type="Label" parent="PreferencePanel"]
+layout_mode = 0
+offset_left = 18.0
+offset_top = 12.0
+offset_right = 246.0
+offset_bottom = 32.0
+theme_override_colors/font_color = Color(0.55, 0.68, 0.82, 1)
+theme_override_font_sizes/font_size = 13
+text = "OPPONENT PREFERENCES"
+
+[node name="OpponentLabel" type="Label" parent="PreferencePanel"]
+layout_mode = 0
+offset_left = 18.0
+offset_top = 34.0
+offset_right = 246.0
+offset_bottom = 56.0
+theme_override_colors/font_color = Color(0.93, 0.98, 1, 1)
+theme_override_font_sizes/font_size = 15
+text = "DRUM GOLEM"
+
+[node name="KnowledgeLabel" type="Label" parent="PreferencePanel"]
+layout_mode = 0
+offset_left = 18.0
+offset_top = 60.0
+offset_right = 246.0
+offset_bottom = 116.0
+theme_override_colors/font_color = Color(0.66, 0.8, 0.94, 1)
+theme_override_font_sizes/font_size = 12
+text = "RHYTHM  UNKNOWN\nMELODY  UNKNOWN\nHARMONY  UNKNOWN"
+
+[node name="LastResponseLabel" type="Label" parent="PreferencePanel"]
+layout_mode = 0
+offset_left = 18.0
+offset_top = 122.0
+offset_right = 246.0
+offset_bottom = 144.0
+theme_override_colors/font_color = Color(0.96, 0.72, 0.36, 1)
+theme_override_font_sizes/font_size = 12
+text = "LAST SKILL RESPONSE  —"
+
 [node name="FeedbackPanel" type="Panel" parent="."]
 layout_mode = 0
 offset_left = 844.0

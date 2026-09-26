@@ -4,5 +4,9 @@
 class_name CombatV1SkillEffect
 extends Resource
 
-func apply(_encounter_state: RefCounted, _execution: int) -> bool:
+func apply(
+	_encounter_state: RefCounted,
+	_execution: int,
+	_groove_effectiveness: float = 1.0
+) -> bool:
 	return false

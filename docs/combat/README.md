@@ -20,6 +20,8 @@ Use these sources according to the question being answered:
    [Inspiration prototype](inspiration-prototype.md)
 8. **Issue #18 party order, active-character handoffs, and rhythm-language evidence** →
    [Party Character Performance prototype](party-performance-prototype.md)
+9. **Issue #19 contribution weights, discovery, and party usefulness evidence** →
+   [Musical Contributions and Opponent Preferences prototype](musical-preference-prototype.md)
 
 When current behavior conflicts with Combat System v1, preserve the distinction:
 the specification defines the target, while architecture, code, and legacy tests

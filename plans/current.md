@@ -22,6 +22,12 @@ fixed authored Luthier-to-Beatrice order, one Character Performance per configur
 member, distinct four-input and two-input presentation/audio languages, and one
 Full-Band Vamp after both members. Human playtesting must evaluate that order,
 count-in pacing, and performance count before any canonical cadence decision.
+[Issue #19](https://github.com/Parz1val1/rhythm-game-prototype/issues/19) now
+prototypes multi-category Skills, differentiated Drum Golem preferences,
+encounter-local Weak/Neutral/Strong discovery, preference-scaled Groove that does
+not penalize correct execution, and support choices for both party members. Its
+human playtest must decide whether the working Rhythm/Melody/Harmony taxonomy and
+discovery presentation advance or reopen.
 Keep the legacy
 prototype runnable while the V1 replacement gate remains open. Preserve the
 count-in presentation cleanup already merged through

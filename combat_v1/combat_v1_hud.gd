@@ -22,6 +22,9 @@ const ResponseNoteHighway = preload("res://combat_v1/response_note_highway.gd")
 @onready var _cue_mode_label: Label = $CuePanel/CueModeLabel
 @onready var _cue_label: Label = $CuePanel/CueLabel
 @onready var _cue_detail_label: Label = $CuePanel/CueDetailLabel
+@onready var _preference_opponent_label: Label = $PreferencePanel/OpponentLabel
+@onready var _preference_knowledge_label: Label = $PreferencePanel/KnowledgeLabel
+@onready var _preference_last_response_label: Label = $PreferencePanel/LastResponseLabel
 @onready var _outcome_panel: Panel = $OutcomePanel
 @onready var _outcome_title: Label = $OutcomePanel/OutcomeTitle
 @onready var _outcome_body: Label = $OutcomePanel/OutcomeBody
@@ -241,8 +244,12 @@ func _sync_from_module() -> void:
 		var outcome: CombatV1.Outcome = state[&"outcome"]
 		_show_outcome(outcome)
 	var response_summary: Dictionary = state[&"response_summary"]
-	if not response_summary.is_empty():
+	var character_performance_summary: Dictionary = state[&"character_performance_summary"]
+	if not character_performance_summary.is_empty():
+		_on_response_phrase_graded(character_performance_summary)
+	elif not response_summary.is_empty():
 		_on_response_phrase_graded(response_summary)
+	_sync_preferences(state)
 
 	_groove_bar.min_value = 0.0
 	_groove_bar.max_value = float(state[&"max_groove"])
@@ -269,6 +276,22 @@ func _sync_from_module() -> void:
 		_format_number(state[&"max_inspiration"]),
 	]
 
+func _sync_preferences(state: Dictionary) -> void:
+	_preference_opponent_label.text = String(state.get(&"opponent_name", "Opponent")).to_upper()
+	var knowledge: Dictionary = state.get(&"opponent_preference_knowledge", {})
+	var lines: Array[String] = []
+	for contribution in [&"Rhythm", &"Melody", &"Harmony"]:
+		lines.append("%s  %s" % [
+			String(contribution).to_upper(),
+			String(knowledge.get(contribution, &"unknown")).to_upper(),
+		])
+	_preference_knowledge_label.text = "\n".join(lines)
+	var summary: Dictionary = state.get(&"character_performance_summary", {})
+	var preference_label: StringName = summary.get(&"preference_label", &"")
+	_preference_last_response_label.text = "LAST SKILL RESPONSE  %s" % (
+		String(preference_label).to_upper() if preference_label != &"" else "—"
+	)
+
 func _sync_skill_panel(state: Dictionary) -> void:
 	_skill_panel.visible = state[&"cadence"] == CombatV1.Cadence.TACTICAL_VAMP \
 		and state.get(&"selected_skill_id", &"") == &""
@@ -284,10 +307,14 @@ func _render_skill_choices() -> void:
 		var choice: Dictionary = _skill_choices[choice_index]
 		var selection_marker := "> " if choice_index == _skill_selection_index else "  "
 		var affordable: bool = choice.get(&"affordable", true)
+		var contribution_names: Array[String] = []
+		for contribution in choice.get(&"musical_contributions", []):
+			contribution_names.append(String(contribution).to_upper())
+		var contribution_text := " + ".join(contribution_names)
 		label.text = "%s%s  ·  %s  ·  %d BARS\n%s\nEffect: %s\nCost: %s INSPIRATION%s" % [
 			selection_marker,
 			String(choice[&"display_name"]).to_upper(),
-			String(choice[&"musical_contribution"]).to_upper(),
+			contribution_text,
 			int(choice[&"bar_count"]),
 			choice[&"interaction_summary"],
 			choice[&"effect_summary"],

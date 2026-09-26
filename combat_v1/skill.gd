@@ -8,7 +8,8 @@ const BEATS_PER_BAR: int = 4
 
 @export var skill_id: StringName = &""
 @export var display_name: String = ""
-@export var musical_contribution: StringName = &""
+## One or more musical roles used to resolve opponent preference.
+@export var musical_contributions: Array[StringName] = []
 @export var interaction_summary: String = ""
 @export var effect_summary: String = ""
 @export_range(0.0, 1000.0, 1.0) var inspiration_cost: float = 0.0
@@ -18,3 +19,6 @@ const BEATS_PER_BAR: int = 4
 
 func get_duration_beats() -> int:
 	return bar_count * BEATS_PER_BAR
+
+func get_musical_contributions() -> Array[StringName]:
+	return musical_contributions.duplicate()

@@ -136,7 +136,7 @@ func _run() -> void:
 		beat_clock.beat.emit(beat_number)
 	var completed_state: Dictionary = module.get_state()
 	_check(
-		"Bright Motif completes at its authored duration and contributes Groove",
+		"Bright Motif completes at its authored duration and earns preferred Melody Groove",
 		{
 			&"cadence": completed_state[&"cadence"],
 			&"groove": completed_state[&"groove"],
@@ -156,7 +156,7 @@ func _run() -> void:
 		},
 		{
 			&"cadence": CombatV1Script.Cadence.FULL_BAND_VAMP,
-			&"groove": 25.0,
+			&"groove": 32.5,
 			&"multiplier": 2.0,
 			&"summary_skill": &"bright_motif",
 			&"summary_grade": &"perfect",

@@ -218,16 +218,17 @@ position.
 **Status:** Accepted for the Combat V1 prototype
 
 **Decision:** Represent each Combat V1 Skill as a deep-copied Resource that owns
-its player-facing metadata, bar count, timed interaction events, and ordered effect
-Resources. `CombatV1` grades the shared Character Performance schedule and invokes
-each effect through `apply(encounter_state, execution)`. Concrete effect Resources
+its player-facing metadata, contribution array, bar count, timed interaction events,
+and ordered effect Resources. `CombatV1` grades the shared Character Performance
+schedule and invokes each effect through `apply(encounter_state, execution,
+groove_effectiveness)`. Concrete effect Resources
 adapt execution to encounter-state operations; the orchestrator does not branch on
 Skill IDs or concrete effect types.
 
 **Context:** Issue #16 needs two Skills with different multi-bar interactions and
 tactical outcomes, while later Skills must be addable without editing the central
 cadence for every effect. The final full-game skill schema, party order, loadouts,
-opponent preferences, and effect targeting are still unresolved.
+preference balance/taxonomy, and effect targeting are still unresolved.
 
 **Rationale:** Authored schedules keep physical interaction beside the Skill that
 defines it. A narrow effect interface makes the module deeper: the cadence owns
@@ -274,3 +275,32 @@ reserve. The issue #18 harness now switches two independently
 owned balances in fixed authored order; final party ordering, availability,
 cross-character effects, durable saves, final rates, and any separate Finale/Limit
 resource remain unresolved or out of scope.
+
+## ADR-013 — Resolve musical preference independently from execution
+
+**Status:** Accepted for the Combat V1 issue #19 prototype
+
+**Decision:** Author one-or-more contribution categories on each Skill and
+non-negative contribution weights on each V1 opponent. Before applying Skill
+effects, `CombatV1` averages the selected Skill's authored weights, records the
+attempted categories as encounter-local qualitative discovery, and supplies that
+continuous Groove-effectiveness scale to effect adapters. Execution remains the
+only input that changes Composure and execution-driven Multiplier behavior.
+
+**Context:** Issue #19 needs differentiated opponent preferences and discovery
+without making a perfectly played but tactically weak choice look like execution
+failure. The existing encounter state already separated execution from a binary
+tactical-effectiveness input, but binary values could not express authored weak,
+neutral, strong, or hybrid contribution weights.
+
+**Rationale:** Resolving preference once in the cadence keeps opponent and Skill
+authoring out of the deterministic state module. Passing only the resolved scale
+keeps effect adapters independent of opponent identity, while the state module
+continues to own Multiplier-adjusted Groove and execution consequences.
+
+**Consequences:** Multi-contribution averaging, the `0.75`/`1.25` qualitative
+thresholds, encounter-only discovery, and the Drum Golem's `0.5/1.0/1.5` weights
+are provisional playtest choices. Missing opponent weights are neutral. Loaded
+Skill and opponent Resources remain templates and must be deep-copied. Persistent
+knowledge, dynamic preferences, a final taxonomy, and broad opponent content are
+still unresolved.

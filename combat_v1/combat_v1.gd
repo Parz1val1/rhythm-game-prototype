@@ -75,6 +75,13 @@ const _STABLE_PRESENTATION_ACTIONS: Array[StringName] = [
 const _NEXT_ROUND_COUNT_IN_BEATS := OpponentPhrase.BEATS_PER_BAR
 const _DEFAULT_CHARACTER_ID: StringName = &"luthier_frett"
 const _DEFAULT_CHARACTER_NAME: String = "Luthier Frett"
+const _WORKING_MUSICAL_CONTRIBUTIONS: Array[StringName] = [
+	&"Rhythm",
+	&"Melody",
+	&"Harmony",
+]
+const _WEAK_PREFERENCE_MAX := 0.75
+const _STRONG_PREFERENCE_MIN := 1.25
 
 ## Emitted whenever the observable cadence changes. The payload is a typed Cadence value;
 ## use get_cadence_name() when a display label is needed.
@@ -139,6 +146,7 @@ var _character_performance_id: int = 0
 var _character_performance_timeline_origin_beats: float = 0.0
 var _character_performance_grader = ResponseGrader.new()
 var _last_character_performance_summary: Dictionary = {}
+var _discovered_preferences: Dictionary[StringName, StringName] = {}
 var _response_actions: Array[StringName] = []
 var _response_targets: Array[Dictionary] = []
 var _response_round_id: int = 0
@@ -236,6 +244,7 @@ func setup(
 	_character_performance_id = 0
 	_character_performance_timeline_origin_beats = 0.0
 	_last_character_performance_summary.clear()
+	_discovered_preferences.clear()
 	_last_response_summary.clear()
 	_response_round_id = 0
 	_response_timeline_origin_beats = 0.0
@@ -326,10 +335,11 @@ func player_intent(intent: Intent) -> bool:
 func get_skill_choices() -> Array[Dictionary]:
 	var choices: Array[Dictionary] = []
 	for skill in _skills:
+		var musical_contributions := skill.get_musical_contributions()
 		choices.append({
 			&"skill_id": skill.skill_id,
 			&"display_name": skill.display_name,
-			&"musical_contribution": skill.musical_contribution,
+			&"musical_contributions": musical_contributions,
 			&"interaction_summary": skill.interaction_summary,
 			&"effect_summary": skill.effect_summary,
 			&"inspiration_cost": skill.inspiration_cost,
@@ -365,7 +375,7 @@ func select_skill(skill_id: StringName) -> bool:
 		skill_selected.emit({
 			&"skill_id": _selected_skill.skill_id,
 			&"display_name": _selected_skill.display_name,
-			&"musical_contribution": _selected_skill.musical_contribution,
+			&"musical_contributions": _selected_skill.get_musical_contributions(),
 			&"interaction_summary": _selected_skill.interaction_summary,
 			&"effect_summary": _selected_skill.effect_summary,
 			&"inspiration_cost": _selected_skill.inspiration_cost,
@@ -523,6 +533,7 @@ func get_state() -> Dictionary:
 		&"phrase_duration_beats": phrase_duration_beats,
 		&"response_summary": _last_response_summary.duplicate(true),
 		&"character_performance_summary": _last_character_performance_summary.duplicate(true),
+		&"opponent_preference_knowledge": _get_opponent_preference_knowledge(),
 		&"running": _running,
 		&"last_intent": _last_intent,
 		&"next_round_pending": _next_round_pending,
@@ -927,8 +938,19 @@ func _complete_character_performance() -> Dictionary:
 	var execution := _get_execution_for_response_grade(
 		_last_character_performance_summary[&"grade"]
 	)
+	var groove_effectiveness := _get_skill_groove_effectiveness(_selected_skill)
+	var contributions := _selected_skill.get_musical_contributions()
+	var new_discoveries := _discover_skill_preferences(_selected_skill)
+	_last_character_performance_summary[&"musical_contributions"] = contributions
+	_last_character_performance_summary[&"groove_effectiveness"] = groove_effectiveness
+	_last_character_performance_summary[&"preference_label"] = _get_preference_label(
+		groove_effectiveness
+	)
+	_last_character_performance_summary[&"new_preference_discoveries"] = new_discoveries.duplicate(
+		true
+	)
 	for effect in _selected_skill.effects:
-		effect.apply(_encounter_state, execution)
+		effect.apply(_encounter_state, execution, groove_effectiveness)
 	DebugLog.combat("[PERFORM] skill=%s  grade=%s  notes=%d  broken=%s" % [
 		_selected_skill.skill_id,
 		_last_character_performance_summary[&"grade_name"],
@@ -954,6 +976,58 @@ func _complete_character_performance() -> Dictionary:
 		else:
 			_set_cadence(Cadence.FULL_BAND_VAMP)
 	return _last_character_performance_summary.duplicate(true)
+
+func _get_skill_groove_effectiveness(skill: Skill) -> float:
+	if skill == null or _opponent == null:
+		return 1.0
+	var contributions := skill.get_musical_contributions()
+	if contributions.is_empty():
+		return 1.0
+	var total_weight := 0.0
+	for contribution in contributions:
+		total_weight += maxf(
+			float(_opponent.musical_preferences.get(contribution, 1.0)),
+			0.0
+		)
+	return total_weight / float(contributions.size())
+
+func _discover_skill_preferences(skill: Skill) -> Array[Dictionary]:
+	var new_discoveries: Array[Dictionary] = []
+	if skill == null or _opponent == null:
+		return new_discoveries
+	for contribution in skill.get_musical_contributions():
+		if _discovered_preferences.has(contribution):
+			continue
+		var groove_effectiveness := maxf(
+			float(_opponent.musical_preferences.get(contribution, 1.0)),
+			0.0
+		)
+		var preference_label := _get_preference_label(groove_effectiveness)
+		_discovered_preferences[contribution] = preference_label
+		var discovery := {
+			&"contribution": contribution,
+			&"preference_label": preference_label,
+		}
+		new_discoveries.append(discovery)
+		DebugLog.combat("[PREFER ] opponent=%s  contribution=%s  preference=%s" % [
+			_opponent.opponent_id,
+			contribution,
+			preference_label,
+		])
+	return new_discoveries
+
+func _get_opponent_preference_knowledge() -> Dictionary:
+	var knowledge := {}
+	for contribution in _WORKING_MUSICAL_CONTRIBUTIONS:
+		knowledge[contribution] = _discovered_preferences.get(contribution, &"unknown")
+	return knowledge
+
+func _get_preference_label(groove_effectiveness: float) -> StringName:
+	if groove_effectiveness < _WEAK_PREFERENCE_MAX:
+		return &"weak"
+	if groove_effectiveness > _STRONG_PREFERENCE_MIN:
+		return &"strong"
+	return &"neutral"
 
 func _complete_response() -> Dictionary:
 	var ordered_results: Array[Dictionary] = []

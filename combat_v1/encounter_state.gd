@@ -118,20 +118,34 @@ func apply_performance_result(
 	execution: Execution,
 	effectiveness: TacticalEffectiveness
 ) -> bool:
+	if effectiveness < TacticalEffectiveness.EFFECTIVE \
+			or effectiveness > TacticalEffectiveness.INEFFECTIVE:
+		return false
+	var effectiveness_scale := 1.0
+	if effectiveness == TacticalEffectiveness.INEFFECTIVE:
+		effectiveness_scale = _ineffective_groove_scale
+	return _apply_performance_result(execution, effectiveness_scale, _EFFECTIVENESS_NAMES[effectiveness])
+
+## Apply a continuous opponent-preference weight to Groove while execution remains
+## the sole authority for Composure and Multiplier changes.
+func apply_scaled_performance_result(execution: Execution, groove_effectiveness: float) -> bool:
+	if groove_effectiveness < 0.0:
+		return false
+	return _apply_performance_result(execution, groove_effectiveness, &"preference_weight")
+
+func _apply_performance_result(
+	execution: Execution,
+	effectiveness_scale: float,
+	effectiveness_name: StringName
+) -> bool:
 	if _outcome != Outcome.NONE:
 		return false
 	if execution < Execution.CORRECT or execution > Execution.MAJOR_MISTAKE:
-		return false
-	if effectiveness < TacticalEffectiveness.EFFECTIVE \
-			or effectiveness > TacticalEffectiveness.INEFFECTIVE:
 		return false
 
 	var old_groove := _groove
 	var old_composure := _composure
 	var old_multiplier := _multiplier
-	var effectiveness_scale := 1.0
-	if effectiveness == TacticalEffectiveness.INEFFECTIVE:
-		effectiveness_scale = _ineffective_groove_scale
 	var groove_gain := 0.0
 	var composure_loss := 0.0
 	var multiplier_change := 0.0
@@ -168,9 +182,10 @@ func apply_performance_result(
 
 	var terminal_outcome := _resolve_terminal_outcome()
 	DebugLog.combat(
-		"[STATE  ] execution=%s  tactical=%s  groove=%.1f->%.1f  composure=%.1f->%.1f  multiplier=%.2f->%.2f" % [
+		"[STATE  ] execution=%s  tactical=%s  groove_scale=%.2f  groove=%.1f->%.1f  composure=%.1f->%.1f  multiplier=%.2f->%.2f" % [
 			_EXECUTION_NAMES[execution],
-			_EFFECTIVENESS_NAMES[effectiveness],
+			effectiveness_name,
+			effectiveness_scale,
 			old_groove,
 			_groove,
 			old_composure,
