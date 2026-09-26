@@ -64,8 +64,11 @@ effects, remain caller-owned and unmodified.
 
 Driving Backbeat asks for a steady alternating two-hand pulse. Syncopated Fill
 mixes spaced accents with a faster left/right roll and provisionally costs 20
-Inspiration. Both route successful execution through the existing Skill-effect
-seam; their numbers and tactical breadth are playtest content, not final balance.
+Inspiration. Issue #19 extends Syncopated Fill with Rhythm/Harmony contribution
+metadata and correct-execution Composure recovery so Beatrice retains a support
+choice against weak Rhythm preference. Both still route execution through the
+existing Skill-effect seam; their numbers and tactical breadth are playtest
+content, not final balance.
 
 ## Pre-Playtest Observations — 2026-08-26
 

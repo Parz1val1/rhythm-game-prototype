@@ -51,7 +51,9 @@ inputs, and an ordered list of `CombatV1SkillEffect` Resources.
 
 `CombatV1` grades the authored schedule with the existing six-level Response
 grader, reduces the phrase result to the encounter's execution vocabulary, and
-invokes every configured effect through `apply(encounter_state, execution)`.
+invokes every configured effect through `apply(encounter_state, execution,
+groove_effectiveness)`. Issue #19 added the third input so preference can scale
+Groove without changing execution-driven consequences.
 Concrete effects adapt that result to encounter state. Adding another effect or
 combining existing effects therefore does not require a Skill-specific branch in
 the combat orchestrator. See ADR-011 for the accepted technical boundary.

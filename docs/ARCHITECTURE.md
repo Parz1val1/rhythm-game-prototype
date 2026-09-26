@@ -48,7 +48,11 @@ handoffs replace input profiles, Skill loadouts, Inspiration ownership,
 instrument/presentation identity, evaluator metadata, and transient notes without
 restarting the shared timing or music. This fixed order and two-performance count
 remain provisional pending playtesting; runtime reorder, availability, final
-loadout rules, and opponent preferences remain unimplemented.
+loadout rules, and persistent preference knowledge remain unimplemented. Skills
+now author one or more working musical contributions, while the deep-copied
+opponent authors Groove-effectiveness weights. `CombatV1` resolves those weights,
+tracks encounter-local discovery, and exposes qualitative preference knowledge to
+the diagnostic HUD without changing execution grades.
 
 ### Isolated Wwise spike infrastructure
 
@@ -114,17 +118,17 @@ flowchart LR
 | `combat/*_evaluator.gd` | Character-specific attack damage/coherence behind `AttackEvaluator` |
 | `combat/neutral_pattern_translator.gd` | Resolves neutral enemy hits into deterministic directional or percussive notes |
 | `combat/combat_ui.gd` and lane scripts | Present state and note approaches through combat signals |
-| `combat_v1/combat_v1.gd` | Isolated Combat V1 seam; owns the repeatable Settle-free conversation cadence plus `CombatV1EncounterState`, binds injected per-character session progression, schedules an authored opponent phrase and its Response, spends affordable Skill costs atomically, runs Character Performance and one-bar Full-Band handoff, and exposes count-in progress, snapshot-first presentation, Inspiration, and terminal signals |
-| `combat_v1/encounter_state.gd` | Deterministic Issue #10 state module; owns configurable Groove, shared Composure, shared Multiplier math, clamping, and one-shot Jam/loss resolution |
+| `combat_v1/combat_v1.gd` | Isolated Combat V1 seam; owns the repeatable Settle-free conversation cadence plus `CombatV1EncounterState`, binds injected per-character session progression, schedules an authored opponent phrase and its Response, spends affordable Skill costs atomically, resolves Skill contributions against opponent preferences, tracks encounter-local discovery, runs Character Performance and one-bar Full-Band handoff, and exposes count-in progress, snapshot-first presentation, Inspiration, and terminal signals |
+| `combat_v1/encounter_state.gd` | Deterministic Issue #10 state module; owns configurable Groove, shared Composure, shared Multiplier math, continuous Groove-effectiveness scaling, clamping, and one-shot Jam/loss resolution |
 | `combat_v1/session_state.gd` | Encounter-independent party progression owner; maintains individually configured Inspiration bounds and generation, encounter-start floor restoration, atomic costs against the visible balance, stable character snapshots, and guarded change notifications |
-| `combat_v1/opponent_data.gd`, `opponent_phrase.gd`, and `phrase_event.gd` | V1 authoring model for opponent identity, one-to-four-bar phrases, musical offsets, one-to-four-input Response cues, and symbolic audio/visual cues; it has no legacy enemy statistics |
-| `combat_v1/opponents/drum_golem.tres` | One-bar prototype opponent phrase with whole-, half-, and quarter-beat events |
-| `combat_v1/skill.gd`, `skill_event.gd`, and `skill_effect.gd` | Minimal Skill authoring boundary for player-facing purpose, Inspiration cost, configurable bar duration, timed one-to-four-action events, and ordered effect adapters; concrete effects apply through encounter-state methods without Skill-specific orchestrator branches |
+| `combat_v1/opponent_data.gd`, `opponent_phrase.gd`, and `phrase_event.gd` | V1 authoring model for opponent identity, contribution preference weights, one-to-four-bar phrases, musical offsets, one-to-four-input Response cues, and symbolic audio/visual cues; it has no legacy enemy statistics |
+| `combat_v1/opponents/drum_golem.tres` | One-bar prototype opponent phrase with whole-, half-, and quarter-beat events plus differentiated Rhythm/Melody/Harmony weights |
+| `combat_v1/skill.gd`, `skill_event.gd`, and `skill_effect.gd` | Minimal Skill authoring boundary for player-facing purpose, one-or-more musical contributions, Inspiration cost, configurable bar duration, timed one-to-four-action events, and ordered effect adapters; concrete effects receive resolved Groove effectiveness and apply through encounter-state methods without Skill-specific orchestrator branches |
 | `combat_v1/party_member.gd` and `combat_v1/party/*.tres` | Ordered V1 party authoring seam for character identity, input profile, rhythm/presentation language, instrument style, and Skill list; live members explicitly copy externally referenced nested Resources |
-| `combat_v1/skills/*.tres` | Two Luthier melodic/harmonic Skills plus two Beatrice percussive Skills with distinct authored schedules and provisional costs/effects |
+| `combat_v1/skills/*.tres` | Two Luthier melodic/harmonic Skills plus two Beatrice percussive Skills with distinct authored schedules, plural contribution arrays, provisional costs/effects, and preference-independent Composure support for each character |
 | `combat_v1/response_note_highway.tscn` and `combat_v1/response_note_highway.gd` | Active-language presentation adapter; uses four travelling directional lanes for Luthier and two fixed drum pads for Beatrice. Her focused treatment combines one current closing halo, one dim next-hit preview, a neutral four-beat pulse, and a transient subdivision tick only when the current hit is off-beat, while retaining grouped cues, snapshot-first BeatClock timing, and lane-local result truth |
 | `combat_v1/response_performance_feedback.tscn` and `combat_v1/response_performance_feedback.gd` | Replaceable performance-audio adapter; plays mapped phrase/results as Luthier plucks or Beatrice drum transients on the active instrument bus, gives accepted Character Performance hits a distinct audible gain while suppressing ghost hits for unplayed targets, softens imperfect grades, and never observes BeatClock or changes backing playback |
-| `combat_v1/combat_v1_hud.tscn` and `combat_v1/combat_v1_hud.gd` | Diagnostic V1 presentation for cadence, active character/instrument identity, visible Skill choices/costs/affordability, committed count-in progress, Groove, Composure, Multiplier, character-specific Inspiration, phrase cues, six-grade feedback, nonviolent outcomes, and backing track; observes only the public `CombatV1` seam |
+| `combat_v1/combat_v1_hud.tscn` and `combat_v1/combat_v1_hud.gd` | Diagnostic V1 presentation for cadence, active character/instrument identity, visible Skill choices/contributions/costs/affordability, unknown and discovered opponent preferences, separate execution/preference feedback, committed count-in progress, Groove, Composure, Multiplier, character-specific Inspiration, phrase cues, nonviolent outcomes, and backing track; observes only the public `CombatV1` seam |
 | `combat_v1/combat_v1_prototype.tscn` and `combat_v1/combat_v1_prototype.gd` | Separately runnable harness that owns/injects fixed-order Luthier/Beatrice party progression and dependencies, owns symbolic phrase-audio/log handoffs, and hosts `CombatV1HUD` plus the Response feedback adapter; defaults to Stonebeat, switches procedural backing tracks with keys 1–3 or controller shoulders, submits Response with Start, selects Skills with Up/Down plus controller A, and is not the configured main scene |
 | `spikes/wwise/wwise_music_adapter.gd` | Isolated `BeatClock`-compatible timing and arrangement adapter proven by #45; it is not wired into Combat V1 |
 | `spikes/wwise/wwise_runtime_bridge.gd` | Replaceable Wwise boundary that owns middleware event, State, callback, and position-query knowledge |
@@ -183,20 +187,22 @@ short real-time message pause before forced defense.
 - `EnemyData`: combat stats, phase length, and `Array[NeutralHit]`.
 - `NeutralHit`: character-independent `beat_offset` plus `lane_count`.
 - `NoteData`: resolved timing, direction alias, and scoring mode.
-- `OpponentData`: V1 opponent identity plus an authored `OpponentPhrase`; it does
-  not inherit `EnemyData`.
+- `OpponentData`: V1 opponent identity, non-negative contribution preference
+  weights, and an authored `OpponentPhrase`; it does not inherit `EnemyData`.
 - `OpponentPhrase`: fixed-four-beat-bar duration plus ordered
   `OpponentPhraseEvent` resources.
 - `OpponentPhraseEvent`: beat offset, response prompt identity/copy, and symbolic
   audio and visual cue identifiers.
 - `CombatV1SessionState`: in-memory, per-character Inspiration configuration and
   balances that survive consecutive encounters owned by the same play session.
-- `CombatV1Skill`: player-facing purpose, contribution metadata, Inspiration
-  cost, fixed-four-beat bar count, timed interaction events, and ordered effects.
+- `CombatV1Skill`: player-facing purpose, one-or-more contribution categories,
+  Inspiration cost, fixed-four-beat bar count, timed interaction events, and
+  ordered effects.
 - `CombatV1SkillEvent`: performance beat offset plus one-to-four simultaneous
   input actions.
-- `CombatV1SkillEffect`: Resource adapter invoked with encounter state and the
-  reduced execution result after Character Performance grading.
+- `CombatV1SkillEffect`: Resource adapter invoked with encounter state, the
+  reduced execution result, and resolved Groove effectiveness after Character
+  Performance grading.
 
 `.tres` files are templates. Live character and enemy instances must be deep-copied
 before mutation; `CombatV1.setup()` deep-copies its selected V1 opponent and nested
@@ -229,10 +235,11 @@ there is no durable persistence.
   `bind_session(session_state, character_id)` remains the single-character seam for
   focused tests. Session snapshots and bounds remain separate from live gameplay
   Resources and encounter-wide state.
-- `CombatV1.get_skill_choices()` exposes purpose, interaction, authored Inspiration
-  cost, and affordability. `select_skill(skill_id)` spends the active character's
-  cost atomically, commits one authored Skill, queues the full four-beat count-in,
-  and rejects unaffordable, duplicate, or out-of-cadence selection.
+- `CombatV1.get_skill_choices()` exposes purpose, interaction, all authored
+  contributions, Inspiration cost, and affordability. `select_skill(skill_id)`
+  spends the active character's cost atomically, commits one authored Skill,
+  queues the full four-beat count-in, and rejects unaffordable, duplicate, or
+  out-of-cadence selection.
 - `CombatV1.get_character_performance_presentation()` is the snapshot-first Skill
   schedule seam. It exposes selected Skill identity, duration, stable target/group
   identity, expected actions, authored offsets, and the audio-corrected performance
@@ -240,7 +247,8 @@ there is no durable persistence.
 - `character_performance_note_graded` and `character_performance_completed` publish
   the same six-level note and phrase truth used by Response. The highway, HUD, and
   performance-audio adapter consume those signals without owning grading rules.
-- `CombatV1SkillEffect.apply(encounter_state, execution)` is the Skill-effect seam.
+- `CombatV1SkillEffect.apply(encounter_state, execution, groove_effectiveness)` is
+  the Skill-effect seam.
   `CombatV1` invokes configured effects in authored order and contains no branch on
   Skill identity or effect implementation. Concrete adapters route into the
   existing performance-result state operation or focused operations such as
@@ -250,8 +258,8 @@ there is no durable persistence.
   effectiveness; callers do not calculate Multiplier-adjusted Groove.
 - `CombatV1.get_state()` exposes the owned encounter snapshot together with
   active-character rhythm/instrument/evaluator identity, Inspiration/bounds,
-  ordered party and session snapshots, cadence, and the pending next-round
-  count-in's current and total beats.
+  ordered party and session snapshots, encounter-local opponent preference
+  knowledge, cadence, and the pending next-round count-in's current and total beats.
   `next_round_transition_changed` reports the accepted transition and each
   BeatClock-derived progress step, `encounter_state_changed` reports accepted
   atomic applications, `inspiration_changed` publishes independent character
@@ -400,8 +408,10 @@ A separately configurable count of Major Mistakes marks a broken phrase. The
 ordered summary is retained in `CombatV1.get_state()`, emitted for presentation,
 and mapped to the Issue #10 execution seam: Perfect/Great/Good to `CORRECT`, Near
 Miss to `NEAR_MISS`, Miss to `MISTAKE`, and a broken phrase to `MAJOR_MISTAKE`.
-Response reproduction currently supplies `EFFECTIVE` tactical effectiveness;
-future preferences must change that independent input without rewriting execution
+Response reproduction supplies neutral `EFFECTIVE` tactical effectiveness because
+it has no selected Skill contribution. Character Performance separately resolves
+the selected Skill's authored contribution array against the opponent's weights,
+then passes that continuous scale into Groove math without rewriting execution
 truth or creating a Composure penalty for correct play.
 
 ## Combat V1 Skill Selection and Repeated Rounds
@@ -421,7 +431,10 @@ authoritative BeatClock step.
 The following whole-beat signal starts the selected Skill's two- or three-bar
 Character Performance. Inputs are graded against that Skill's authored schedule,
 missing targets expire at its duration, and the summary is reduced to the existing
-encounter execution vocabulary before each authored effect is applied. A
+encounter execution vocabulary. `CombatV1` averages the opponent's authored
+weights for every contribution on the Skill, records newly attempted categories
+as encounter-local Weak/Neutral/Strong knowledge, and passes the resolved scale to
+each authored effect. A
 non-terminal result either activates the next member's indefinite Tactical Vamp
 or, after the last member, enters one input-free four-beat Full-Band Vamp. The
 vamp's following whole-beat signal resets the first authored member, refreshes
@@ -478,8 +491,9 @@ The current defaults are provisional tuning values, all supplied through
 minimum/baseline/maximum `1/1/4`, Jam threshold `100`, correct Groove `10`, Near
 Miss Groove `2`, Near Miss Composure loss `5`, mistake Composure loss `15`, major
 mistake Composure loss `30`, correct Multiplier gain `0.5`, and mistake Multiplier
-loss `0.5`. Tactically ineffective play currently scales Groove to zero by
-default without changing the execution-driven effects. A major mistake removes
+loss `0.5`. The legacy ineffective enum path still scales Groove to zero by
+default; Character Performance can instead supply any non-negative preference
+weight without changing execution-driven effects. A major mistake removes
 Multiplier above baseline without increasing an already-below-baseline value.
 
 If one atomic result reaches both the Jam threshold and zero Composure, the

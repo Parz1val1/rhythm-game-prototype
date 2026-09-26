@@ -99,9 +99,9 @@ A valid test process must:
 The older filtered command that selects only `PASS`, `FAIL`, and `===` lines is
 not sufficient because it hides engine diagnostics.
 
-### Verified green baseline (2026-08-26)
+### Verified green baseline (2026-09-25)
 
-- 61 discovered scripts and 989 visible `PASS` lines.
+- 62 discovered scripts and 1,009 visible `PASS` lines.
 - 0 visible `FAIL` lines, `SCRIPT ERROR` diagnostics, or line-leading `ERROR:`
   diagnostics.
 - Every script exited `0` and printed the exact `=== done ===` completion marker.

@@ -1,6 +1,6 @@
 # Roadmap
 
-Last reviewed: 2026-08-25. [Combat System v1](combat/COMBAT_SPEC_V1.md) is the
+Last reviewed: 2026-09-25. [Combat System v1](combat/COMBAT_SPEC_V1.md) is the
 north star for combat prototyping. Ordering after the first slice remains
 provisional and should respond to playtest evidence.
 
@@ -39,14 +39,16 @@ Continue validating the smallest useful Skill/performance model:
   #20 playtest draws conclusions about phrase difficulty or Multiplier pressure;
   it does not block starting #16.
 
-## Next
-
 ### C3 — Opponent preferences and party tactics
 
-- Test the working Rhythm, Melody, and Harmony contributions against discoverable
-  opponent preferences.
-- Validate that support choices keep every party member useful, then revisit
-  runtime party ordering and availability with playtest evidence.
+- Issue #19 now prototypes working Rhythm, Melody, and Harmony contribution arrays,
+  differentiated Drum Golem weights, encounter-local discovery, and distinct
+  execution/preference HUD feedback.
+- Human-playtest the taxonomy, unknown-to-known feedback, hybrid averaging, and
+  support usefulness before advancing the taxonomy or revisiting runtime party
+  ordering and availability.
+
+## Next
 
 ### C4 — Arrangement as feedback and reward
 

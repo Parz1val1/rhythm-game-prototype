@@ -60,6 +60,7 @@ func _run() -> void:
 			"CadencePanel",
 			"MeterPanel",
 			"CuePanel",
+			"PreferencePanel",
 			"FeedbackPanel",
 			"InstructionPanel",
 		]:

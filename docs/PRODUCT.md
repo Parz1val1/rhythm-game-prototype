@@ -66,15 +66,17 @@ before investing in overworld, story, and production content.
   glyph adaptation, and calibration are not implemented.
 - An isolated Combat V1 harness that runs fixed-order Luthier and Beatrice
   Character Performances in one continuous encounter, with separate Skills,
-  Inspiration, instrument feedback, and rhythm-language presentation.
+  Inspiration, instrument feedback, rhythm-language presentation, multi-category
+  musical contributions, encounter-local opponent-preference discovery, and
+  preference-scaled Groove.
 
 See the [V1 reconciliation ledger](combat/reconciliation-v1.md) for the exact
 current/target gap and reusable foundations.
 
 ### Planned, but not implemented
 
-- The Combat System v1 cadence, Groove, Composure, shared Multiplier,
-  character-specific Inspiration, skills, and musical preferences.
+- The production Combat System v1 cadence, final Groove/Composure/Multiplier and
+  Inspiration tuning, final Skill breadth, and persistent preference knowledge.
 - Runtime party reordering/availability, evolving arrangement feedback,
   input/audio calibration, controller remapping and glyph adaptation, and real
   instrument samples.

@@ -1,11 +1,17 @@
-[gd_resource type="Resource" script_class="CombatV1Skill" load_steps=17 format=3]
+[gd_resource type="Resource" script_class="CombatV1Skill" load_steps=19 format=3]
 
 [ext_resource type="Script" path="res://combat_v1/skill.gd" id="1_skill"]
 [ext_resource type="Script" path="res://combat_v1/skill_event.gd" id="2_event"]
-[ext_resource type="Script" path="res://combat_v1/performance_result_skill_effect.gd" id="3_effect"]
+[ext_resource type="Script" path="res://combat_v1/skill_effect.gd" id="3_effect_base"]
+[ext_resource type="Script" path="res://combat_v1/performance_result_skill_effect.gd" id="4_result"]
+[ext_resource type="Script" path="res://combat_v1/composure_recovery_skill_effect.gd" id="5_recovery"]
 
 [sub_resource type="Resource" id="PerformanceResultEffect"]
-script = ExtResource("3_effect")
+script = ExtResource("4_result")
+
+[sub_resource type="Resource" id="ComposureRecoveryEffect"]
+script = ExtResource("5_recovery")
+amount = 20.0
 
 [sub_resource type="Resource" id="SkillEvent_2"]
 script = ExtResource("2_event")
@@ -76,9 +82,9 @@ actions = Array[StringName]([&"drum_left"])
 script = ExtResource("1_skill")
 skill_id = &"syncopated_fill"
 display_name = "Syncopated Fill"
-musical_contribution = &"Rhythm"
+musical_contributions = Array[StringName]([&"Rhythm", &"Harmony"])
 interaction_summary = "Trade spaced hits for a rapid left-right drum roll."
-effect_summary = "Spend Inspiration for a denser Groove contribution."
+effect_summary = "Build Groove and restore 20 Composure on correct execution."
 inspiration_cost = 20.0
 events = Array[ExtResource("2_event")]([SubResource("SkillEvent_2"), SubResource("SkillEvent_2_75"), SubResource("SkillEvent_3_5"), SubResource("SkillEvent_4"), SubResource("SkillEvent_4_25"), SubResource("SkillEvent_4_5"), SubResource("SkillEvent_4_75"), SubResource("SkillEvent_5"), SubResource("SkillEvent_5_25"), SubResource("SkillEvent_5_5"), SubResource("SkillEvent_6"), SubResource("SkillEvent_6_5"), SubResource("SkillEvent_6_75")])
-effects = Array[ExtResource("3_effect")]([SubResource("PerformanceResultEffect")])
+effects = Array[ExtResource("3_effect_base")]([SubResource("PerformanceResultEffect"), SubResource("ComposureRecoveryEffect")])

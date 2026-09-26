@@ -56,4 +56,9 @@ events = Array[ExtResource("3_event")]([SubResource("PhraseEvent_beat_0"), SubRe
 script = ExtResource("1_opponent")
 opponent_id = &"drum_golem"
 display_name = "Drum Golem"
+musical_preferences = {
+&"Harmony": 1.0,
+&"Melody": 1.5,
+&"Rhythm": 0.5
+}
 phrase = SubResource("OpponentPhrase_opening_call")
